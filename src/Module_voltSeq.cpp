@@ -50,7 +50,7 @@ struct voltSeq : TSSequencerModuleBase
 			/*zeroValue*/ voltSeq_STEP_KNOB_MIN)        
 			
 	};
-	voltSeq() : TSSequencerModuleBase(voltSeq_STEP_KNOB_MIN)
+	voltSeq() : TSSequencerModuleBase(TROWA_SEQ_NUM_STEPS, TROWA_SEQ_STEP_NUM_ROWS, TROWA_SEQ_STEP_NUM_ROWS, voltSeq_STEP_KNOB_MIN)
 	{
 		selectedOutputValueMode = VALUE_VOLT;
 		lastOutputValueMode = selectedOutputValueMode;
@@ -71,15 +71,14 @@ struct voltSeq : TSSequencerModuleBase
 void voltSeq::randomize()
 {
 	int r, c;
-	for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++) 
+	for (int s = 0; s < maxSteps; s++) 
 	{
 		// randomf() - [0.0, 1.0)
 		triggerState[currentPatternEditingIx][currentTriggerEditingIx][s] = voltSeq_STEP_KNOB_MIN + randomf()*(voltSeq_STEP_KNOB_MAX - voltSeq_STEP_KNOB_MIN);		
-		r = s / TROWA_SEQ_STEP_NUM_COLS;
-		c = s % TROWA_SEQ_STEP_NUM_COLS;
+		r = s / this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
+		c = s % this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
 		this->params[GATE_PARAM + s].value = this->triggerState[currentPatternEditingIx][currentTriggerEditingIx][s];
 		knobStepMatrix[r][c]->setKnobValue(this->triggerState[currentPatternEditingIx][currentTriggerEditingIx][s]);			
-		//lights[PAD_LIGHTS + s].value = gateLights[r][c];		
 	}	
 	return;
 }
@@ -103,9 +102,9 @@ void voltSeq::step()
 	{
 		modeString = currOutputValueMode->displayName;
 		// Change our lights 
-		for (r = 0; r < TROWA_SEQ_STEP_NUM_ROWS; r++)
+		for (r = 0; r < this->numRows; r++)
 		{
-			for (c = 0; c < TROWA_SEQ_STEP_NUM_COLS; c++)
+			for (c = 0; c < this->numCols; c++)
 			{
 				dynamic_cast<TS_LightArc*>(padLightPtrs[r][c])->zeroAnglePoint = currOutputValueMode->zeroPointAngle_radians;
 				dynamic_cast<TS_LightArc*>(padLightPtrs[r][c])->valueMode = currOutputValueMode;//   setNumericBounds(currOutputValueMode->minDisplayValue, currOutputValueMode->maxDisplayValue);
@@ -119,74 +118,30 @@ void voltSeq::step()
 	if (reloadMatrix || valueModeChanged)
 	{
 		// Load this gate and/or pattern into our 4x4 matrix
-		for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++) 
+		for (int s = 0; s < maxSteps; s++) 
 		{
-			r = s / TROWA_SEQ_STEP_NUM_COLS;
-			c = s % TROWA_SEQ_STEP_NUM_COLS;
+			r = s / this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
+			c = s % this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
 			//padLightPtrs[r][c]->baseColor = voiceColors[currentTriggerEditingIx];
 			padLightPtrs[r][c]->setColor(voiceColors[currentTriggerEditingIx]);
 			gateLights[r][c] = 1.0 - stepLights[r][c];
-			//lights[PAD_LIGHTS + s].value = gateLights[r][c];
-			// float v = currOutputValueMode->GetOutputValue(triggerState[currentPatternEditingIx][currentTriggerEditingIx][s]);
-			// v = (v < 0) ? -1* v : v;
-			// if (v)
-			// {
-				// v = 1.0 - stepLights[r][c];
-				// // v = v / 10.0 - stepLights[r][c];
-				// // if (v < 0)
-					// // v *= -1;
-			// }
-			// else
-			// {
-				// v = stepLights[r][c];
-			// }
-			//gateLights[r][c] = v; // (v) ? 1.0f - stepLights[r][c] : 0.0f;
-			
-			// Load the position of our knob:
-			//knobStepMatrix[r][c]->defaultValue = voltSeq_STEP_KNOB_MIN;
-			//knobStepMatrix[r][c]->value = triggerState[currentPatternEditingIx][currentTriggerEditingIx][s];
 			this->params[GATE_PARAM + s].value = this->triggerState[currentPatternEditingIx][currentTriggerEditingIx][s];
 			knobStepMatrix[r][c]->setKnobValue(this->triggerState[currentPatternEditingIx][currentTriggerEditingIx][s]);			
-			//knobStepMatrix[r][c]->defaultValue = currOutputValueMode->zeroValue;
-			//knobStepMatrix[r][c]->dirty = true;			
-			
-			lights[PAD_LIGHTS + s].value = gateLights[r][c];	
-				
+			lights[PAD_LIGHTS + s].value = gateLights[r][c];					
 		}		
 	}
 	//-- * Read the buttons
 	else
 	{		
 		// Gate buttons (we only show one gate) - Read Inputs
-		for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++) 
+		for (int s = 0; s < maxSteps; s++) 
 		{
-			//if (gateTriggers[currentTriggerEditingIx][s].process(params[GATE_PARAM + s].value)) 
-			{
-				// Set the position of our knob
-				this->triggerState[currentPatternEditingIx][currentTriggerEditingIx][s] = this->params[GATE_PARAM + s].value;
-			}
-			r = s / TROWA_SEQ_STEP_NUM_COLS;
-			c = s % TROWA_SEQ_STEP_NUM_COLS;
+			this->triggerState[currentPatternEditingIx][currentTriggerEditingIx][s] = this->params[GATE_PARAM + s].value;
+			r = s / this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
+			c = s % this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
 			
 			stepLights[r][c] -= stepLights[r][c] / lightLambda / engineGetSampleRate();
-			gateLights[r][c] = stepLights[r][c];
-			
-
-			///gateLights[r][c] = (triggerState[currentPatternEditingIx][currentTriggerEditingIx][s]) ? 1.0 - stepLights[r][c] : stepLights[r][c];
-			// float v = currOutputValueMode->GetOutputValue(triggerState[currentPatternEditingIx][currentTriggerEditingIx][s]);
-			// v = (v < 0) ? -1* v : v;
-			// if (v)
-			// {
-				// v = 1 - stepLights[r][c];
-				// // v = v / 10.0 - stepLights[r][c];
-				// // if (v < 0)
-					// // v *= -1;
-			// }
-			// else
-			// {
-				// v = stepLights[r][c];
-			// }
-			// gateLights[r][c] = v; // (v) ? 1.0f - stepLights[r][c] : 0.0f;
+			gateLights[r][c] = stepLights[r][c];			
 			lights[PAD_LIGHTS + s].value = gateLights[r][c];
 		} // end loop through step buttons
 	}
@@ -224,7 +179,7 @@ voltSeqWidget::voltSeqWidget() : TSSequencerWidgetBase()
 		addChild(panel);
 	}
 	
-	TSSequencerWidgetBase::addBaseControls();
+	TSSequencerWidgetBase::addBaseControls(false);
 
 	
 	// (User) Input KNOBS ==================================================	
@@ -236,13 +191,13 @@ voltSeqWidget::voltSeqWidget() : TSSequencerWidgetBase()
 	int v = 0;
 	ValueSequencerMode* currValueMode = module->ValueModes[module->selectedOutputValueMode];
 	module->modeString = currValueMode->displayName;
-	for (int r = 0; r < TROWA_SEQ_STEP_NUM_ROWS; r++) //---------THE KNOBS
+	for (int r = 0; r < module->numRows; r++) //---------THE KNOBS
 	{
-		for (int c = 0; c < TROWA_SEQ_STEP_NUM_COLS; c++)
+		for (int c = 0; c < module->numCols; c++)
 		{						
 			// Pad Knob:
 			TS_LightedKnob* knobPtr = dynamic_cast<TS_LightedKnob*>(createParam<TS_LightedKnob>(Vec(x, y), module, 
-				TSSequencerModuleBase::GATE_PARAM + r*TROWA_SEQ_STEP_NUM_COLS + c, 
+				TSSequencerModuleBase::GATE_PARAM + r*module->numCols + c, 
 				/*min*/ voltSeq_STEP_KNOB_MIN,  /*max*/ voltSeq_STEP_KNOB_MAX, /*default*/ voltSeq_STEP_KNOB_MIN));
 			module->knobStepMatrix[r][c] = knobPtr;
 			knobPtr->value = voltSeq_STEP_KNOB_MIN;
@@ -251,7 +206,7 @@ voltSeqWidget::voltSeqWidget() : TSSequencerWidgetBase()
 			// Keep a reference to our pad lights so we can change the colors			
 			TS_LightArc* lightPtr = dynamic_cast<TS_LightArc*>(TS_createColorValueLight<TS_LightArc>(/*pos */ Vec(x+dx, y+dx), 
 				/*module*/ module,
-				/*lightId*/ TSSequencerModuleBase::PAD_LIGHTS + r*TROWA_SEQ_STEP_NUM_COLS + c,								
+				/*lightId*/ TSSequencerModuleBase::PAD_LIGHTS + r*module->numCols + c,								
 				/* size */ lSize, /* color */ module->voiceColors[module->currentTriggerEditingIx]));
 			
 			lightPtr->numericValue = &(knobPtr->value);

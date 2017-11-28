@@ -4,8 +4,6 @@
 #include "rack.hpp"
 #define TROWA_SCOPE_NUM_WAVEFORMS	3
 
-//#include "trowaSoftComponents.hpp"
-
 using namespace rack;
 
 
@@ -23,9 +21,6 @@ struct TSSModuleWidgetBase : ModuleWidget {
 	TSSModuleWidgetBase() { return; }
 	void randomize() override 
 	{
-		// for (ParamWidget *param : params) {
-			// param->randomize();
-		// }
 		if (module) {
 			module->randomize();
 		}
@@ -40,7 +35,8 @@ struct TSSModuleWidgetBase : ModuleWidget {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct TSSequencerWidgetBase : TSSModuleWidgetBase {
 	TSSequencerWidgetBase();
-	void addBaseControls();
+	void addBaseControls() { addBaseControls(false);}	
+	void addBaseControls(bool addGridLines);
 };
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // trigSeqWidget
@@ -58,5 +54,12 @@ struct voltSeqWidget : TSSequencerWidgetBase {
 	voltSeqWidget();
 };
 
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// trigSeq64Widget
+// Widget for the trowaSoft 64-step sequencer.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+struct trigSeq64Widget : TSSequencerWidgetBase {
+	trigSeq64Widget();
+};
 
 #endif

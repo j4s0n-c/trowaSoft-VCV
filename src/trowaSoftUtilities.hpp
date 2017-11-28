@@ -31,9 +31,11 @@ static inline int VoltsToOctave(float v)
 // Note index 0 to 11
 static inline int VoltsToNoteIx(float v)
 {
+	// This doesn't work all the time.
+	//(v - floorf(v))*TROWASEQ_NUM_NOTES
 	// (-4.9 - -5) * 12 = 0.1*12 = int(1.2) = 1 [C#]
-	// 
-	return (v - floorf(v))*TROWASEQ_NUM_NOTES;
+	// (-0.33 - -1) * 12 = 0.67*12 = int(8.04) = 8 [G#]
+	return (int)(round((v + TROWASEQ_ZERO_OCTAVE)*TROWASEQ_NUM_NOTES)) % TROWASEQ_NUM_NOTES;
 }
 
 
@@ -103,7 +105,6 @@ struct ValueSequencerMode
 		float dVal = val;
 		if (needsTranslationDisplay)
 		{
-			//rescalef(float x, float xMin, float xMax, float yMin, float yMax) 
 			dVal = rescalef(val, voltageMin, voltageMax, minDisplayValue, maxDisplayValue);
 		}
 		if (roundNearestDisplay > 0)
@@ -122,8 +123,8 @@ struct ValueSequencerMode
 			oVal = rescalef(val, voltageMin, voltageMax, outputVoltageMin, outputVoltageMax);
 		}
 		if (roundNearestOutput > 0)
-		{
-			oVal = static_cast<int>(oVal  / roundNearestOutput) * roundNearestOutput;
+		{ // Round this
+			oVal = static_cast<int>(round(oVal  / roundNearestOutput)) * roundNearestOutput;
 		}
 		return oVal;
 	}
@@ -165,7 +166,9 @@ struct NoteValueSequencerMode : ValueSequencerMode
 		if (noteIx > TROWASEQ_NUM_NOTES - 1)
 			noteIx = TROWASEQ_NUM_NOTES - 1;
 		else if (noteIx < 0)
+		{
 			noteIx = 0;
+		}
 		sprintf(buffer, "%s%d", TROWA_NOTES[noteIx], octave);
 		return;
 	}

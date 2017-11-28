@@ -12,7 +12,9 @@ void init(rack::Plugin *p) {
 #endif
 
 	p->addModel(createModel<trigSeqWidget>("trowaSoft", "trigSeq", "trigSeq", SEQUENCER_TAG));
+	p->addModel(createModel<trigSeq64Widget>("trowaSoft", "trigSeq64", "trigSeq64", SEQUENCER_TAG));
     p->addModel(createModel<voltSeqWidget>("trowaSoft", "voltSeq", "voltSeq", SEQUENCER_TAG));
+	
 	
 	
 	// Any other plugin initialization may go here.

@@ -5,33 +5,8 @@
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
 #include "TSSequencerModuleBase.hpp"
+#include "Module_trigSeq.hpp"
 
-#define trigSeq_GATE_ON_OUTPUT	  10.0  // If gate is on, the value to output (port Voltage)
-#define trigSeq_GATE_OFF_OUTPUT	   0.0  // If gate is off, the value to output (port Voltage)
-
-
-//===============================================================================
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// trigSeq Module
-// trowaSoft pad / trigger sequencer.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-//===============================================================================
-struct trigSeq : TSSequencerModuleBase
-{	
-	SchmittTrigger gateTriggers[TROWA_SEQ_NUM_STEPS];
-	trigSeq() : TSSequencerModuleBase(false)
-	{
-		selectedOutputValueMode = VALUE_TRIGGER;
-		lastOutputValueMode = selectedOutputValueMode;
-		modeStrings[0] = "TRIG";
-		modeStrings[1] = "RTRG";
-		modeStrings[2] = "CONT";		
-		return;
-	}
-	void step() override;
-	// Only randomize the current gate/trigger steps.
-	void randomize() override;
-};
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // trigSeq::randomize()
@@ -39,7 +14,7 @@ struct trigSeq : TSSequencerModuleBase
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void trigSeq::randomize()
 {
-	for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++) 
+	for (int s = 0; s < maxSteps; s++) 
 	{
 		triggerState[currentPatternEditingIx][currentTriggerEditingIx][s] = (randomf() > 0.5);		
 	}	
@@ -72,10 +47,10 @@ void trigSeq::step() {
 	if (reloadMatrix)
 	{
 		// Load this gate and/or pattern into our 4x4 matrix
-		for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++) 
+		for (int s = 0; s < maxSteps; s++) 
 		{
-			r = s / TROWA_SEQ_STEP_NUM_COLS;
-			c = s % TROWA_SEQ_STEP_NUM_COLS;
+			r = s / this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
+			c = s % this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
 			padLightPtrs[r][c]->setColor(voiceColors[currentTriggerEditingIx]);
 			if (triggerState[currentPatternEditingIx][currentTriggerEditingIx][s])
 			{
@@ -94,14 +69,14 @@ void trigSeq::step() {
 	else
 	{		
 		// Gate buttons (we only show one gate) - Read Inputs
-		for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++) 
+		for (int s = 0; s < maxSteps; s++) 
 		{
 			if (gateTriggers[s].process(params[GATE_PARAM + s].value)) 
 			{
 				triggerState[currentPatternEditingIx][currentTriggerEditingIx][s] = !triggerState[currentPatternEditingIx][currentTriggerEditingIx][s];
 			}
-			r = s / TROWA_SEQ_STEP_NUM_COLS;
-			c = s % TROWA_SEQ_STEP_NUM_COLS;
+			r = s / this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
+			c = s % this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
 			stepLights[r][c] -= stepLights[r][c] / lightLambda / engineGetSampleRate();
 			
 			gateLights[r][c] = (triggerState[currentPatternEditingIx][currentTriggerEditingIx][s]) ? 1.0 - stepLights[r][c] : stepLights[r][c];
@@ -154,16 +129,16 @@ trigSeqWidget::trigSeqWidget() : TSSequencerWidgetBase()
 	//int lightSize = 50 - 2*dx;
 	Vec lSize = Vec(50 - 2*dx, 50 - 2*dx);
 	//int v = 0;
-	for (int r = 0; r < TROWA_SEQ_STEP_NUM_ROWS; r++) //---------THE PADS
+	for (int r = 0; r < module->numRows; r++) //---------THE PADS
 	{
-		for (int c = 0; c < TROWA_SEQ_STEP_NUM_COLS; c++)
+		for (int c = 0; c < module->numCols; c++)
 		{			
 			// Pad buttons:
-			addParam(createParam<TS_PadSquare>(Vec(x, y), module, TSSequencerModuleBase::GATE_PARAM + r*TROWA_SEQ_STEP_NUM_COLS + c, 0.0, 1.0, 0.0));
+			addParam(createParam<TS_PadSquare>(Vec(x, y), module, TSSequencerModuleBase::GATE_PARAM + r*module->numCols + c, 0.0, 1.0, 0.0));
 			// Keep a reference to our pad lights so we can change the colors
 			module->padLightPtrs[r][c] = dynamic_cast<TS_LightSquare*>(TS_createColorValueLight<TS_LightSquare>(/*pos */ Vec(x+dx, y+dx), 
 				/*module*/ module, 
-				/*lightId*/ TSSequencerModuleBase::PAD_LIGHTS + r*TROWA_SEQ_STEP_NUM_COLS + c,
+				/*lightId*/ TSSequencerModuleBase::PAD_LIGHTS + r*module->numCols + c,
 				/* size */ lSize, /* color */ module->voiceColors[module->currentTriggerEditingIx]));
 			addChild( module->padLightPtrs[r][c] );
 

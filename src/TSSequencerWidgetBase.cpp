@@ -14,7 +14,7 @@ TSSequencerWidgetBase::TSSequencerWidgetBase()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // Add common controls to the UI widget for trowaSoft sequencers.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSSequencerWidgetBase::addBaseControls()
+void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 {
 	TSSequencerModuleBase *thisModule = dynamic_cast<TSSequencerModuleBase*>(this->module);
 	//const int margin = 0;	// Margin (away from edge of thisModule)
@@ -37,6 +37,7 @@ void TSSequencerWidgetBase::addBaseControls()
 		area->box.pos = Vec(0, 0);
 		area->box.size = Vec(box.size.x, 380);
 		area->module = thisModule;
+		area->drawGridLines = addGridLines;
 		addChild(area);
 	}
 	// Screws:
@@ -87,7 +88,7 @@ void TSSequencerWidgetBase::addBaseControls()
 	addParam(createParam<RoundSmallBlackKnob>(Vec(knobStart + (knobSpacing * 1), knobRow), thisModule, TSSequencerModuleBase::BPM_PARAM, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX, (TROWA_SEQ_BPM_KNOB_MAX+TROWA_SEQ_BPM_KNOB_MIN)/2));	
 	
 	// Steps (Knob)
-	addParam(createParam<RoundSmallBlackKnob>(Vec(knobStart + (knobSpacing * 2), knobRow), thisModule, TSSequencerModuleBase::STEPS_PARAM, 1.0, TROWA_SEQ_NUM_STEPS, TROWA_SEQ_NUM_STEPS));
+	addParam(createParam<RoundSmallBlackKnob>(Vec(knobStart + (knobSpacing * 2), knobRow), thisModule, TSSequencerModuleBase::STEPS_PARAM, 1.0, thisModule->maxSteps, thisModule->maxSteps));
 	
 	// Output Mode (Knob)
 	RoundSmallBlackKnob* outKnobPtr = dynamic_cast<RoundSmallBlackKnob*>(createParam<RoundSmallBlackKnob>(Vec(knobStart + (knobSpacing * 3), knobRow), thisModule, 
@@ -120,8 +121,6 @@ void TSSequencerWidgetBase::addBaseControls()
 	
 	
 	// Swing Adjustment Knob:
-	//#define TROWA_SEQ_SWING_ADJ_MIN			-0.1
-	//#define TROWA_SEQ_SWING_ADJ_MAX		     0.1
 	//addParam(createParam<RoundSmallBlackKnob>(Vec(20, 270), thisModule, 
 		//TSSequencerModuleBase::SWING_ADJ_PARAM, /*min*/ TROWA_SEQ_SWING_ADJ_MIN, /*max*/ TROWA_SEQ_SWING_ADJ_MAX, 
 	//	/*default value*/ 0));

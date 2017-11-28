@@ -101,36 +101,7 @@ struct ColorValueLight : ModuleLightWidget {
 			baseColors[0] = bColor;
 		}
 	}
-	// void setValue(float v) override {
-		// v = sqrtBipolar(v);
-		// color = baseColor;
-		// color.a *= clampf(v, 0.0, 1.0);
-	// }
 };
-
-
-
-// template <class TLight>
-// ColorValueLight * TS_createColorValueLight(Vec pos, float *value, Vec size, NVGcolor lightColor) {
-	// ColorValueLight *light = new TLight();
-	// light->box.pos = pos;
-	// light->value = value;
-	// light->box.size = size;
-	// light->baseColor = lightColor;
-	// return light;
-// }
-// template <class TLight>
-// ColorValueLight * TS_createColorValueLight(Vec pos, float *value, Vec size, NVGcolor lightColor, NVGcolor backColor) {
-	// ColorValueLight *light = new TLight();
-	// light->box.pos = pos;
-	// light->value = value;
-	// light->box.size = size;
-	// light->baseColor = lightColor;
-	// light->bgColor = backColor;
-	// return light;
-// }
-
-
 
 //--------------------------------------------------------------
 // SnapKnob
@@ -147,6 +118,18 @@ struct TS_SnapKnob : RoundBlackKnob
 	}	
 };
 
+struct TS_PadSwitch : MomentarySwitch {
+	TS_PadSwitch() {
+		return;
+	}
+	TS_PadSwitch(Vec size) {
+		box.size = size;		
+		return;
+	}
+	
+};
+
+
 //--------------------------------------------------------------
 // TS_PadSquare - A Square Pad button.
 //--------------------------------------------------------------
@@ -157,6 +140,14 @@ struct TS_PadSquare : SVGSwitch, MomentarySwitch {
 		addFrame(SVG::load(assetPlugin(plugin,"res/ComponentLibrary/TS_pad_1.svg")));
 		sw->wrap();
 		box.size = sw->box.size;
+	}
+	TS_PadSquare(Vec size) 
+	{
+		box.size = size;
+		addFrame(SVG::load(assetPlugin(plugin,"res/ComponentLibrary/TS_pad_0.svg")));
+		addFrame(SVG::load(assetPlugin(plugin,"res/ComponentLibrary/TS_pad_1.svg")));
+		sw->box.size = size;
+		sw->wrap();
 	}	
 };
 
@@ -478,7 +469,7 @@ struct TS_LightSquare : ColorValueLight
 	void draw(NVGcontext *vg) override
 	{
 		float radius = box.size.x / 2.0;
-		float oradius = radius + 40.0;
+		float oradius = radius*1.2;
 
 		NVGcolor backColor = bgColor;
 		NVGcolor outerColor = color;
@@ -584,15 +575,15 @@ struct TS_LightRing : ColorValueLight
 	}
 };
 
-struct TinyBlackKnob : RoundBlackKnob {
-	TinyBlackKnob() {
-		box.size = Vec(20, 20);		
-		// //		setSVG(SVG::load(assetGlobal("res/ComponentLibrary/RoundBlack.svg")));
-		// setSVG(SVG::load(assetPlugin(plugin, "res/ComponentLibrary/RoundBlack.svg")));
-		// box.size = Vec(20, 20);
-	}
-	void randomize() override { return; }	
-};
+// struct TinyBlackKnob : RoundBlackKnob {
+	// TinyBlackKnob() {
+		// box.size = Vec(20, 20);		
+		// // //		setSVG(SVG::load(assetGlobal("res/ComponentLibrary/RoundBlack.svg")));
+		// // setSVG(SVG::load(assetPlugin(plugin, "res/ComponentLibrary/RoundBlack.svg")));
+		// // box.size = Vec(20, 20);
+	// }
+	// void randomize() override { return; }	
+// };
 
 struct TS_Port : SVGPort {
 	NVGcolor negColor;

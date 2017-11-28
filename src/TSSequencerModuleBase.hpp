@@ -53,7 +53,8 @@ struct TSSequencerModuleBase : Module {
 		PASTE_PARAM, // Paste what is on our clip board to the now current editing.
 		GATE_PARAM,
 		// We only show 4x4 (one gate at a time)
-		NUM_PARAMS = GATE_PARAM + TROWA_SEQ_NUM_STEPS		
+		//NUM_PARAMS = GATE_PARAM + TROWA_SEQ_NUM_STEPS // Num Steps is not fixed at compile time anymore
+		NUM_PARAMS = GATE_PARAM // Add the number of steps separately...
 	};
 	enum InputIds {
 		// BPM Input
@@ -77,9 +78,13 @@ struct TSSequencerModuleBase : Module {
 		COPY_PATTERN_LIGHT,
 		COPY_GATE_LIGHT,
 		PASTE_LIGHT,
-		PAD_LIGHTS,	// One light per step
-		GATE_LIGHTS = PAD_LIGHTS + TROWA_SEQ_NUM_STEPS,
-		NUM_LIGHTS = GATE_LIGHTS + TROWA_SEQ_NUM_TRIGS
+		GATE_LIGHTS,
+		PAD_LIGHTS = GATE_LIGHTS + TROWA_SEQ_NUM_TRIGS,
+		// Num Steps is not fixed at compile time anymore
+		//PAD_LIGHTS,	// One light per step
+		//GATE_LIGHTS = PAD_LIGHTS + TROWA_SEQ_NUM_STEPS,
+		//NUM_LIGHTS = GATE_LIGHTS + TROWA_SEQ_NUM_TRIGS
+		NUM_LIGHTS = PAD_LIGHTS // Add the number of steps separately...
 	};
 
 	// If this module is running.
@@ -110,8 +115,11 @@ struct TSSequencerModuleBase : Module {
 	ValueMode selectedOutputValueMode = VALUE_TRIGGER;
 	ValueMode lastOutputValueMode = VALUE_TRIGGER;
 	
-	//SchmittTrigger gateTriggers[TROWA_SEQ_NUM_STEPS];
-	float triggerState[TROWASEQ_NUM_PATTERNS][TROWA_SEQ_NUM_TRIGS][TROWA_SEQ_NUM_STEPS]={};
+	int maxSteps = 16;
+	int numRows = 4;
+	int numCols = 4;
+	//float triggerState[TROWASEQ_NUM_PATTERNS][TROWA_SEQ_NUM_TRIGS][TROWA_SEQ_NUM_STEPS]={};
+	float * triggerState[TROWASEQ_NUM_PATTERNS][TROWA_SEQ_NUM_TRIGS];
 
 	int currentPatternEditingIx = 0; 	// Index of which pattern we are playing
 	int currentPatternPlayingIx = 0; 	// Index of which pattern we are editing 
@@ -124,14 +132,18 @@ struct TSSequencerModuleBase : Module {
 	
 	// Lights
 	// We only show 4x4 (16 steps) for one gate at a time.
-	float stepLights[TROWA_SEQ_STEP_NUM_ROWS][TROWA_SEQ_STEP_NUM_COLS];
-	float gateLights[TROWA_SEQ_STEP_NUM_ROWS][TROWA_SEQ_STEP_NUM_COLS];	
+	//float stepLights[TROWA_SEQ_STEP_NUM_ROWS][TROWA_SEQ_STEP_NUM_COLS];
+	//float gateLights[TROWA_SEQ_STEP_NUM_ROWS][TROWA_SEQ_STEP_NUM_COLS];	
+	float** stepLights;
+	float** gateLights;	
 	
 	// Default values for our pads/knobs:
 	float defaultStateValue = 0.0;
 	
 	// References to our pad lights
-	ColorValueLight * padLightPtrs[TROWA_SEQ_STEP_NUM_ROWS][TROWA_SEQ_STEP_NUM_COLS];
+	//ColorValueLight * padLightPtrs[TROWA_SEQ_STEP_NUM_ROWS][TROWA_SEQ_STEP_NUM_COLS];
+	ColorValueLight*** padLightPtrs;
+	
 	// Output lights (for triggers/gate jacks)
 	float gateLightsOut[TROWA_SEQ_NUM_TRIGS]; 
 	
@@ -151,7 +163,9 @@ struct TSSequencerModuleBase : Module {
 	// Copy & Paste /////////////////////////
 	int copySourcePatternIx = -1;
 	int copySourceGateIx = TROWA_SEQ_COPY_GATEIX_ALL; // Which gate/trigger we are copying, -1 for all
-	float copyBuffer[TROWA_SEQ_NUM_TRIGS][TROWA_SEQ_NUM_STEPS];
+	//float copyBuffer[TROWA_SEQ_NUM_TRIGS][TROWA_SEQ_NUM_STEPS];
+	float* copyBuffer[TROWA_SEQ_NUM_TRIGS];
+	
 	SchmittTrigger copyPatternTrigger;
 	SchmittTrigger copyGateTrigger;
 	SchmittTrigger pasteTrigger;
@@ -159,26 +173,62 @@ struct TSSequencerModuleBase : Module {
 	ColorValueLight* copyPatternLight;
 	ColorValueLight* copyGateLight;
 	
-	
+	// Mode /////////////////////////	
 	// The mode string.
 	const char* modeString;
 	const char* modeStrings[3]; // Mode strings
-	bool firstLoad = false;		
-	const float lightLambda = 0.05; // 0.05
 
-	TSSequencerModuleBase(float defStateVal) : Module(NUM_PARAMS, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS) 
+	bool firstLoad = false;		
+	const float lightLambda = 0.05;
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// TSSequencerModuleBase()
+	// Instantiate the abstract base class.
+	// @numSteps: (IN) Maximum number of steps
+	// @numRows: (IN) The number of rows (for layout).
+	// @numCols: (IN) The number of columns (for layout).
+	// @numRows * @numCols = @numSteps
+	// @defStateVal : (IN) The default state value (i.e. 0/false for a boolean step sequencer or whatever float value you want).
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int numRows, /*in*/ int numCols, /*in*/ float defStateVal) : Module(NUM_PARAMS + numSteps, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS + numSteps) 
 	{
 		lastStepWasExternalClock = false;
 		defaultStateValue = defStateVal;
 		currentTriggerEditingIx = 0;
 		currentPatternEditingIx = 0;
 		currentPatternPlayingIx = 0;
-		currentNumberSteps = TROWA_SEQ_NUM_STEPS; 
+		// Number of steps in not static at compile time anymore...
+		maxSteps = numSteps; // Num Steps may vary now up to 64
+		currentNumberSteps = maxSteps; 
+		this->numRows = numRows;
+		this->numCols = numCols;
+
+		stepLights = new float*[numRows];
+		gateLights = new float*[numRows];
+		padLightPtrs = new ColorValueLight**[numRows];
+		
+		for (int r = 0; r < numRows; r++)
+		{
+			stepLights[r] = new float[numCols];
+			gateLights[r] = new float[numCols];
+			padLightPtrs[r] = new ColorValueLight*[numCols];
+			for (int c = 0; c < numCols; c++)
+			{
+				stepLights[r][c] = 0;
+				gateLights[r][c] = 0;
+			}
+		}		
+		for (int g = 0; g < TROWA_SEQ_NUM_TRIGS; g++)
+		{				
+			copyBuffer[g] = new float[maxSteps];
+		}			
+		
 		for (int p = 0;  p < TROWASEQ_NUM_PATTERNS; p++)
 		{
 			for (int g = 0; g < TROWA_SEQ_NUM_TRIGS; g++)
-			{
-				for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++)
+			{				
+				triggerState[p][g] = new float[maxSteps];
+				for (int s = 0; s < maxSteps; s++)
 				{
 					triggerState[p][g][s] = defaultStateValue;
 				}
@@ -192,9 +242,22 @@ struct TSSequencerModuleBase : Module {
 		copySourceGateIx = TROWA_SEQ_COPY_GATEIX_ALL; // Which trigger we are copying, -1 for all		
 		return;
 	}
-	
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// Delete our goodies.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	~TSSequencerModuleBase()
 	{
+		for (int r = 0; r < numRows; r++)
+		{
+			delete [] stepLights[r];
+			delete [] gateLights[r];
+			delete [] padLightPtrs[r];
+		}
+		
+		for (int g = 0; g < TROWA_SEQ_NUM_TRIGS; g++)
+		{				
+			delete [] copyBuffer[g];
+		}
 		return;
 	}
 	
@@ -205,16 +268,22 @@ struct TSSequencerModuleBase : Module {
 	// Copy the contents:
 	void copy(int patternIx, int gateIx);
 	
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// randomize(void)
 	// Only randomize the current gate/trigger steps.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	void randomize() override
 	{
-		for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++) 
+		for (int s = 0; s < maxSteps; s++) 
 		{
 			triggerState[currentPatternEditingIx][currentTriggerEditingIx][s] = (randomf() > 0.5);		
 		}	
 		return;
 	}
-	
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// clearClipboard(void)
+	// Shallow clear of clipboard and reset the Copy/Paste lights.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
 	void clearClipboard()
 	{
 		copySourcePatternIx = -1;
@@ -225,9 +294,10 @@ struct TSSequencerModuleBase : Module {
 		lights[PASTE_LIGHT].value = 0;			
 		return;
 	}
-
-
-	
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// toJson(void)
+	// Save our junk to json.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	json_t *toJson() override {
 		json_t *rootJ = json_object();
 
@@ -242,15 +312,11 @@ struct TSSequencerModuleBase : Module {
 		
 		// triggers
 		json_t *triggersJ = json_array();
-		// bool triggerState[TROWASEQ_NUM_PATTERNS][TROWA_SEQ_NUM_TRIGS][TROWA_SEQ_NUM_STEPS]={};
-		// int currentPatternEditingIx = 0; 	// Index of which pattern we are playing
-		// int currentPatternPlayingIx = 0; 	// Index of which pattern we are editing 
-		// int currentTriggerEditingIx = 0; // Index of which get is currently displayed/edited.		
 		for (int p = 0; p < TROWASEQ_NUM_PATTERNS; p++)
 		{
 			for (int t = 0; t < TROWA_SEQ_NUM_TRIGS; t++)
 			{
-				for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++)
+				for (int s = 0; s < maxSteps; s++)
 				{
 					json_t *gateJ = json_real((float) triggerState[p][t][s]);
 					json_array_append_new(triggersJ, gateJ);					
@@ -265,7 +331,10 @@ struct TSSequencerModuleBase : Module {
 
 		return rootJ;
 	} // end toJson()
-
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// fromJson(void)
+	// Read in our junk from json.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	void fromJson(json_t *rootJ) override {
 		// running
 		json_t *runningJ = json_object_get(rootJ, "running");
@@ -284,7 +353,7 @@ struct TSSequencerModuleBase : Module {
 		if (currJ)
 		{			
 			selectedOutputValueMode = static_cast<ValueMode>( json_integer_value(currJ) );
-			modeString = modeStrings[selectedOutputValueMode];//ValueModes[selectedOutputValueMode]->displayName;
+			modeString = modeStrings[selectedOutputValueMode];
 		}
 		
 		// triggers
@@ -296,7 +365,7 @@ struct TSSequencerModuleBase : Module {
 			{
 				for (int t = 0; t < TROWA_SEQ_NUM_TRIGS; t++)
 				{
-					for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++)
+					for (int s = 0; s < maxSteps; s++)
 					{
 						json_t *gateJ = json_array_get(triggersJ, i++);
 						if (gateJ)
@@ -312,32 +381,35 @@ struct TSSequencerModuleBase : Module {
 			gateMode = (GateMode)json_integer_value(gateModeJ);
 		return;
 	} // end fromJson()
-};
+}; // end struct TSSequencerModuleBase
 
+//===============================================================================
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // TSSeqDisplay
 // A top digital display for trowaSoft sequencers.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+//===============================================================================
 struct TSSeqDisplay : TransparentWidget {
 	TSSequencerModuleBase *module;
 	std::shared_ptr<Font> font;
 	std::shared_ptr<Font> labelFont;
 	int fontSize;
-	char messageStr[TROWA_DISP_MSG_SIZE];
-	// char font1 = "res/Fonts/Digital dream Fat.ttf";
-	// char font2 = "res/Fonts/ZeroesThree-Regular.ttf";
-	
+	char messageStr[TROWA_DISP_MSG_SIZE]; // tmp buffer for our strings.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// TSSeqDisplay(void)
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSSeqDisplay() {
-		//Digital dream Fat.ttf
-		//Segment14.ttf
 		font = Font::load(assetPlugin(plugin, "res/Fonts/Digital dream Fat.ttf"));
 		labelFont = Font::load(assetPlugin(plugin, "res/Fonts/ZeroesThree-Regular.ttf"));
 		fontSize = 12;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';		
 	}
-
-	void draw(NVGcontext *vg) override {
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// draw()
+	// @vg : (IN) NVGcontext to draw on
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	void draw(/*in*/ NVGcontext *vg) override {
 		int currPlayPattern = module->currentPatternPlayingIx + 1;
 		int currEditPattern = module->currentPatternEditingIx + 1;
 		int currentGate = module->currentTriggerEditingIx + 1;
@@ -353,14 +425,7 @@ struct TSSeqDisplay : TransparentWidget {
 		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
 		NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
 		
-		// nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-		// nvgFillColor(vg, backgroundColor);
-		// nvgFill(vg);
-		// nvgStrokeWidth(vg, 1.0);
-		// nvgStrokeColor(vg, borderColor);
-		// nvgStroke(vg);		
-		
-		// Screen 1:
+		// Screen:
 		nvgBeginPath(vg);
 		nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
 		nvgFillColor(vg, backgroundColor);
@@ -376,13 +441,9 @@ struct TSSeqDisplay : TransparentWidget {
 		int y1 = 42;
 		int y2 = 27;
 		int dx = 0;
-		//int xOffset = 5;
-		//int y = 50;
 		int x = 0;
 		int spacing = 61;
-		
-		
-		
+				
 		nvgTextAlign(vg, NVG_ALIGN_CENTER);
 
 		// Current Playing Pattern
@@ -483,13 +544,8 @@ struct TSSeqDisplay : TransparentWidget {
 		x = x - 35;//xOffset + 3 * spacing - 3 + 60;
 		nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go to the left
 		
-		// y = box.size.y - 5;
-		// nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go Down (bottom left)
-		// x = box.size.x - 6; 
-		// nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go Right (bottom right)
 		x = box.size.x - 6; 
 		y = 5;
-		//nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go Up (top right)
 		nvgMoveTo(vg, /*x*/ x, /*y*/ y);
 		x = x-38;
 		nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go Left (to right of the text "Edit")
@@ -513,10 +569,6 @@ struct TSSeqDisplay : TransparentWidget {
 		x = 6;
 		nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go to the left
 		
-		// y = box.size.y - 5;
-		// nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go Down (bottom left)
-		// x = box.size.x - 6; 
-		// nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go Right (bottom right)
 		x = 55+53; 
 		y = 5;
 		nvgMoveTo(vg, /*x*/ x, /*y*/ y); // To the Right of "Playback"
@@ -527,8 +579,8 @@ struct TSSeqDisplay : TransparentWidget {
 		nvgStrokeColor(vg, groupColor);
 		nvgStroke(vg);
 		return;
-	}
-};
+	} // end draw()
+}; // end struct TSSeqDisplay
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // TSSeqLabelArea
@@ -538,15 +590,21 @@ struct TSSeqLabelArea : TransparentWidget {
 	TSSequencerModuleBase *module;
 	std::shared_ptr<Font> font;
 	int fontSize;
+	bool drawGridLines = false;
 	char messageStr[TROWA_DISP_MSG_SIZE];
-
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// TSSeqLabelArea()
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSSeqLabelArea() {
 		font = Font::load(assetPlugin(plugin, "res/Fonts/ZeroesThree-Regular.ttf"));
 		fontSize = 13;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';		
 	}
-
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// draw()
+	// @vg : (IN) NVGcontext to draw on
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	void draw(NVGcontext *vg) override {		
 		// Default Font:
 		nvgFontSize(vg, fontSize);
@@ -595,7 +653,36 @@ struct TSSeqLabelArea : TransparentWidget {
 		x = 362;		
 		nvgText(vg, x, y, "CPY", NULL);
 		
+		if (drawGridLines)
+		{
+			NVGcolor gridColor = nvgRGB(0x66, 0x66, 0x66);
+			nvgBeginPath(vg);
+			x = 80;
+			y = 228;
+			nvgMoveTo(vg, /*start x*/ x, /*start y*/ y);// Starts new sub-path with specified point as first point
+			x += 225;			
+			nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go to the left
+			
+			nvgStrokeWidth(vg, 1.0);
+			nvgStrokeColor(vg, gridColor);
+			nvgStroke(vg);
+
+						
+			// Vertical
+			nvgBeginPath(vg);
+			x = 192;
+			y = 117;
+			nvgMoveTo(vg, /*start x*/ x, /*start y*/ y);// Starts new sub-path with specified point as first point
+			y += 225;			
+			nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go to the left			
+			
+			nvgStrokeWidth(vg, 1.0);
+			nvgStrokeColor(vg, gridColor);
+			nvgStroke(vg);
+
+		}
+		
 		return;
-	}
-};
+	} // end draw()
+}; // end struct TSSeqLabelArea
 #endif

@@ -15,7 +15,7 @@ void TSSequencerModuleBase::copy(int patternIx, int gateIx)
 		// Copy entire pattern (all gates/triggers/voices)
 		for (int g = 0; g < TROWA_SEQ_NUM_TRIGS; g++)
 		{
-			for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++)
+			for (int s = 0; s < maxSteps; s++)
 			{
 				copyBuffer[g][s] = triggerState[copySourcePatternIx][g][s];
 			}
@@ -24,7 +24,7 @@ void TSSequencerModuleBase::copy(int patternIx, int gateIx)
 	else
 	{
 		// Copy just the gate:
-		for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++)
+		for (int s = 0; s < maxSteps; s++)
 		{
 			copyBuffer[copySourceGateIx][s] = triggerState[copySourcePatternIx][copySourceGateIx][s];
 		}		
@@ -35,15 +35,6 @@ void TSSequencerModuleBase::copy(int patternIx, int gateIx)
 // Paste our current clipboard Pattern/Gate to the currently selected Pattern/Gate.
 bool TSSequencerModuleBase::paste() 
 {
-	// int copySourcePatternIx = -1;
-	// int copySourceGateIx = TROWA_SEQ_COPY_GATEIX_ALL; // Which gate/trigger we are copying, -1 for all
-	// SchmittTrigger copyPatternTrigger;
-	// SchmittTrigger copyGateTrigger;
-	// SchmittTrigger pasteTrigger;
-	
-	// int currentPatternEditingIx = 0; 	// Index of which pattern we are playing
-	// int currentPatternPlayingIx = 0; 	// Index of which pattern we are editing 
-	// int currentTriggerEditingIx = 0; 	// Index of which get is currently displayed/edited.
 	if (copySourcePatternIx < 0) // Nothing to copy
 		return false;
 	if (copySourcePatternIx == currentPatternEditingIx)
@@ -59,26 +50,20 @@ bool TSSequencerModuleBase::paste()
 		// Copy entire pattern (all gates/triggers/voices)
 		for (int g = 0; g < TROWA_SEQ_NUM_TRIGS; g++)
 		{
-			for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++)
+			for (int s = 0; s < maxSteps; s++)
 			{
 				triggerState[currentPatternEditingIx][g][s] = copyBuffer[g][s];//triggerState[copySourcePatternIx][g][s];
 			}
 		}
-		//lights[COPY_PATTERN_LIGHT].value = 0;		
 	}
 	else
 	{
 		// Copy just the gate:
-		for (int s = 0; s < TROWA_SEQ_NUM_STEPS; s++)
+		for (int s = 0; s < maxSteps; s++)
 		{
 			triggerState[currentPatternEditingIx][currentTriggerEditingIx][s] = copyBuffer[copySourceGateIx][s];// triggerState[copySourcePatternIx][copySourceGateIx][s];
 		}		
-		// lights[COPY_GATE_LIGHT].value = 0;		
-		// pasteLight->setColor(COLOR_WHITE); // Return the paste light to white
 	}
-	// lights[PASTE_LIGHT].value = 0;	
-	// copySourceGateIx = TROWA_SEQ_COPY_GATEIX_ALL;
-	// copySourcePatternIx = -1; // Reset
 	return true;
 }
 
@@ -272,12 +257,12 @@ void TSSequencerModuleBase::getStepInputs(bool* pulse, bool* reloadMatrix, bool*
 	if (inputs[STEPS_INPUT].active)
 	{
 		// Use the input if something is connected.
-		currentNumberSteps = clampi(roundf(rescalef(inputs[STEPS_INPUT].value, TROWASEQ_STEPS_MIN_V, TROWASEQ_STEPS_MAX_V, 1, TROWA_SEQ_NUM_STEPS)), 1, TROWA_SEQ_NUM_STEPS);
+		currentNumberSteps = clampi(roundf(rescalef(inputs[STEPS_INPUT].value, TROWASEQ_STEPS_MIN_V, TROWASEQ_STEPS_MAX_V, 1, maxSteps)), 1, maxSteps);
 	}
 	else
 	{
 		// Otherwise read our knob
-		currentNumberSteps = clampi(roundf(params[STEPS_PARAM].value), 1, TROWA_SEQ_NUM_STEPS);		
+		currentNumberSteps = clampi(roundf(params[STEPS_PARAM].value), 1, maxSteps);		
 	}
 	if (nextStep)	
 	{
@@ -287,8 +272,8 @@ void TSSequencerModuleBase::getStepInputs(bool* pulse, bool* reloadMatrix, bool*
 			index = 0; // Reset (artifical limit)
 		}
 		// Show which step we are on:
-		r = index / TROWA_SEQ_STEP_NUM_COLS;
-		c = index % TROWA_SEQ_STEP_NUM_COLS;
+		r = index / this->numCols;// TROWA_SEQ_STEP_NUM_COLS;
+		c = index % this->numCols; //TROWA_SEQ_STEP_NUM_COLS;
 		stepLights[r][c] = 1.0f;
 		//lights[PAD_LIGHTS + index].value = stepLights[r][c];	
 		gatePulse.trigger(1e-3);		
