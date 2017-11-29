@@ -22,16 +22,7 @@
 struct trigSeq : TSSequencerModuleBase
 {	
 	SchmittTrigger* gateTriggers;
-	trigSeq() : TSSequencerModuleBase(TROWA_SEQ_NUM_STEPS, TROWA_SEQ_STEP_NUM_ROWS, TROWA_SEQ_STEP_NUM_ROWS, false)
-	{
-		gateTriggers = new SchmittTrigger[maxSteps];
-		selectedOutputValueMode = VALUE_TRIGGER;
-		lastOutputValueMode = selectedOutputValueMode;
-		modeStrings[0] = "TRIG";
-		modeStrings[1] = "RTRG";
-		modeStrings[2] = "CONT";		
-		return;
-	}
+	
 	trigSeq(int numSteps, int numRows, int numCols) : TSSequencerModuleBase(numSteps, numRows, numCols, false)
 	{
 		gateTriggers = new SchmittTrigger[maxSteps];
@@ -42,10 +33,14 @@ struct trigSeq : TSSequencerModuleBase
 		modeStrings[2] = "CONT";		
 		return;
 	}
-	
+	trigSeq() : trigSeq(TROWA_SEQ_NUM_STEPS, TROWA_SEQ_STEP_NUM_ROWS, TROWA_SEQ_STEP_NUM_ROWS)
+	{
+		return;
+	}	
 	~trigSeq()
 	{
-		delete [] gateTriggers;		
+		delete [] gateTriggers;	
+		gateTriggers = NULL;
 		return;
 	}
 	void step() override;

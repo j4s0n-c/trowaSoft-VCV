@@ -22,7 +22,7 @@ void trigSeq::randomize()
 }
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// trigSeq:step()
+// trigSeq::step()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void trigSeq::step() {
 	bool gOn = true;
@@ -120,7 +120,7 @@ trigSeqWidget::trigSeqWidget() : TSSequencerWidgetBase()
 		addChild(panel);
 	}
 	
-	TSSequencerWidgetBase::addBaseControls();
+	TSSequencerWidgetBase::addBaseControls(false);
 	
 	// (User) Input Pads ==================================================	
 	int y = 115;

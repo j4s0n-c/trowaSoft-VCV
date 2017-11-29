@@ -8,6 +8,7 @@
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
 #include <chrono>
+#include "TSTempoBPM.hpp"
 
 
 #define TROWA_SEQ_NUM_TRIGS		16	// Num of triggers/voices
@@ -51,6 +52,7 @@ struct TSSequencerModuleBase : Module {
 		COPY_PATTERN_PARAM, // Copy the current editting Pattern
 		COPY_GATE_PARAM, // Copy the current GATE/trigger in the current Pattern only.
 		PASTE_PARAM, // Paste what is on our clip board to the now current editing.
+		SELECTED_BPM_MULT_IX_PARAM, // Selected index into our BPM calculation multipliers (for 1/4, 1/8, 1/8T, 1/16 note calcs)
 		GATE_PARAM,
 		// We only show 4x4 (one gate at a time)
 		//NUM_PARAMS = GATE_PARAM + TROWA_SEQ_NUM_STEPS // Num Steps is not fixed at compile time anymore
@@ -78,6 +80,7 @@ struct TSSequencerModuleBase : Module {
 		COPY_PATTERN_LIGHT,
 		COPY_GATE_LIGHT,
 		PASTE_LIGHT,
+		SELECTED_BPM_MULT_IX_LIGHT,
 		GATE_LIGHTS,
 		PAD_LIGHTS = GATE_LIGHTS + TROWA_SEQ_NUM_TRIGS,
 		// Num Steps is not fixed at compile time anymore
@@ -173,6 +176,12 @@ struct TSSequencerModuleBase : Module {
 	ColorValueLight* copyPatternLight;
 	ColorValueLight* copyGateLight;
 	
+	// BPM Calculation //////////////
+	// Index into the array BPMOptions
+	int selectedBPMNoteIx = 1; // 1/8th
+	SchmittTrigger selectedBPMNoteTrigger;
+	
+	
 	// Mode /////////////////////////	
 	// The mode string.
 	const char* modeString;
@@ -253,10 +262,23 @@ struct TSSequencerModuleBase : Module {
 			delete [] gateLights[r];
 			delete [] padLightPtrs[r];
 		}
+		delete [] stepLights; stepLights = NULL;
+		delete [] gateLights; gateLights = NULL;
+		delete [] padLightPtrs;	padLightPtrs = NULL;
 		
 		for (int g = 0; g < TROWA_SEQ_NUM_TRIGS; g++)
 		{				
 			delete [] copyBuffer[g];
+			copyBuffer[g] = NULL; // We should be totally dead & unreferenced anyway, so I'm not sure we have NULL our ptrs???
+		}
+		
+		for (int p = 0;  p < TROWASEQ_NUM_PATTERNS; p++)
+		{
+			for (int g = 0; g < TROWA_SEQ_NUM_TRIGS; g++)
+			{				
+				delete [] triggerState[p][g];
+				triggerState[p][g] = NULL;
+			}
 		}
 		return;
 	}
@@ -309,6 +331,8 @@ struct TSSequencerModuleBase : Module {
 		json_object_set_new(rootJ, "currentTriggerEditIx", json_integer((int) currentTriggerEditingIx));
 		// The current output / knob mode.
 		json_object_set_new(rootJ, "selectedOutputValueMode", json_integer((int) selectedOutputValueMode));
+		// Current BPM calculation note (i.e. 1/4, 1/8, 1/8T, 1/16)
+		json_object_set_new(rootJ, "selectedBPMNoteIx",  json_integer((int) selectedBPMNoteIx));
 		
 		// triggers
 		json_t *triggersJ = json_array();
@@ -355,6 +379,10 @@ struct TSSequencerModuleBase : Module {
 			selectedOutputValueMode = static_cast<ValueMode>( json_integer_value(currJ) );
 			modeString = modeStrings[selectedOutputValueMode];
 		}
+		// Current BPM calculation note (i.e. 1/4, 1/8, 1/8T, 1/16)
+		currJ = json_object_get(rootJ, "selectedBPMNoteIx");
+		if (currJ)
+			selectedBPMNoteIx = json_integer_value(currJ);
 		
 		// triggers
 		json_t *triggersJ = json_object_get(rootJ, "triggers");
@@ -462,20 +490,26 @@ struct TSSeqDisplay : TransparentWidget {
 		x += spacing;
 		nvgFontSize(vg, fontSize); // Small font
 		nvgFontFaceId(vg, labelFont->handle);				
-		//nvgText(vg, x+xOffset, y1, "BPM", NULL);
-		nvgText(vg, x, y1, "BPM", NULL);
-		nvgFontSize(vg, fontSize * 1.5); // Large font		
+		//nvgText(vg, x, y1, "BPM", NULL);		
+		sprintf(messageStr, "BPM/%s", BPMOptions[module->selectedBPMNoteIx]->label);		
+		nvgText(vg, x, y1, messageStr, NULL);		
+		// // BPM Note:
+		// nvgFontSize(vg, fontSize * 0.6); // Tiny font
+		// nvgTextLetterSpacing(vg, 1.0);
+		// nvgText(vg, x + 14, y1 - 1, BPMOptions[module->selectedBPMNoteIx]->label, NULL);						
+		// nvgTextLetterSpacing(vg, 2.5);						
 		if (module->lastStepWasExternalClock)
 		{
 			sprintf(messageStr, "%s", "CLK");
 		}
 		else
 		{
-			sprintf(messageStr, "%03.0f", currentBPM);			
+			sprintf(messageStr, "%03.0f", currentBPM);
 		}
-		nvgFontFaceId(vg, font->handle);				
-		//nvgText(vg, x + dx - 9, y2, messageStr, NULL);
+		nvgFontFaceId(vg, font->handle);
+		nvgFontSize(vg, fontSize * 1.5); // Large font		
 		nvgText(vg, x + dx, y2, messageStr, NULL);
+		
 		
 		// Current Playing # Steps
 		nvgFillColor(vg, textColor);
@@ -530,8 +564,8 @@ struct TSSeqDisplay : TransparentWidget {
 		nvgTextAlign(vg, NVG_ALIGN_LEFT);		
 		NVGcolor groupColor = nvgRGB(0xDD, 0xDD, 0xDD);
 		nvgFillColor(vg, groupColor);
-		x = 289;
-		//font = Font::load(assetPlugin(plugin, "res/Fonts/ZeroesThree-Regular.ttf"));
+		int labelX = 297;
+		x = labelX; // 289
 		nvgFontSize(vg, fontSize-5); // Small font
 		nvgFontFaceId(vg, labelFont->handle);				
 		nvgText(vg, x, 8, "EDIT", NULL);
@@ -541,15 +575,15 @@ struct TSSeqDisplay : TransparentWidget {
 		// Start top to the left of the text "Edit"
 		int y = 5;
 		nvgMoveTo(vg, /*start x*/ x - 3, /*start y*/ y);// Starts new sub-path with specified point as first point.s
-		x = x - 35;//xOffset + 3 * spacing - 3 + 60;
-		nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go to the left
+		x = 256;// x - 35;//xOffset + 3 * spacing - 3 + 60;
+		nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go to Left (Line Start)
 		
-		x = box.size.x - 6; 
+		x = labelX + 22;
 		y = 5;
-		nvgMoveTo(vg, /*x*/ x, /*y*/ y);
-		x = x-38;
-		nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go Left (to right of the text "Edit")
-		
+		nvgMoveTo(vg, /*x*/ x, /*y*/ y); // Right of "Edit"
+		x = box.size.x - 6;
+		nvgLineTo(vg, /*x*/ x, /*y*/ y); // RHS of box
+
 		nvgStrokeWidth(vg, 1.0);
 		nvgStrokeColor(vg, groupColor);
 		nvgStroke(vg);
@@ -557,22 +591,23 @@ struct TSSeqDisplay : TransparentWidget {
 		// [[[[[[[[[[[[[[[[ PLAYBACK Box Group ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
 		groupColor = nvgRGB(0xEE, 0xEE, 0xEE);
 		nvgFillColor(vg, groupColor);
-		x = 55;
+		labelX = 64;
+		x = labelX;
 		nvgFontSize(vg, fontSize-5); // Small font
 		nvgText(vg, x, 8, "PLAYBACK", NULL);
 				
 		// Play Back Label Line ---------------------------------------------------------------
 		nvgBeginPath(vg);
-		// Start top to the left of the text "Edit"
+		// Start top to the left of the text "Play"
 		y = 5;
 		nvgMoveTo(vg, /*start x*/ x - 3, /*start y*/ y);// Starts new sub-path with specified point as first point.s
 		x = 6;
 		nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go to the left
 		
-		x = 55+53; 
+		x = labelX+49; 
 		y = 5;
 		nvgMoveTo(vg, /*x*/ x, /*y*/ y); // To the Right of "Playback"
-		x = x + 57 ;
+		x = 165; //x + 62 ;
 		nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go Right 
 		
 		nvgStrokeWidth(vg, 1.0);
@@ -645,13 +680,17 @@ struct TSSeqLabelArea : TransparentWidget {
 		y = 350;		
 		nvgText(vg, x, y, "OUTPUTS", NULL);
 		
-		// cpy btn labels
+		// Copy btn labels
 		nvgFontSize(vg, fontSize * 0.6);
 		x = 300;
 		y = 103;		
 		nvgText(vg, x, y, "CPY", NULL);
 		x = 362;		
 		nvgText(vg, x, y, "CPY", NULL);
+		// BPM divisor/note label:
+		x = 118;		
+		nvgText(vg, x, y, "DIV", NULL);
+		
 		
 		if (drawGridLines)
 		{

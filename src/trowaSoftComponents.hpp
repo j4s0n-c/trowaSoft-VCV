@@ -7,7 +7,6 @@ using namespace rack;
 #include <string.h>
 #include <stdio.h>
 #include "dsp/digital.hpp"
-//#include "trowaSoft.hpp"
 #include "components.hpp"
 #include "trowaSoftUtilities.hpp"
 
@@ -141,14 +140,6 @@ struct TS_PadSquare : SVGSwitch, MomentarySwitch {
 		sw->wrap();
 		box.size = sw->box.size;
 	}
-	TS_PadSquare(Vec size) 
-	{
-		box.size = size;
-		addFrame(SVG::load(assetPlugin(plugin,"res/ComponentLibrary/TS_pad_0.svg")));
-		addFrame(SVG::load(assetPlugin(plugin,"res/ComponentLibrary/TS_pad_1.svg")));
-		sw->box.size = size;
-		sw->wrap();
-	}	
 };
 
 
@@ -473,12 +464,6 @@ struct TS_LightSquare : ColorValueLight
 
 		NVGcolor backColor = bgColor;
 		NVGcolor outerColor = color;
-		// if ( *value > 0.95)
-		// {
-			// backColor = baseColor;
-			// backColor.a = 0.9;
-			// outerColor = baseColor;
-		// }
 		// Solid
 		nvgBeginPath(vg);
 		//nvgCircle(vg, radius, radius, radius);
@@ -544,9 +529,6 @@ struct TS_LightRing : ColorValueLight
 		// Solid
 		nvgBeginPath(vg);
 		nvgCircle(vg, radius, radius, radius);
-/* 		nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
-		nvgFillColor(vg, bgColor);
-		nvgFill(vg); */
 
 		// Border
 		nvgStrokeWidth(vg, radius - innerRadius);

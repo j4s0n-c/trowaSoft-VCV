@@ -11,11 +11,8 @@ CXXFLAGS +=
 # Add .cpp and .c files to the build
 SOURCES = $(wildcard src/*.cpp)
 
-
-
 # Must include the VCV plugin Makefile framework
 include ../../plugin.mk
-
 
 # Convenience target for including files in the distributable release
 DIST_NAME = trowaSoft

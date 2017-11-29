@@ -6,6 +6,9 @@
 #include "trowaSoftUtilities.hpp"
 #include "TSSequencerModuleBase.hpp"
 
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// Base constructor.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 TSSequencerWidgetBase::TSSequencerWidgetBase()
 {
 	box.size = Vec(26 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT);
@@ -84,8 +87,7 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	addParam(createParam<RoundSmallBlackKnob>(Vec(knobStart, knobRow), thisModule, TSSequencerModuleBase::SELECTED_PATTERN_PLAY_PARAM, /*min*/ 0.0, /*max*/ TROWASEQ_NUM_PATTERNS - 1, /*default value*/ thisModule->currentPatternPlayingIx));
 	
 	// Clock BPM (Knob)
-	//addParam(createParam<RoundSmallBlackKnob>(Vec(knobStart + (knobSpacing * 1), knobRow), thisModule, TSSequencerModuleBase::BPM_PARAM, -2.0, 6.0, 2.0));
-	addParam(createParam<RoundSmallBlackKnob>(Vec(knobStart + (knobSpacing * 1), knobRow), thisModule, TSSequencerModuleBase::BPM_PARAM, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX, (TROWA_SEQ_BPM_KNOB_MAX+TROWA_SEQ_BPM_KNOB_MIN)/2));	
+	addParam(createParam<RoundSmallBlackKnob>(Vec(knobStart + (knobSpacing * 1), knobRow), thisModule, TSSequencerModuleBase::BPM_PARAM, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX, (TROWA_SEQ_BPM_KNOB_MAX+TROWA_SEQ_BPM_KNOB_MIN)/2));
 	
 	// Steps (Knob)
 	addParam(createParam<RoundSmallBlackKnob>(Vec(knobStart + (knobSpacing * 2), knobRow), thisModule, TSSequencerModuleBase::STEPS_PARAM, 1.0, thisModule->maxSteps, thisModule->maxSteps));
@@ -117,8 +119,12 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	addParam(btn);
 	thisModule->copyGateLight = TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 5) + dx, knobRow), module, TSSequencerModuleBase::COPY_GATE_LIGHT, ledSize, COLOR_WHITE);
 	addChild(thisModule->copyGateLight);
-	
-	
+	// CHANGE BPM CALC NOTE (1/4, 1/8, 1/8T, 1/16)
+	//SELECTED_BPM_MULT_IX_PARAM
+	btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(knobStart + (knobSpacing * 1) + dx, knobRow), module, TSSequencerModuleBase::SELECTED_BPM_MULT_IX_PARAM, 0, 1, 0));
+	btn->box.size = ledSize;
+	addParam(btn);
+	addChild(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 1) + dx, knobRow), module, TSSequencerModuleBase::SELECTED_BPM_MULT_IX_LIGHT, ledSize, COLOR_WHITE));
 	
 	// Swing Adjustment Knob:
 	//addParam(createParam<RoundSmallBlackKnob>(Vec(20, 270), thisModule, 
@@ -151,7 +157,6 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	int y = 115;
 	int x = 314;
 	int v = 0;
-	//int ix = 0;
 	
 	float jackDiameter = 20.5; // 28.351
 	float add = 0;
@@ -173,5 +178,5 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 		}
 		y += 28; // Next row
 		x = 314;
-	} // end loop through 4x4 grid
-}
+	} // end loop through NxM grid
+} // end addBaseControls()

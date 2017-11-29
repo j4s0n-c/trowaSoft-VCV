@@ -1,0 +1,8 @@
+*.d
+*.o
+*.zip
+build/*.*
+dist/*.*
+src/Widget_n64Seq.cpp
+res/ComponentLibrary/RoundBlack.svg
+*.dll

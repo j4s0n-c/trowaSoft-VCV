@@ -5,64 +5,7 @@
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
 #include "TSSequencerModuleBase.hpp"
-
-
-#define voltSeq_STEP_KNOB_MIN	  -10.0  // Min Value from our knobs
-#define voltSeq_STEP_KNOB_MAX	   10.0  // Maximum value from our knobs
-
-//===============================================================================
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// voltSeq Module
-// trowaSoft knob / voltage sequencer.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-//===============================================================================
-struct voltSeq : TSSequencerModuleBase	
-{	
-	// Lights
-	//TS_LightArc* padLightPtrs[TROWA_SEQ_STEP_NUM_ROWS][TROWA_SEQ_STEP_NUM_COLS];
-	// References to our pad knobs
-	TS_LightedKnob* knobStepMatrix[TROWA_SEQ_STEP_NUM_ROWS][TROWA_SEQ_STEP_NUM_COLS];
-	
-	ValueSequencerMode* ValueModes[TROWA_SEQ_NUM_MODES] = { 
-		// Voltage Mode 
-		new ValueSequencerMode(/*displayName*/ "VOLT",
-			/*minDisplayValue*/ -10, /*maxDisplayValue*/ 10, 
-			/*inVoltageMin*/ voltSeq_STEP_KNOB_MIN, /*inVoltageMax*/ voltSeq_STEP_KNOB_MAX, 
-			/*outVoltageMin*/ -10, /*outVoltageMax*/ 10, 
-			/*whole numbers*/ false, 
-			/*zeroPointAngle*/ 1.5*NVG_PI, 
-			/*display format String */ "%04.2f",
-			/*roundDisplay*/ 0, /*roundOutput*/ 0,
-			/*zeroValue*/ (voltSeq_STEP_KNOB_MAX+voltSeq_STEP_KNOB_MIN)/2.0),//
-		// Sequence Mode (1-16 for the patterns)
-		
-		new NoteValueSequencerMode(/*displayName*/ "NOTE",			
-			/*inVoltageMin*/ voltSeq_STEP_KNOB_MIN, /*inVoltageMax*/ voltSeq_STEP_KNOB_MAX),
-			
-		new ValueSequencerMode(/*displayName*/ "PATT",
-			/*minDisplayValue*/ 1, /*maxDisplayValue*/ TROWASEQ_NUM_PATTERNS, 
-			/*inVoltageMin*/ voltSeq_STEP_KNOB_MIN, /*inVoltageMax*/ voltSeq_STEP_KNOB_MAX, 
-			/*outVoltageMin*/ TROWASEQ_PATTERN_MIN_V, /*outVoltageMax*/ TROWASEQ_PATTERN_MAX_V, 
-			/*whole numbers*/ false, 
-			/*zeroPointAngle*/ 0.67*NVG_PI, 
-			/*display format String */ "%02.0f",
-			/*roundDisplay*/ 0, /*roundOutput*/ 0,
-			/*zeroValue*/ voltSeq_STEP_KNOB_MIN)        
-			
-	};
-	voltSeq() : TSSequencerModuleBase(TROWA_SEQ_NUM_STEPS, TROWA_SEQ_STEP_NUM_ROWS, TROWA_SEQ_STEP_NUM_ROWS, voltSeq_STEP_KNOB_MIN)
-	{
-		selectedOutputValueMode = VALUE_VOLT;
-		lastOutputValueMode = selectedOutputValueMode;
-		modeStrings[0] = "VOLT";
-		modeStrings[1] = "NOTE";
-		modeStrings[2] = "PATT";		
-		return;
-	}
-	void step() override;
-	// Only randomize the current gate/trigger steps.
-	void randomize() override;
-};
+#include "Module_voltSeq.hpp"
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // voltSeq::randomize()
@@ -201,14 +144,12 @@ voltSeqWidget::voltSeqWidget() : TSSequencerWidgetBase()
 				/*min*/ voltSeq_STEP_KNOB_MIN,  /*max*/ voltSeq_STEP_KNOB_MAX, /*default*/ voltSeq_STEP_KNOB_MIN));
 			module->knobStepMatrix[r][c] = knobPtr;
 			knobPtr->value = voltSeq_STEP_KNOB_MIN;
-			//knobPtr->value = module->triggerState[module->currentPatternEditingIx][module->currentTriggerEditingIx][v];
 			
 			// Keep a reference to our pad lights so we can change the colors			
 			TS_LightArc* lightPtr = dynamic_cast<TS_LightArc*>(TS_createColorValueLight<TS_LightArc>(/*pos */ Vec(x+dx, y+dx), 
 				/*module*/ module,
 				/*lightId*/ TSSequencerModuleBase::PAD_LIGHTS + r*module->numCols + c,								
-				/* size */ lSize, /* color */ module->voiceColors[module->currentTriggerEditingIx]));
-			
+				/* size */ lSize, /* color */ module->voiceColors[module->currentTriggerEditingIx]));			
 			lightPtr->numericValue = &(knobPtr->value);
 			lightPtr->currentAngle_radians = &(knobPtr->currentAngle);
 			lightPtr->zeroAnglePoint = currValueMode->zeroPointAngle_radians;

@@ -5,8 +5,13 @@
 #include "trowaSoftUtilities.hpp"
 #include "TSSequencerModuleBase.hpp"
 
-
-void TSSequencerModuleBase::copy(int patternIx, int gateIx)
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// copy()
+// @patternIx : (IN) The index into our pattern matrix (0-15).
+// @gateIx : (IN) The index of the gate/trigger/voice to copy if any (0-15, or 
+// TROWA_SEQ_COPY_GATEIX_ALL for all).
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+void TSSequencerModuleBase::copy(/*in*/ int patternIx, /*in*/ int gateIx)
 {
 	copySourceGateIx = gateIx;
 	copySourcePatternIx = patternIx;
@@ -30,20 +35,25 @@ void TSSequencerModuleBase::copy(int patternIx, int gateIx)
 		}		
 	}
 	return;
-}
-
+} // end copy()
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// paste(void)
 // Paste our current clipboard Pattern/Gate to the currently selected Pattern/Gate.
+// @returns: True if the values were copied, false if not.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 bool TSSequencerModuleBase::paste() 
 {
 	if (copySourcePatternIx < 0) // Nothing to copy
 		return false;
-	if (copySourcePatternIx == currentPatternEditingIx)
-	{
-		// For some weird reason copySourceGateIx == currentPatternEditingIx will always return true even if it obviously isn't...
-		//if (copySourceGateIx == currentPatternEditingIx || copySourceGateIx == TROWA_SEQ_COPY_GATEIX_ALL)
-		if (copySourceGateIx == TROWA_SEQ_COPY_GATEIX_ALL)	
-			return false; // This is the SAME as the target, nothing to copy
-	}
+	// [11/28/2017]: No longer prevent copying over the same pattern since the user could've accidentically
+	// messed up their pattern and want to recopy it 
+	// if (copySourcePatternIx == currentPatternEditingIx)
+	// {
+		// // For some weird reason copySourceGateIx == currentPatternEditingIx will always return true even if it obviously isn't...
+		// //if (copySourceGateIx == currentPatternEditingIx || copySourceGateIx == TROWA_SEQ_COPY_GATEIX_ALL)
+		// if (copySourceGateIx == TROWA_SEQ_COPY_GATEIX_ALL)	
+			// return false; // This is the SAME as the target, nothing to copy
+	// }
 	
 	if (copySourceGateIx == TROWA_SEQ_COPY_GATEIX_ALL)
 	{
@@ -65,18 +75,22 @@ bool TSSequencerModuleBase::paste()
 		}		
 	}
 	return true;
-}
-
+} // end paste()
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// getStepInputs()
 // Get the inputs shared between our Sequencers.
-void TSSequencerModuleBase::getStepInputs(bool* pulse, bool* reloadMatrix, bool* valueModeChanged) 
+// @pulse : (OUT) If gate pulse
+// @reloadMatrix: (OUT) If the edit matrix should be refreshed.
+// @valueModeChanged: (OUT) If the output value mode has changed.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* reloadMatrix, /*out*/ bool* valueModeChanged) 
 {
 	// Run
 	if (runningTrigger.process(params[RUN_PARAM].value)) {
 		running = !running;
 	}
-	//runningLight = running ? 1.0 : 0.0;
 	lights[RUNNING_LIGHT].value = running ? 1.0 : 0.0;
-
+	
 	bool nextStep = false;
 	if (running) 
 	{
@@ -101,10 +115,19 @@ void TSSequencerModuleBase::getStepInputs(bool* pulse, bool* reloadMatrix, bool*
 		}
 		else 
 		{
+			// BPM calculation selection
+			if (selectedBPMNoteTrigger.process(params[SELECTED_BPM_MULT_IX_PARAM].value)) {
+				if (selectedBPMNoteIx < TROWA_TEMP_BPM_NUM_OPTIONS - 1)
+					selectedBPMNoteIx++;
+				else
+					selectedBPMNoteIx = 0; // Wrap around
+				lights[SELECTED_BPM_MULT_IX_LIGHT].value = 1.0;
+			}
+
 			// Internal clock
 			lastStepWasExternalClock = false;
 			float clockTime = 1.0;
-			float input = 0.0;
+			float input = 1.0;
 			if (inputs[BPM_INPUT].active)
 			{
 				// Use whatever voltage we are getting (-10 TO 10 input)
@@ -148,7 +171,12 @@ void TSSequencerModuleBase::getStepInputs(bool* pulse, bool* reloadMatrix, bool*
 			
 			if (nextStep)
 			{
-				currentBPM = roundf(clockTime * 30.0);				
+				// was * 30.0
+				// 60 : 1/4 notes
+				// 30 : 1/8 notes
+				// 20 : 1/8T notes
+				// 15 : 1/16 notes
+				currentBPM = roundf(clockTime * BPMOptions[selectedBPMNoteIx]->multiplier);				
 			}
 		}
 	} // end if running
@@ -243,9 +271,7 @@ void TSSequencerModuleBase::getStepInputs(bool* pulse, bool* reloadMatrix, bool*
 			}
 		} // end if copyGateTrigger()
 	}
-	
-	
-	
+		
 	int r = 0;
 	int c = 0;
 
@@ -280,12 +306,12 @@ void TSSequencerModuleBase::getStepInputs(bool* pulse, bool* reloadMatrix, bool*
 	}
 	// Reset light
 	lights[RESET_LIGHT].value -= lights[RESET_LIGHT].value / lightLambda / engineGetSampleRate();
+	// BPM Note Calc light:
+	lights[SELECTED_BPM_MULT_IX_LIGHT].value -= lights[SELECTED_BPM_MULT_IX_LIGHT].value / lightLambda / engineGetSampleRate();
+
 	*pulse = gatePulse.process(1.0 / engineGetSampleRate());
 	
 	// See if we should reload our matrix
-	*reloadMatrix = currentTriggerEditingIx != lastGateIx || currentPatternEditingIx != lastEditPatternIx || pasteCompleted;
-		
-	
+	*reloadMatrix = currentTriggerEditingIx != lastGateIx || currentPatternEditingIx != lastEditPatternIx || pasteCompleted;	
 	return;
-
-}
+} // end getStepInputs()
