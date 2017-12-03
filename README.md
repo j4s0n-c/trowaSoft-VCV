@@ -3,7 +3,7 @@
 <img src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2fdemo_screenshot.jpg" />
 </div>
 
-trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.0.
+trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.0. Current pack includes [trigSeq &amp; trigSeq64](#trigseq--trigseq64), [voltSeq](#voltseq), and [multiScope](#multiscope).
 
 For more information about these modules, please visit:
 http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx.
@@ -14,7 +14,7 @@ https://vcvrack.com/.
 ## Sequencers
 Currently there are three (3) sequencer modules.
 
-### trigSeq & trigSeq64
+### trigSeq &amp; trigSeq64
 <div>
 <img width="390" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2ftrigSeq_screenshot.jpg" />
 <img width="390" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2ftrigSeq64_screenshot.jpg" />
@@ -59,7 +59,7 @@ Variable voltage output step sequencer (-10V to +10V), based off the [Fundamenta
     + **C** - Color/hue (0V to +5V).
     + **A** - Alpha channel (0V to +5V).
     + **BLANK** - Blank ON or OFF. By default, Blank is off. ON is any input <=0 (really < 0.1V), otherwise it will be OFF.  
-   You can use a **trigSeq** (in **CONT** mode, synchronized with a **voltSeq**) to control / hide lines that you do not wish to be shown.  
+    You can use a **trigSeq** (in **CONT** mode, synchronized with a **voltSeq**) to control / hide lines that you do not wish to be shown.  
     + **R** - Rotation (-10V to +10V). Will either be a rotational rate or if the **ABS** button is on, it will be the absolute angular position.
     + **T** - Time.
   
