@@ -1,6 +1,9 @@
 # trowaSoft-VCV
-trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.0.
+<div>
+<img width="700" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2fdemo_screenshot.jpg" />
+</div>
 
+trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.0.
 
 For more information about these modules, please visit:
 http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx.
@@ -13,8 +16,8 @@ Currently there are three (3) sequencer modules.
 
 ### trigSeq & trigSeq64
 <div>
-<img width="390" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f11%2ftrigSeq_Main.png" />
-<img width="390" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f11%2ftrigSeq64_Main.png" />
+<img width="390" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2ftrigSeq_screenshot.jpg" />
+<img width="390" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2ftrigSeq64_screenshot.jpg" />
 </div>
 
 
@@ -28,7 +31,7 @@ These are basic boolean on/off pad step sequencers (0V or 10V), based off the [F
 
 ### voltSeq
 <div>
-<img width="390" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f11%2fvoltSeq_Main.png" />
+<img width="390" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2fvoltSeq_screenshot.jpg" />
 </div>
 
 
@@ -47,6 +50,7 @@ Variable voltage output step sequencer (-10V to +10V), based off the [Fundamenta
 ## Other
 ### multiScope
 <div>
+<img width="700" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2fmultiScope_screenshot.jpg" />
 </div>
 
 **multiScope** is a visual effects scope (lissajous mode) that allows three (3) waveforms to be drawn on the same screen/canvas.
