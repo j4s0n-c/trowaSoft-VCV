@@ -25,7 +25,7 @@ These are basic boolean on/off pad step sequencers (0V or 10V), based off the [F
 + **trigSeq** is 16-step; **trigSeq64** is 64-step.
 + Now 64 patterns. ~~16 patterns.~~
 + 16 channels (outputs).
-+ Output modes: **TRIG** (trigger), **RTRG** (retrigger), **GATE** (0 or 10V).
++ Output modes: **TRIG** (trigger), **RTRG** (retrigger), **CONT** (gate) (0 or 10V).
 + Inputs: Pattern, BPM, (step) Length, Clock, Reset.
 + Copy & Paste of channel or entire pattern.
 
