@@ -62,7 +62,6 @@ using namespace rack;
 #endif 
 
 #ifndef COLOR_TS_RED
-	// Orange in components.hpp is different
 	#define COLOR_TS_RED nvgRGB(0xFF, 0x00, 0x00)
 #endif 
 #ifndef COLOR_TS_ORANGE
@@ -140,6 +139,13 @@ struct TS_PadSquare : SVGSwitch, MomentarySwitch {
 		sw->wrap();
 		box.size = sw->box.size;
 	}
+	TS_PadSquare(Vec size)
+	{
+		addFrame(SVG::load(assetPlugin(plugin, "res/ComponentLibrary/TS_pad_0.svg")));
+		addFrame(SVG::load(assetPlugin(plugin, "res/ComponentLibrary/TS_pad_1.svg")));
+		sw->box.size = size;
+		box.size = size;
+	}
 };
 
 
@@ -211,7 +217,7 @@ struct TS_LightArc : ColorValueLight {
 	
 	TS_LightArc()
 	{
-		font = Font::load(assetPlugin(plugin, "res/Fonts/ZeroesThree-Regular.ttf"));
+		font = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
 		fontSize = 10;
 		bgColor = nvgRGBAf(0.0, 0, 0, /*alpha */ 1.0);
 		baseColor = COLOR_WHITE;
@@ -375,7 +381,7 @@ struct TS_LightString : ColorValueLight
 	int fontSize;
 	TS_LightString()
 	{
-		font = Font::load(assetPlugin(plugin, "res/Fonts/ZeroesThree-Regular.ttf"));
+		font = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
 		fontSize = 14;
 		bgColor = nvgRGBAf(0.2, 0.2, 0.2, /*alpha */ 1);
 		baseColor = COLOR_WHITE;		
@@ -557,15 +563,11 @@ struct TS_LightRing : ColorValueLight
 	}
 };
 
-// struct TinyBlackKnob : RoundBlackKnob {
-	// TinyBlackKnob() {
-		// box.size = Vec(20, 20);		
-		// // //		setSVG(SVG::load(assetGlobal("res/ComponentLibrary/RoundBlack.svg")));
-		// // setSVG(SVG::load(assetPlugin(plugin, "res/ComponentLibrary/RoundBlack.svg")));
-		// // box.size = Vec(20, 20);
-	// }
-	// void randomize() override { return; }	
-// };
+ struct TS_TinyBlackKnob : RoundBlackKnob {
+	 TS_TinyBlackKnob() {
+		 box.size = Vec(20, 20);		
+	 }
+ };
 
 struct TS_Port : SVGPort {
 	NVGcolor negColor;
@@ -584,42 +586,55 @@ struct TS_Port : SVGPort {
 	void disableLights()
 	{
 		// Save our colors:
-		negColor = plugLight->baseColors[1];
-		posColor = plugLight->baseColors[0];		
-		plugLight->baseColors[0] = nvgRGBAf(0,0,0,0);
-		plugLight->baseColors[1] = nvgRGBAf(0,0,0,0);		
+		if (plugLight)
+		{
+			negColor = plugLight->baseColors[1];
+			posColor = plugLight->baseColors[0];		
+			plugLight->baseColors[0] = nvgRGBAf(0,0,0,0);
+			plugLight->baseColors[1] = nvgRGBAf(0,0,0,0);		
+		}
 	}
 	void enableLights()
 	{
-		plugLight->baseColors[1] = negColor;
-		plugLight->baseColors[0] = posColor;		
+		if (plugLight)
+		{
+			plugLight->baseColors[1] = negColor;
+			plugLight->baseColors[0] = posColor;		
+		}
 	}
 	void setLightColor(NVGcolor color)
-	{
+	{		
 		negColor = color;
 		posColor = color;
-		plugLight->baseColors[0] = color;
-		plugLight->baseColors[1] = color;
+		if (plugLight)
+		{
+			plugLight->baseColors[0] = color;
+			plugLight->baseColors[1] = color;
+		}
 	}
 	void setLightColor(NVGcolor negativeColor, NVGcolor positiveColor)
 	{
 		negColor = negativeColor;
 		posColor = positiveColor;
-		plugLight->baseColors[1] = negativeColor;
-		plugLight->baseColors[2] = positiveColor;		
+		if (plugLight)
+		{
+			plugLight->baseColors[1] = negativeColor;
+			plugLight->baseColors[2] = positiveColor;			
+		}
 	}	
 };
+
 
 struct TS_Panel : Panel 
 {
 	NVGcolor borderColor = COLOR_BLACK;
-	int borderWidth = 0;
-	int borderTop = 0;
-	int borderLeft = 0;
-	int borderRight = 0;
-	int borderBottom = 0;
+	float borderWidth = 0;
+	float borderTop = 0;
+	float borderLeft = 0;
+	float borderRight = 0;
+	float borderBottom = 0;
 	
-	void setBorderWidth(int top, int right, int bottom, int left)
+	void setBorderWidth(float top, float right, float bottom, float left)
 	{
 		borderTop = top;
 		borderLeft = left;
@@ -664,7 +679,7 @@ struct TS_Panel : Panel
 			// Line at top
 			nvgBeginPath(vg);
 			x = 0;
-			y = 0;
+			y = borderTop / 2.0;
 			nvgMoveTo(vg, /*start x*/ x, /*start y*/ y); // Top Left
 			x = box.size.x;
 			nvgLineTo(vg, /*x*/ x, /*y*/ y); // Top Right
@@ -675,7 +690,7 @@ struct TS_Panel : Panel
 		if (borderRight > 0)
 		{
 			nvgBeginPath(vg);
-			x = box.size.x;
+			x = box.size.x - borderRight / 2.0;
 			y = 0;
 			nvgMoveTo(vg, /*x*/ x, /*y*/ y); // Top Right					
 			y = box.size.y;// - borderRight;
@@ -688,7 +703,7 @@ struct TS_Panel : Panel
 		{
 			nvgBeginPath(vg);
 			x = box.size.x;// - borderBottom;
-			y = box.size.y;// - borderBottom;
+			y = box.size.y - borderBottom / 2.0;// - borderBottom;
 			nvgMoveTo(vg, /*x*/ x, /*y*/ y); // Bottom Right					
 			x = 0;// borderBottom / 2.0;
 			nvgLineTo(vg, /*x*/ x, /*y*/ y); // Bottom Left			
@@ -699,9 +714,9 @@ struct TS_Panel : Panel
 		if (borderLeft > 0)
 		{
 			nvgBeginPath(vg);
-			x = 0;//borderLeft / 2.0;
+			x = borderLeft / 2.0;
 			y = box.size.y;// - borderLeft;
-			nvgLineTo(vg, /*x*/ x, /*y*/ y); // Bottom Left					
+			nvgMoveTo(vg, /*x*/ x, /*y*/ y); // Bottom Left					
 			y = 0;//borderLeft / 2.0;
 			nvgLineTo(vg, /*x*/ x, /*y*/ y); // Top Left						
 			nvgStrokeColor(vg, borderColor);
@@ -713,16 +728,65 @@ struct TS_Panel : Panel
 		Widget::draw(vg);
 	}
 };
+// SVG Panel without mandatory border on LHS
+struct TS_SVGPanel : SVGPanel
+{
+	NVGcolor borderColor = COLOR_BLACK;
+	float borderTop = 0;
+	float borderLeft = 0;
+	float borderRight = 0;
+	float borderBottom = 0;
+	
+	TS_SVGPanel() : SVGPanel()
+	{
+		return;
+	}
+	TS_SVGPanel(float borderTop, float borderRight, float borderBottom, float borderLeft) : TS_SVGPanel()
+	{
+		this->borderTop = borderTop;
+		this->borderRight = borderRight;
+		this->borderBottom = borderBottom;
+		this->borderLeft = borderLeft;
+		return;
+	}	
+	void setBackground(std::shared_ptr<SVG> svg)  {
+		SVGWidget *sw = new SVGWidget();
+		sw->setSVG(svg);
+		addChild(sw);
+
+		// Set size
+		box.size = sw->box.size.div(RACK_GRID_SIZE).round().mult(RACK_GRID_SIZE);
+
+		TS_Panel* pb = new TS_Panel();		
+		pb->setBorderWidth(borderTop, borderRight, borderBottom, borderLeft);
+		pb->borderColor = this->borderColor;
+		pb->box.size = box.size;
+		addChild(pb);		
+		
+		// PanelBorder *pb = new PanelBorder();
+		// pb->box.size = box.size;
+		// addChild(pb);
+	}
+
+};
+
 
 struct ModuleResizeHandle : Widget {
 	float minWidth;
 	bool right = false;
 	float dragX;
 	Rect originalBox;
-	ModuleResizeHandle(float _minWidth) {
+	ModuleResizeHandle(float minWidth) {
 		box.size = Vec(RACK_GRID_WIDTH * 1, RACK_GRID_HEIGHT);
-		minWidth = _minWidth;
+		this->minWidth = minWidth;
+		return;
 	}
+	ModuleResizeHandle(float minWidth, SVGPanel* bgPanel) : ModuleResizeHandle(minWidth)
+	{
+		addChild(bgPanel);
+		return;
+	}
+	
 	void onMouseDown(EventMouseDown &e) override {
 		if (e.button == 0) {
 			e.consumed = true;
@@ -821,6 +885,18 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId, bool disableLight)
 	port->module = module;
 	port->type = Port::INPUT;
 	port->portId = inputId;
+	if (disableLight)
+		port->disableLights();
+	return port;
+}
+template <class TPort>
+TS_Port* TS_createInput(Vec pos, Module *module, int inputId, bool disableLight, NVGcolor lightColor) {
+	TS_Port *port = new TPort();
+	port->box.pos = pos;
+	port->module = module;
+	port->type = Port::INPUT;
+	port->portId = inputId;
+	port->setLightColor(lightColor);
 	if (disableLight)
 		port->disableLights();
 	return port;

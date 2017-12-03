@@ -25,6 +25,9 @@ void trigSeq::randomize()
 // trigSeq::step()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void trigSeq::step() {
+	if (!initialized)
+		return;
+
 	bool gOn = true;
 	bool pulse = false;
 	bool reloadMatrix = false;
@@ -149,6 +152,6 @@ trigSeqWidget::trigSeqWidget() : TSSequencerWidgetBase()
 	} // end loop through 4x4 grid
 	
 	module->modeString = module->modeStrings[module->selectedOutputValueMode];
-
+	module->initialized = true;
 	return;
 }

@@ -1,35 +1,42 @@
 #ifndef TROWASOFT_UTILITIES_HPP
 #define TROWASOFT_UTILITIES_HPP
 
+#include "rack.hpp"
+using namespace rack;
+
 #include "math.hpp"
 
-#define TROWA_DISP_MSG_SIZE		30
-#define TROWASEQ_NUM_PATTERNS	16
-#define TROWASEQ_PATTERN_MIN_V	-10   // Min voltage input / output for controlling pattern index
-#define TROWASEQ_PATTERN_MAX_V	 10   // Max voltage input / output for controlling pattern index
-#define TROWASEQ_NUM_NOTES			12 // Num notes per octave
+#define TROWA_DISP_MSG_SIZE			30 // For local buffers of strings
+#define TROWASEQ_NUM_PATTERNS		64 // Number of patterns for sequencers.
+#define TROWASEQ_PATTERN_MIN_V		-10 // Min voltage input / output for controlling pattern index
+#define TROWASEQ_PATTERN_MAX_V	 	 10 // Max voltage input / output for controlling pattern index
+#define TROWASEQ_NUM_NOTES			12 // Num notes per octave (1 V per octave)
 #define TROWASEQ_ZERO_OCTAVE		5  // Octave for voltage 0
 
-static const char * TROWA_NOTES[TROWASEQ_NUM_NOTES] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+// Fonts:
+#define TROWA_DIGITAL_FONT		"res/Fonts/Digital dream Fat.ttf"
+#define TROWA_LABEL_FONT		"res/Fonts/ZeroesThree-Regular.ttf"
 
-// Given some input voltage, convert to our Pattern index (0-15).
-static inline int VoltsToPattern(float voltsInput)
+//static const char * TROWA_NOTES[TROWASEQ_NUM_NOTES] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
+extern const char * TROWA_NOTES[TROWASEQ_NUM_NOTES]; // Our note labels.
+
+// Given some input voltage, convert to our Pattern index [0-63].
+inline int VoltsToPattern(float voltsInput)
 {	
 	return clampi(roundf(rescalef(voltsInput, TROWASEQ_PATTERN_MIN_V, TROWASEQ_PATTERN_MAX_V, 1, TROWASEQ_NUM_PATTERNS)), 1, TROWASEQ_NUM_PATTERNS);
-	//return (voltsInput - TROWASEQ_PATTERN_MIN_V) / (TROWASEQ_PATTERN_RANGE_V) *  (TROWASEQ_NUM_PATTERNS - 1);
 }
-// Pattern index (0-15) to output voltage.
-static inline float PatternToVolts(int patternIx)
+// Pattern index [0-63] to output voltage.
+inline float PatternToVolts(int patternIx)
 {
 	return rescalef(patternIx + 1, 1, TROWASEQ_NUM_PATTERNS, TROWASEQ_PATTERN_MIN_V, TROWASEQ_PATTERN_MAX_V);
 }
-// Octave 0 to 10
-static inline int VoltsToOctave(float v)
+// Voltage [-5 to 5] to Octave 0 to 10
+inline int VoltsToOctave(float v)
 {
 	return (int)(v + TROWASEQ_ZERO_OCTAVE);
 }
-// Note index 0 to 11
-static inline int VoltsToNoteIx(float v)
+// Note index 0 to 11 (to TROWA_NOTES array).
+inline int VoltsToNoteIx(float v)
 {
 	// This doesn't work all the time.
 	//(v - floorf(v))*TROWASEQ_NUM_NOTES
@@ -37,8 +44,22 @@ static inline int VoltsToNoteIx(float v)
 	// (-0.33 - -1) * 12 = 0.67*12 = int(8.04) = 8 [G#]
 	return (int)(round((v + TROWASEQ_ZERO_OCTAVE)*TROWASEQ_NUM_NOTES)) % TROWASEQ_NUM_NOTES;
 }
+// Floating point hue [0-1.0] to color.
+NVGcolor inline HueToColor(float hue)
+{
+	return nvgHSLA(hue, 0.5, 0.5, /*alpha 0-255*/ 0xff);
+}
+// Floating point hue [0-1.0] to color for our color gradient.
+NVGcolor inline HueToColorGradient(float hue)
+{
+	return nvgHSLA(hue, 1.0, 0.5, /*alpha 0-255*/ 0xff);
+}
 
-
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// ValueSequencerMode
+// Information and methods for translating knob input voltages to output voltages
+// and for display strings.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct ValueSequencerMode
 {
 	// Min value in voltage
@@ -129,6 +150,10 @@ struct ValueSequencerMode
 		return oVal;
 	}
 };
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// NoteValueSequencerMode
+// Special sequencer mode for displaying human friendly Note labels instead of voltages.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct NoteValueSequencerMode : ValueSequencerMode
 {
 	NoteValueSequencerMode(const char* displayName,
@@ -140,7 +165,7 @@ struct NoteValueSequencerMode : ValueSequencerMode
 		//this->maxDisplayValue = maxDisplayValue; // I.e. 15 
 		
 		this->minDisplayValue = -TROWASEQ_ZERO_OCTAVE;
-		this->maxDisplayValue = TROWASEQ_ZERO_OCTAVE; // Not really used	
+		this->maxDisplayValue = TROWASEQ_ZERO_OCTAVE;	
 	
 		this->voltageMin = min_V;  // I.e. -10 Volts
 		this->voltageMax = max_V;  // I.e. +10 Volts

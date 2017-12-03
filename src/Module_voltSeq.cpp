@@ -24,13 +24,15 @@ void voltSeq::randomize()
 		knobStepMatrix[r][c]->setKnobValue(this->triggerState[currentPatternEditingIx][currentTriggerEditingIx][s]);			
 	}	
 	return;
-}
+} // end randomize()
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // voltSeq::step()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void voltSeq::step()
 {
+	if (!initialized)
+		return;
 	bool gOn = true;
 	bool pulse = false;
 	bool reloadMatrix = false;
@@ -99,9 +101,8 @@ void voltSeq::step()
 		gateLightsOut[g] = (gate < 0) ? -gate : gate;
 		lights[GATE_LIGHTS + g].value = gate / currOutputValueMode->outputVoltageMax;
 	}
-	firstLoad = false;
 	return;
-}
+} // end step()
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // voltSeqWidget
@@ -123,7 +124,6 @@ voltSeqWidget::voltSeqWidget() : TSSequencerWidgetBase()
 	}
 	
 	TSSequencerWidgetBase::addBaseControls(false);
-
 	
 	// (User) Input KNOBS ==================================================	
 	int y = 115;
@@ -167,6 +167,6 @@ voltSeqWidget::voltSeqWidget() : TSSequencerWidgetBase()
 		y += 59; // Next row
 		x = 79;
 	} // end loop through 4x4 grid
-
+	module->initialized = true;
 	return;
 }

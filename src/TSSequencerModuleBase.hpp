@@ -13,6 +13,8 @@
 
 #define TROWA_SEQ_NUM_TRIGS		16	// Num of triggers/voices
 #define TROWA_SEQ_NUM_STEPS		16  // Num of steps per gate/voice
+#define TROWA_SEQ_MAX_NUM_STEPS	64  // Maximum number of steps
+
 // We only show 4x4 grid of steps at time.
 #define TROWA_SEQ_STEP_NUM_ROWS	4	// Num of rows for display of the Steps (single Gate displayed at a time)
 #define TROWA_SEQ_STEP_NUM_COLS	(TROWA_SEQ_NUM_STEPS/TROWA_SEQ_STEP_NUM_ROWS)
@@ -90,6 +92,7 @@ struct TSSequencerModuleBase : Module {
 		NUM_LIGHTS = PAD_LIGHTS // Add the number of steps separately...
 	};
 
+	bool initialized = false;
 	// If this module is running.
 	bool running = true;
 	SchmittTrigger clockTrigger; 		// for external clock
@@ -172,6 +175,7 @@ struct TSSequencerModuleBase : Module {
 	SchmittTrigger copyPatternTrigger;
 	SchmittTrigger copyGateTrigger;
 	SchmittTrigger pasteTrigger;
+	/// TODO: Maybe eventually separate UI controls from module (UI changes in Widget not Module).
 	TS_LightString* pasteLight;
 	ColorValueLight* copyPatternLight;
 	ColorValueLight* copyGateLight;
@@ -187,7 +191,7 @@ struct TSSequencerModuleBase : Module {
 	const char* modeString;
 	const char* modeStrings[3]; // Mode strings
 
-	bool firstLoad = false;		
+	bool firstLoad = true;		
 	const float lightLambda = 0.05;
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -249,6 +253,9 @@ struct TSSequencerModuleBase : Module {
 		
 		copySourcePatternIx = -1;
 		copySourceGateIx = TROWA_SEQ_COPY_GATEIX_ALL; // Which trigger we are copying, -1 for all		
+
+		initialized = false;
+		firstLoad = true;
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -402,11 +409,12 @@ struct TSSequencerModuleBase : Module {
 				} // end for (triggers)
 			} // end for (patterns)			
 		}
-
 		// gateMode
 		json_t *gateModeJ = json_object_get(rootJ, "gateMode");
 		if (gateModeJ)
 			gateMode = (GateMode)json_integer_value(gateModeJ);
+
+		firstLoad = true;
 		return;
 	} // end fromJson()
 }; // end struct TSSequencerModuleBase
@@ -427,8 +435,8 @@ struct TSSeqDisplay : TransparentWidget {
 	// TSSeqDisplay(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSSeqDisplay() {
-		font = Font::load(assetPlugin(plugin, "res/Fonts/Digital dream Fat.ttf"));
-		labelFont = Font::load(assetPlugin(plugin, "res/Fonts/ZeroesThree-Regular.ttf"));
+		font = Font::load(assetPlugin(plugin, TROWA_DIGITAL_FONT));
+		labelFont = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
 		fontSize = 12;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';		
@@ -631,7 +639,7 @@ struct TSSeqLabelArea : TransparentWidget {
 	// TSSeqLabelArea()
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSSeqLabelArea() {
-		font = Font::load(assetPlugin(plugin, "res/Fonts/ZeroesThree-Regular.ttf"));
+		font = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
 		fontSize = 13;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';		

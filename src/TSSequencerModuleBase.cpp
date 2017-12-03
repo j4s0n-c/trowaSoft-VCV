@@ -142,32 +142,33 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 			}
 			clockTime = powf(2.0, input); // -2 to 6
 			float dt = clockTime / engineGetSampleRate(); // Real dt
-			int n = (index + 1) % swingResetSteps;
+			//int n = (index + 1) % swingResetSteps;
 			// index 0 --> n = 1,
 			// index 1 --> n = 2,
 			// index 2 --> n = 3,
 			// index 3 --> n = 0
-			bool inSwing = swingAdjustment != 0 &&  n > 0;	// index 0, 1, 2 and 4, 5, 7
+			//bool inSwing = swingAdjustment != 0 &&  n > 0;	// index 0, 1, 2 and 4, 5, 7
 			realPhase += dt; // Real Time no matter what
 			if (realPhase >= 1.0) 
 			{
 				realPhase -= 1.0;
-				if ( swingAdjustment == 0 || swingRealSteps++ >= swingResetSteps ) // n == 0 We should be index 3, 7, 11, 15
-				{
-					nextStep = true; // Next step should be index 0, 4, 8, 12, 16
-					swingAdjustedPhase = 0; // reset swing
-					swingRealSteps = 0;					
-				}								
+				nextStep = true;
+				//if ( swingAdjustment == 0 || swingRealSteps++ >= swingResetSteps ) // n == 0 We should be index 3, 7, 11, 15
+				//{
+				//	nextStep = true; // Next step should be index 0, 4, 8, 12, 16
+				//	swingAdjustedPhase = 0; // reset swing
+				//	swingRealSteps = 0;					
+				//}								
 			}			
-			if (!nextStep && inSwing) // If not index 3, 7, 11, or 15
-			{
-				swingAdjustedPhase += dt * (1 + swingAdjustment * n / (swingResetSteps - 1));				
-				if (swingAdjustedPhase >= 1.0)
-				{
-					swingAdjustedPhase -= 1.0;
-					nextStep = true;
-				}
-			}
+			//if (!nextStep && inSwing) // If not index 3, 7, 11, or 15
+			//{
+			//	swingAdjustedPhase += dt * (1 + swingAdjustment * n / (swingResetSteps - 1));				
+			//	if (swingAdjustedPhase >= 1.0)
+			//	{
+			//		swingAdjustedPhase -= 1.0;
+			//		nextStep = true;
+			//	}
+			//}
 			
 			if (nextStep)
 			{
@@ -192,15 +193,13 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	}
 	
 	// Swing Adjustment
-	swingAdjustment = params[SWING_ADJ_PARAM].value;
-
+	//swingAdjustment = params[SWING_ADJ_PARAM].value;
 	
 	// Current Playing Pattern
 	// If we get an input, then use that:
 	if (inputs[SELECTED_PATTERN_PLAY_INPUT].active)
 	{
 		currentPatternPlayingIx = VoltsToPattern(inputs[SELECTED_PATTERN_PLAY_INPUT].value) - 1;
-		//currentPatternPlayingIx = clampi(roundf(inputs[SELECTED_PATTERN_PLAY_INPUT].value / 6.0 * TROWASEQ_NUM_PATTERNS), 1, TROWASEQ_NUM_PATTERNS) - 1;
 	}
 	else
 	{
@@ -283,7 +282,9 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	if (inputs[STEPS_INPUT].active)
 	{
 		// Use the input if something is connected.
-		currentNumberSteps = clampi(roundf(rescalef(inputs[STEPS_INPUT].value, TROWASEQ_STEPS_MIN_V, TROWASEQ_STEPS_MAX_V, 1, maxSteps)), 1, maxSteps);
+		// Some seqeuencers go to 64 steps, we want the same voltage to mean the same step number no matter how many max steps this one takes.
+		// so voltage input is normalized to indicate step 1 to step 64, but we'll limit it to maxSteps.
+		currentNumberSteps = clampi(roundf(rescalef(inputs[STEPS_INPUT].value, TROWASEQ_STEPS_MIN_V, TROWASEQ_STEPS_MAX_V, 1, TROWA_SEQ_MAX_NUM_STEPS)), 1, maxSteps);
 	}
 	else
 	{
@@ -312,6 +313,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	*pulse = gatePulse.process(1.0 / engineGetSampleRate());
 	
 	// See if we should reload our matrix
-	*reloadMatrix = currentTriggerEditingIx != lastGateIx || currentPatternEditingIx != lastEditPatternIx || pasteCompleted;	
+	*reloadMatrix = currentTriggerEditingIx != lastGateIx || currentPatternEditingIx != lastEditPatternIx || pasteCompleted || firstLoad;
+	firstLoad = false;
 	return;
 } // end getStepInputs()

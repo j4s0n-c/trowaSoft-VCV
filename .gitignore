@@ -3,6 +3,13 @@
 *.zip
 build/*.*
 dist/*.*
-src/Widget_n64Seq.cpp
-res/ComponentLibrary/RoundBlack.svg
 *.dll
+.vs/*.*
+*.opendb
+*.ipch
+*.vcv
+CppProperties.json
+settings.json
+*.config
+.vs/trowaSoft/v15/.suo
+*.db

@@ -1,20 +1,23 @@
 #include "trowaSoft.hpp"
-
+#include "Widget_multiScope.hpp"
 
 // The plugin-wide instance of the Plugin class
 Plugin *plugin;
 
 void init(rack::Plugin *p) {
 	plugin = p;
-	p->slug = "trowaSoft";
+	p->slug = TROWA_PLUGIN_NAME;
 #ifdef VERSION
 	p->version = TOSTRING(VERSION);
 #endif
 
-	p->addModel(createModel<trigSeqWidget>("trowaSoft", "trigSeq", "trigSeq", SEQUENCER_TAG));
-	p->addModel(createModel<trigSeq64Widget>("trowaSoft", "trigSeq64", "trigSeq64", SEQUENCER_TAG));
-    p->addModel(createModel<voltSeqWidget>("trowaSoft", "voltSeq", "voltSeq", SEQUENCER_TAG));
+	// Sequencer Modules:
+	p->addModel(createModel<trigSeqWidget>(TROWA_PLUGIN_NAME, "trigSeq", "trigSeq", SEQUENCER_TAG));
+	p->addModel(createModel<trigSeq64Widget>(TROWA_PLUGIN_NAME, "trigSeq64", "trigSeq64", SEQUENCER_TAG));
+    p->addModel(createModel<voltSeqWidget>(TROWA_PLUGIN_NAME, "voltSeq", "voltSeq", SEQUENCER_TAG));
 	
+	// Scope Modules:
+	p->addModel(createModel<multiScopeWidget>(TROWA_PLUGIN_NAME, "multiScope", "multiScope", VISUAL_TAG, EFFECT_TAG, UTILITY_TAG));
 	
 	
 	// Any other plugin initialization may go here.

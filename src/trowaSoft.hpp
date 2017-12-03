@@ -2,9 +2,10 @@
 #define TROWASOFT_HPP
 
 #include "rack.hpp"
-#define TROWA_SCOPE_NUM_WAVEFORMS	3
-
 using namespace rack;
+
+
+#define TROWA_PLUGIN_NAME	"trowaSoft"
 
 
 extern Plugin *plugin;
@@ -18,9 +19,17 @@ extern Plugin *plugin;
 // Base Module Widget. Remove randomize of parameters.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct TSSModuleWidgetBase : ModuleWidget {
+	bool randomizeParameters = false;
 	TSSModuleWidgetBase() { return; }
-	void randomize() override 
+	TSSModuleWidgetBase(bool randomizeParams) { randomizeParameters = randomizeParams; return; }
+	void randomize() override
 	{
+		if (randomizeParameters)
+		{
+			for (ParamWidget *param : params) {
+				param->randomize();
+			}			
+		}
 		if (module) {
 			module->randomize();
 		}
@@ -53,6 +62,14 @@ struct trigSeqWidget : TSSequencerWidgetBase {
 struct voltSeqWidget : TSSequencerWidgetBase {
 	voltSeqWidget();
 };
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// textSeqWidget
+// Widget for the trowaSoft 64-step sequencer.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+struct textSeqWidget : TSSequencerWidgetBase {
+	textSeqWidget();
+};
+
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // trigSeq64Widget
@@ -61,5 +78,10 @@ struct voltSeqWidget : TSSequencerWidgetBase {
 struct trigSeq64Widget : TSSequencerWidgetBase {
 	trigSeq64Widget();
 };
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// multiScopeWidget
+// Widget for the scope.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+//struct multiScopeWidget;
 
 #endif

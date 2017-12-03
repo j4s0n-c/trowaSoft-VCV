@@ -71,6 +71,6 @@ trigSeq64Widget::trigSeq64Widget() : TSSequencerWidgetBase()
 	} // end loop through NxN grid
 	
 	module->modeString = module->modeStrings[module->selectedOutputValueMode];
-
+	module->initialized = true;
 	return;
 }
