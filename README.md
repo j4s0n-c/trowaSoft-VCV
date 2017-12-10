@@ -11,6 +11,20 @@ http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx
 For more information about Rack, please visit:
 https://vcvrack.com/.
 
+## Disclaimers
+**NOTE from dev:** This is offered to the VCV Rack community with no warranties or guarantees. This will probably be an alpha forever.
+
+This project is done in my free time for my boyfriend so that he can have the modules he wants and for him to hopefully learn programming. Note that I am not a C++ programmer. Please feel free to learn about VCV at the same time we are (we are learning as we go).
+
+**WARNING:** The documentation may not be up to date at all times (and probably isn't). Apologies for that, but programmers are notoriously horrible at documentation :).
+
+## Binaries/Builds
+Binaries are **only guaranteed** in Windows at the moment. If any builds (on any OS) are available, they will be posted under the [Github Releases page](https://github.com/j4s0n-c/trowaSoft-VCV/releases) or on [geeksaurusrex](http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx).
+Mac builds are currently courtesy of other awesome VCV Rack community members who own an Apple computer.
+
+
+To build for your platform, please visit the [VCV rack documentation](https://github.com/VCVRack/Rack#setting-up-your-development-environment).
+
 ## Sequencers
 Currently there are three (3) sequencer modules.
 
