@@ -6,6 +6,7 @@ using namespace rack;
 
 #include <string.h>
 #include <stdio.h>
+#include "math.hpp"
 #include "dsp/digital.hpp"
 #include "components.hpp"
 #include "trowaSoftUtilities.hpp"
@@ -78,7 +79,13 @@ using namespace rack;
 	#define COLOR_TS_GRAY nvgRGB(0xAA, 0xAA, 0xAB)
 #endif 
 
+#ifndef  KNOB_SENSITIVITY
+#define KNOB_SENSITIVITY 0.0015
+#endif // ! KNOB_SENSITIVITY
 
+//--------------------------------------------------------------
+// ColorValueLight - Sorta like the old ColorValueLight that was in Rack.
+//--------------------------------------------------------------
 struct ColorValueLight : ModuleLightWidget {
 	NVGcolor baseColor;
 	ColorValueLight()
@@ -102,20 +109,9 @@ struct ColorValueLight : ModuleLightWidget {
 };
 
 //--------------------------------------------------------------
-// SnapKnob
+// TS_PadSwitch
+// Empty momentary switch of given size.
 //--------------------------------------------------------------
-struct TS_SnapKnob : RoundBlackKnob
-{
-	TS_SnapKnob() {
-		box.size = Vec(28, 28);
-	}
-	void randomize() override { return; }
-	void onDragEnd(EventDragEnd &e) override {
-		setValue(roundf(value));
-		RoundBlackKnob::onDragEnd(e);
-	}	
-};
-
 struct TS_PadSwitch : MomentarySwitch {
 	TS_PadSwitch() {
 		return;
@@ -123,10 +119,8 @@ struct TS_PadSwitch : MomentarySwitch {
 	TS_PadSwitch(Vec size) {
 		box.size = size;		
 		return;
-	}
-	
+	}	
 };
-
 
 //--------------------------------------------------------------
 // TS_PadSquare - A Square Pad button.
@@ -148,9 +142,8 @@ struct TS_PadSquare : SVGSwitch, MomentarySwitch {
 	}
 };
 
-
 //--------------------------------------------------------------
-// TS_PadBtn - A wide Pad button.
+// TS_PadBtn - A wide Pad button. (Empty text)
 //--------------------------------------------------------------
 struct TS_PadBtn : SVGSwitch, MomentarySwitch {
 	
@@ -164,7 +157,7 @@ struct TS_PadBtn : SVGSwitch, MomentarySwitch {
 };
 
 //--------------------------------------------------------------
-// TS_PadRun - A wide Pad button.
+// TS_PadRun - A wide Pad button. (RUN >)
 //--------------------------------------------------------------
 struct TS_Pad_Run : SVGSwitch, MomentarySwitch {
 	
@@ -178,7 +171,7 @@ struct TS_Pad_Run : SVGSwitch, MomentarySwitch {
 };
 
 //--------------------------------------------------------------
-// TS_PadReset - A wide Pad button.
+// TS_PadReset - A wide Pad button. (< RST)
 //--------------------------------------------------------------
 struct TS_Pad_Reset : SVGSwitch, MomentarySwitch {
 	
@@ -192,7 +185,7 @@ struct TS_Pad_Reset : SVGSwitch, MomentarySwitch {
 };
 
 //------------------------------------------------------------------------------------------------
-// Lighted arc for light knobs
+// TS_LightArc - Lighted arc for light knobs
 //------------------------------------------------------------------------------------------------
 struct TS_LightArc : ColorValueLight {
 	// The inner radius 
@@ -209,11 +202,8 @@ struct TS_LightArc : ColorValueLight {
 	char lightString[10];
 	// The point where the angle is considered 0 degrees / radians.
 	float zeroAnglePoint;
-	// Format string for displaying the numeric value.
-	//const char* textFormatString = "%02.0f";
-	
+	// Pointer to the Sequencer Value mode information.
 	ValueSequencerMode* valueMode;
-
 	
 	TS_LightArc()
 	{
@@ -221,11 +211,8 @@ struct TS_LightArc : ColorValueLight {
 		fontSize = 10;
 		bgColor = nvgRGBAf(0.0, 0, 0, /*alpha */ 1.0);
 		baseColor = COLOR_WHITE;
-		zeroAnglePoint = 1.5*NVG_PI;
-	}
-	
-
-	
+		zeroAnglePoint = TROWA_ANGLE_STRAIGHT_UP_RADIANS;
+	}	
 	void draw(NVGcontext *vg) override
 	{
 		float oradius = box.size.x / 2.0; // 25
@@ -234,7 +221,6 @@ struct TS_LightArc : ColorValueLight {
 		float angle = *currentAngle_radians;
 		zeroAnglePoint = valueMode->zeroPointAngle_radians;
 		int dir = (angle < zeroAnglePoint) ? NVG_CCW : NVG_CW;
-		//angle += zeroAnglePoint; // Our midpoint is 270 degrees (1.5 Pi) or straight up 
 
 		// Background - Solid
 		nvgBeginPath(vg);
@@ -249,19 +235,6 @@ struct TS_LightArc : ColorValueLight {
 		nvgStroke(vg);
 		
 		// svg Angles go clockwise from positive x -->
-		
-		// // Adds an arc segment at the corner defined by the last path point, and two specified points.
-		// //void nvgArcTo(NVGcontext* ctx, float x1, float y1, float x2, float y2, float radius);
-		// nvgBeginPath(vg);
-		// //nvgArcTo(vg, oradius, oradius, float x2, float y2, float radius);
-		// // Creates new circle arc shaped sub-path. The arc center is at cx,cy, the arc radius is r,
-		// // and the arc is drawn from angle a0 to a1, and swept in direction dir (NVG_CCW, or NVG_CW).
-		// // Angles are specified in radians.
-		// // nvgArc(NVGcontext* ctx, float cx, float cy, float r, float a0, float a1, int dir);
-		// nvgArc(vg, /*cx*/ oradius, /*cy*/ oradius, radius, 
-			// /*a0*/ startAngle, /*a1*/ endAngle, /*dir*/ NVG_CW);
-		// //nvgFillColor(vg, COLOR_WHITE);
-		// //nvgFill(vg);
 		
 		// Inner glow
 		nvgGlobalCompositeOperation(vg, NVG_LIGHTER);
@@ -287,16 +260,10 @@ struct TS_LightArc : ColorValueLight {
 		nvgStrokeColor(vg, borderColor);
 		nvgStroke(vg);
 		
-		
-		//nvgFillColor(vg, color);
-		//nvgFill(vg);
-
 		// Outer glow
 		nvgBeginPath(vg);
 		nvgArc(vg, /*cx*/ oradius, /*cy*/ oradius, innerRadius - 3, 
 			 /*a0*/ zeroAnglePoint, /*a1*/ angle, /*dir*/ dir);
-		// nvgArc(vg, /*cx*/ oradius, /*cy*/ oradius, radius, 
-			// /*a0*/ startAngle, /*a1*/ endAngle, /*dir*/ NVG_CW);
 	
 		NVGpaint paint;
 		NVGcolor icol = color;
@@ -308,7 +275,6 @@ struct TS_LightArc : ColorValueLight {
 		nvgStrokePaint(vg, paint);
 		nvgStroke(vg);
 					
-
 		if (numericValue != NULL)
 		{
 			nvgBeginPath(vg);
@@ -318,19 +284,20 @@ struct TS_LightArc : ColorValueLight {
 			nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 			float v = valueMode->GetOutputValue(*numericValue);
 			valueMode->GetDisplayString(v, lightString);
-			//sprintf(lightString, textFormatString, *numericValue);				
 			nvgFillColor(vg, textColor);
 			nvgText(vg, oradius, oradius, lightString, NULL);
 		}
 		return;
 	}
-};
+}; // end TS_LightArc
 
-
+//------------------------------------------------------------------------------------------------
+// TS_LightedKnob - Knob to be used with light arcs. (not actually lit itself)
+//------------------------------------------------------------------------------------------------
 struct TS_LightedKnob : SVGKnob {
 	float currentAngle;
 	float differentialAngle;
-	const float zeroAnglePoint = 1.5*NVG_PI;
+	const float zeroAnglePoint = TROWA_ANGLE_STRAIGHT_UP_RADIANS;
 
 	TS_LightedKnob() {
 		minAngle = -0.83*NVG_PI;
@@ -367,11 +334,10 @@ struct TS_LightedKnob : SVGKnob {
 		}
 		FramebufferWidget::step();
 	}
-};
-
+}; // end TS_LightedKnob
 
 //--------------------------------------------------------------
-// TS_LightString : A light with a string (message/text).
+// TS_LightString - A light with a string (message/text).
 //--------------------------------------------------------------
 struct TS_LightString : ColorValueLight
 {
@@ -393,16 +359,10 @@ struct TS_LightString : ColorValueLight
 		float radiusY = box.size.y / 2.0;
 		float oradiusY = radiusY + 20.0;
 
-		//NVGcolor backColor = bgColor;
 		NVGcolor outerColor = color;
 		
 		// Solid
 		nvgBeginPath(vg);
-		//nvgCircle(vg, radius, radius, radius);
-		//nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
-		// nvgFillColor(vg, backColor);
-		// nvgFill(vg);
-
 		// Border
 		nvgStrokeWidth(vg, 1.0);
 		NVGcolor borderColor = bgColor;
@@ -415,21 +375,14 @@ struct TS_LightString : ColorValueLight
 		nvgFillColor(vg, color);
 		nvgFill(vg);
 
-		//nvgGlobalCompositeOperation(vg, NVG_SOURCE_OVER);//Restore to default.
-		
 		// Outer glow
 		nvgBeginPath(vg);
-		//NVGcontext* ctx, float x, float y, float w, float h
-		//nvgRect(vg, radius - oradius, radius - oradius, 2*oradius, 2*oradius);
 		nvgRoundedRect(vg, /*x*/ radius - oradius, /*y*/ radiusY - oradiusY, /*w*/ 3*oradius, /*h*/ 2*oradiusY, cornerRadius);
 		NVGpaint paint;
 		NVGcolor icol = outerColor;// color;
 		icol.a *= 0.5;
 		NVGcolor ocol = outerColor;// color;
 		ocol.a = 0.0;
-		//paint = nvgRadialGradient(vg, /*center x */ radius, /*center y*/ radius, /*inner */ radius, /*outer*/oradius, icol, ocol);
-		// NVGpaint nvgBoxGradient(NVGcontext* ctx, float x, float y, float w, float h,
-						// float r, float f, NVGcolor icol, NVGcolor ocol);
 		float feather = 3;
 		// Feather defines how blurry the border of the rectangle is.
 		paint = nvgBoxGradient(vg, /*x*/ 0, /*y*/ 0, /*w*/ box.size.x, /*h*/ oradiusY - 10, 
@@ -446,10 +399,9 @@ struct TS_LightString : ColorValueLight
 		nvgFontFaceId(vg, font->handle);
 		nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 		nvgText(vg, box.size.x / 2, box.size.y / 2, lightString, NULL);
-
 		return;
 	}	
-};
+}; // end TS_LightString
 
 //--------------------------------------------------------------
 // TS_LightSquare - Square light. 
@@ -472,7 +424,6 @@ struct TS_LightSquare : ColorValueLight
 		NVGcolor outerColor = color;
 		// Solid
 		nvgBeginPath(vg);
-		//nvgCircle(vg, radius, radius, radius);
 		nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
 		nvgFillColor(vg, backColor);
 		nvgFill(vg);
@@ -489,21 +440,14 @@ struct TS_LightSquare : ColorValueLight
 		nvgFillColor(vg, color);
 		nvgFill(vg);
 
-		//nvgGlobalCompositeOperation(vg, NVG_SOURCE_OVER);//Restore to default.
-		
 		// Outer glow
 		nvgBeginPath(vg);
-		//NVGcontext* ctx, float x, float y, float w, float h
-		//nvgRect(vg, radius - oradius, radius - oradius, 2*oradius, 2*oradius);
 		nvgRoundedRect(vg, /*x*/ radius - oradius, /*y*/ radius - oradius, /*w*/ 2*oradius, /*h*/ 2*oradius, cornerRadius);
 		NVGpaint paint;
 		NVGcolor icol = outerColor;// color;
 		icol.a *= 0.25;
 		NVGcolor ocol = outerColor;// color;
 		ocol.a = 0.0;
-		//paint = nvgRadialGradient(vg, /*center x */ radius, /*center y*/ radius, /*inner */ radius, /*outer*/oradius, icol, ocol);
-		// NVGpaint nvgBoxGradient(NVGcontext* ctx, float x, float y, float w, float h,
-						// float r, float f, NVGcolor icol, NVGcolor ocol);
 		float feather = 3;
 		// Feather defines how blurry the border of the rectangle is.
 		paint = nvgBoxGradient(vg, /*x*/ -5, /*y*/ -5, /*w*/ oradius - 10, /*h*/ oradius - 10, 
@@ -513,9 +457,11 @@ struct TS_LightSquare : ColorValueLight
 		nvgFill(vg);
 		return;
 	}
-};
+}; // end TS_LightSquare
 
-
+//--------------------------------------------------------------
+// TS_LightRing - Light to be used around ports.
+//--------------------------------------------------------------
 struct TS_LightRing : ColorValueLight 
 {
 	// The inner radius 
@@ -563,12 +509,19 @@ struct TS_LightRing : ColorValueLight
 	}
 };
 
- struct TS_TinyBlackKnob : RoundBlackKnob {
+//--------------------------------------------------------------
+// TS_TinyBlackKnob - 20x20 RoundBlackKnob
+//--------------------------------------------------------------
+struct TS_TinyBlackKnob : RoundBlackKnob {
 	 TS_TinyBlackKnob() {
 		 box.size = Vec(20, 20);		
 	 }
  };
 
+//--------------------------------------------------------------
+// TS_Port - Smaller port with set light color and light disable
+// (by just making the lights transparent... TODO: get rid of light completely.)
+//--------------------------------------------------------------
 struct TS_Port : SVGPort {
 	NVGcolor negColor;
 	NVGcolor posColor;
@@ -624,9 +577,12 @@ struct TS_Port : SVGPort {
 	}	
 };
 
-
+//--------------------------------------------------------------
+// TS_Panel - Panel with controllable borders on all sides.
+//--------------------------------------------------------------
 struct TS_Panel : Panel 
 {
+	NVGcolor originalBackgroundColor;
 	NVGcolor borderColor = COLOR_BLACK;
 	float borderWidth = 0;
 	float borderTop = 0;
@@ -642,7 +598,11 @@ struct TS_Panel : Panel
 		borderBottom = bottom;
 		return;
 	}
-	
+	//void invertBackgroundColor()
+	//{
+	//	backgroundColor = ColorInvertToNegative(originalBackgroundColor);
+	//	return;
+	//}	
 	void draw(NVGcontext *vg) override
 	{
 		nvgBeginPath(vg);
@@ -723,12 +683,13 @@ struct TS_Panel : Panel
 			nvgStrokeWidth(vg, borderLeft);
 			nvgStroke(vg);													
 		}
-
-
 		Widget::draw(vg);
-	}
-};
-// SVG Panel without mandatory border on LHS
+	} // end draw()
+}; // end TS_Panel
+
+//--------------------------------------------------------------
+// TS_SVGPanel - SVG Panel without mandatory border on LHS
+//--------------------------------------------------------------
 struct TS_SVGPanel : SVGPanel
 {
 	NVGcolor borderColor = COLOR_BLACK;
@@ -766,60 +727,147 @@ struct TS_SVGPanel : SVGPanel
 		// PanelBorder *pb = new PanelBorder();
 		// pb->box.size = box.size;
 		// addChild(pb);
-	}
+	} // end setBackground()
+}; // end TS_SVGPanel
 
-};
-
-
-struct ModuleResizeHandle : Widget {
-	float minWidth;
-	bool right = false;
-	float dragX;
-	Rect originalBox;
-	ModuleResizeHandle(float minWidth) {
-		box.size = Vec(RACK_GRID_WIDTH * 1, RACK_GRID_HEIGHT);
-		this->minWidth = minWidth;
-		return;
-	}
-	ModuleResizeHandle(float minWidth, SVGPanel* bgPanel) : ModuleResizeHandle(minWidth)
+//--------------------------------------------------------------
+// TS_ColorSlider - Horizontal color slider control 'knob'.
+// Meant for picking colors via Hue, Saturation, Lightness.
+//--------------------------------------------------------------
+struct TS_ColorSlider : Knob {
+	// If this control should be rendered
+	bool visible = true;
+	// Starting color.
+	TSColorHSL startColorHSL;
+	// Ending color.
+	TSColorHSL endColorHSL;
+	// HSL representation of the selected color.
+	TSColorHSL selectedColorHSL;
+	// NVGcolor of the selected color (RGBA)
+	NVGcolor selectedColor;
+	// Number of stops for the gradients (doing them manually since nanovg only lets you have 2 colors)
+	int numStops = 20;
+	float handleWidth = 15.0;
+	float handleMargin = 3.0;
+	TS_ColorSlider() : Knob()
 	{
-		addChild(bgPanel);
+		minValue = 0.0;
+		maxValue = 1.0;
+		startColorHSL.h = 0.0;
+		startColorHSL.s = 1.0;
+		startColorHSL.lum = 0.5;
+		endColorHSL.h = 1.0;
+		endColorHSL.s = 1.0;
+		endColorHSL.lum = 0.5;
+		selectedColorHSL.h = 1.0;
+		selectedColorHSL.s = 1.0;
+		selectedColorHSL.lum = 0.5;
 		return;
 	}
-	
-	void onMouseDown(EventMouseDown &e) override {
-		if (e.button == 0) {
-			e.consumed = true;
-			e.target = this;
-		}
+	TS_ColorSlider(Vec size) : TS_ColorSlider()
+	{
+		box.size = size;
+		return;
+	}
+	// Set the component value for start and end
+	void setComponent(int index, float val)
+	{
+		startColorHSL.hsl[index] = val;
+		endColorHSL.hsl[index] = val;
+		return;
 	}
 	void onDragStart(EventDragStart &e) override {
-		dragX = gRackWidget->lastMousePos.x;
-		ModuleWidget *m = getAncestorOfType<ModuleWidget>();
-		originalBox = m->box;
+		if (visible)
+			Knob::onDragStart(e);
 	}
 	void onDragMove(EventDragMove &e) override {
-		ModuleWidget *m = getAncestorOfType<ModuleWidget>();
+		if (visible)
+		{
+			// Drag slower if Mod
+			float delta = KNOB_SENSITIVITY * (maxValue - minValue) * e.mouseRel.x;
+			if (guiIsModPressed())
+				delta /= 16.0;
+			dragValue += delta;
+			if (snap)
+				setValue(roundf(dragValue));
+			else
+				setValue(dragValue);
 
-		float newDragX = gRackWidget->lastMousePos.x;
-		float deltaX = newDragX - dragX;
-
-		Rect newBox = originalBox;
-		if (right) {
-			newBox.size.x += deltaX;
-			newBox.size.x = fmaxf(newBox.size.x, minWidth);
-			newBox.size.x = roundf(newBox.size.x / RACK_GRID_WIDTH) * RACK_GRID_WIDTH;
 		}
-		else {
-			newBox.size.x -= deltaX;
-			newBox.size.x = fmaxf(newBox.size.x, minWidth);
-			newBox.size.x = roundf(newBox.size.x / RACK_GRID_WIDTH) * RACK_GRID_WIDTH;
-			newBox.pos.x = originalBox.pos.x + originalBox.size.x - newBox.size.x;
-		}
-		gRackWidget->requestModuleBox(m, newBox);
+		return;
 	}
-};
+	void onDragEnd(EventDragEnd &e) override {
+		if (visible)
+			Knob::onDragEnd(e);
+	}
+	void onChange(EventChange &e) override {
+		if (visible)
+			Knob::onChange(e);
+	}
+	//void step() override {
+	//	return;
+	//}
+	//void onChange(EventChange &e) override {
+	//	//dirty = true;
+	//	ParamWidget::onChange(e);
+	//}
+	void draw(NVGcontext *vg) override {
+		if (!visible)
+			return;
 
+		// Draw the background:
+		float x = 0;
+		float y = 0;
+		float dx = box.size.x / numStops;
+		float deltaComponents[3];
+		// Calculate the delta/interval for each component (HSL)
+		for (int i = 0; i < 3; i++)
+		{
+			deltaComponents[i] = (endColorHSL.hsl[i] - startColorHSL.hsl[i]) / numStops;
+		}
+		float hue, sat, lht;
+		hue = startColorHSL.h; sat = startColorHSL.s; lht = startColorHSL.lum;
+		NVGcolor sColor;
+		NVGcolor eColor = nvgHSLA(hue, sat, lht, 0xFF);
+		y = box.size.y / 2.0;
+		for (int i = 0; i < numStops; i++)
+		{
+			sColor = eColor;
+			eColor = nvgHSLA(hue += deltaComponents[0], sat += deltaComponents[1], lht += deltaComponents[2], 0xFF);
+			nvgBeginPath(vg);
+			nvgRect(vg, x, 0, dx + 1, box.size.y);
+			nvgStrokeWidth(vg, 0.0);
+			NVGpaint paint = nvgLinearGradient(vg, x, y, x + dx + 1, y, sColor, eColor);
+			nvgFillPaint(vg, paint);
+			nvgFill(vg);
+			x += dx;
+		}
+		for (int i = 0; i < 3; i++)
+		{
+			selectedColorHSL.hsl[i] = startColorHSL.hsl[i] + (endColorHSL.hsl[i] - startColorHSL.hsl[i]) * value;
+		}
+		selectedColor = nvgHSL(selectedColorHSL.hsl[0], selectedColorHSL.hsl[1], selectedColorHSL.hsl[2]);
+		float handleHeight = box.size.y + 2 * handleMargin;
+		float handleX = rescalef(value, minValue, maxValue, 0, box.size.x) - handleWidth / 2.0;
+		float handleY = -handleMargin;// rescalef(value, minValue, maxValue, minHandlePos.y, maxHandlePos.y);
+									  // Draw handle
+		nvgBeginPath(vg);
+		nvgRoundedRect(vg, handleX, handleY, handleWidth, handleHeight, 5);
+		nvgFillColor(vg, selectedColor);
+		nvgFill(vg);
+		nvgStrokeWidth(vg, 1.0);
+		NVGcolor strokeColor = ((value < 0.5) ? COLOR_WHITE : COLOR_BLACK);
+		nvgStrokeColor(vg, strokeColor);
+		nvgStroke(vg);
+
+		/*nvgFontSize(vg, 9.0);
+		nvgFillColor(vg, COLOR_WHITE);
+		nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+		char buffer[20];
+		sprintf(buffer, "V: %.2f, W: %.2f", value, box.size.x);
+		nvgText(vg, 0, 0, buffer, NULL);*/
+	}
+}; // end TS_ColorSlider
 
 //:::-:::-:::-:::- Helpers -:::-:::-:::-:::
 template <class TModuleLightWidget>

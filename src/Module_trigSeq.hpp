@@ -21,16 +21,17 @@
 //===============================================================================
 struct trigSeq : TSSequencerModuleBase
 {	
-	SchmittTrigger* gateTriggers;
+	// Move these back to base
+	//SchmittTrigger* gateTriggers;
 	
 	trigSeq(int numSteps, int numRows, int numCols) : TSSequencerModuleBase(numSteps, numRows, numCols, false)
 	{
-		gateTriggers = new SchmittTrigger[maxSteps];
+		gateTriggers = new SchmittTrigger[numSteps]; // maxSteps
 		selectedOutputValueMode = VALUE_TRIGGER;
 		lastOutputValueMode = selectedOutputValueMode;
 		modeStrings[0] = "TRIG";
 		modeStrings[1] = "RTRG";
-		modeStrings[2] = "CONT";		
+		modeStrings[2] = "GATE";		
 		return;
 	}
 	trigSeq() : trigSeq(TROWA_SEQ_NUM_STEPS, TROWA_SEQ_STEP_NUM_ROWS, TROWA_SEQ_STEP_NUM_ROWS)
@@ -46,6 +47,10 @@ struct trigSeq : TSSequencerModuleBase
 	void step() override;
 	// Only randomize the current gate/trigger steps.
 	void randomize() override;
+	// Get the toggle step value
+	float getToggleStepValue(int step, float val, int channel, int pattern) override;
+	// Calculate a representation of all channels for this step
+	float getPlayingStepValue(int step, int pattern) override;
 };
 
 #endif
