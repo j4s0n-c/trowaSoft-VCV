@@ -12,12 +12,7 @@ For more information about Rack, please visit:
 https://vcvrack.com/.
 
 ## Binaries/Builds
-<<<<<<< HEAD
 Any builds that are currently available are at [Github Releases page](https://github.com/j4s0n-c/trowaSoft-VCV/releases) and [geeksaurusrex](http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx).
-=======
-[Github Releases page](https://github.com/j4s0n-c/trowaSoft-VCV/releases)
-[geeksaurusrex](http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx).
->>>>>>> d22f3a8ae7331c35bca23a801ec33d2c585183dd
 
 To build for your platform, please visit the [VCV rack documentation](https://github.com/VCVRack/Rack#setting-up-your-development-environment).
 
@@ -35,11 +30,7 @@ These are basic boolean on/off pad step sequencers (0V or 10V), based off the [F
 + **trigSeq** is 16-step; **trigSeq64** is 64-step.
 + Now 64 patterns. ~~16 patterns.~~
 + 16 channels (outputs).
-<<<<<<< HEAD
 + Output modes: **TRIG** (trigger), **RTRG** (retrigger), **GATE** (continuous) (0 or 10V).
-=======
-+ Output modes: **TRIG** (trigger), **RTRG** (retrigger), **CONT** (gate) (0 or 10V).
->>>>>>> d22f3a8ae7331c35bca23a801ec33d2c585183dd
 + Inputs: Pattern, BPM, (step) Length, Clock, Reset.
 + Copy & Paste of channel or entire pattern.
 + Open Sound Control (OSC) interface (as of v.0.5.5.1). [more info](https://github.com/j4s0n-c/trowaSoft-VCV/wiki/Open-Sound-Control-(OSC)-Interface)
@@ -68,23 +59,15 @@ Variable voltage output step sequencer (-10V to +10V), based off the [Fundamenta
 <img width="700" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2fmultiScope_screenshot.jpg" />
 </div>
 
-<<<<<<< HEAD
 
 **multiScope** is a visual effects scope, with lissajous mode, that allows three (3) waveforms to be drawn on the same screen/canvas. (code based on [JW Modules FullScope](https://github.com/jeremywen) and [Fundamental Scope](https://github.com/VCVRack/Fundamental))
-=======
-**multiScope** is a visual effects scope, with lissajous mode, that allows three (3) waveforms to be drawn on the same screen/canvas.
->>>>>>> d22f3a8ae7331c35bca23a801ec33d2c585183dd
 + CV Inputs per Channel:
     + **X** - X-value (horizontal component).
     + **Y** - Y-value (vertical component).
     + **C** - Color/hue (0V to +5V).
     + **A** - Alpha channel (0V to +5V).
     + **BLANK** - Blank ON or OFF. By default, Blank is off. ON is any input <=0 (really < 0.1V), otherwise it will be OFF.  
-<<<<<<< HEAD
     You can use a **trigSeq** (in **CONT** mode, synchronized with a **voltSeq**) to control / hide lines that you do not wish to be shown.  
-=======
-    You can use a **trigSeq** (in **CONT** mode, synchronized with a **voltSeq**) to control / hide lines that you do not wish to be shown. Â 
->>>>>>> d22f3a8ae7331c35bca23a801ec33d2c585183dd
     + **R** - Rotation (-10V to +10V). Will either be a rotational rate or if the **ABS** button is on, it will be the absolute angular position.
     + **T** - Time.
   
@@ -99,9 +82,4 @@ Variable voltage output step sequencer (-10V to +10V), based off the [Fundamenta
         + **ABS** - (Toggle) Turning ABS on will make the rotation inputs control the absolute angular position instead of a rate.		
     + **T** - Time adjustment knob. Will be used along with the Time input port.
     + **X*Y** - (Toggle) Toggle lissajous mode on / off (default is on).
-<<<<<<< HEAD
     + **INFO** - (Toggle) Toggle input parameter information on / off (default is on). Located on the right-hand-side (RHS) bar.
-=======
-    + **INFO** - (Toggle) Toggle input parameter information on / off (default is on). Located on the right-hand-side (RHS) bar.
-
->>>>>>> d22f3a8ae7331c35bca23a801ec33d2c585183dd
