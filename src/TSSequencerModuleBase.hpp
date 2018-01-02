@@ -1,6 +1,9 @@
 #ifndef TROWASOFT_MODULE_TSSEQUENCERBASE_HPP
 #define TROWASOFT_MODULE_TSSEQUENCERBASE_HPP
 
+#include <thread> // std::thread
+#include <mutex>
+#include <queue>
 #include <string.h>
 #include <stdio.h>
 #include "trowaSoft.hpp"
@@ -9,27 +12,51 @@
 #include "trowaSoftUtilities.hpp"
 #include <chrono>
 #include "TSTempoBPM.hpp"
+#include "TSExternalControlMessage.hpp"
+#include "TSOSCSequencerListener.hpp"
+#include "TSOSCCommunicator.hpp"
+#include "TSOSCSequencerOutputMessages.hpp"
 
+#include "../lib/oscpack/osc/OscOutboundPacketStream.h"
+#include "../lib/oscpack/ip/UdpSocket.h"
+#include "../lib/oscpack/osc/OscReceivedElements.h"
+#include "../lib/oscpack/osc/OscPacketListener.h"
 
-#define TROWA_SEQ_NUM_TRIGS		16	// Num of triggers/voices
+#define TROWA_SEQ_NUM_CHNLS		16	// Num of channels/triggers/voices
 #define TROWA_SEQ_NUM_STEPS		16  // Num of steps per gate/voice
 #define TROWA_SEQ_MAX_NUM_STEPS	64  // Maximum number of steps
+
+// Default OSC outgoing address (Tx). 127.0.0.1.
+#define OSC_ADDRESS_DEF		"127.0.0.1"
+// Default OSC outgoing port (Tx). 7000.
+#define OSC_OUTPORT_DEF		7000
+// Default OSC incoming port (Rx). 7001.
+#define OSC_INPORT_DEF		7001
+// Default namespace for OSC
+#define OSC_DEFAULT_NS				"/tsseq"
+#define OSC_OUTPUT_BUFFER_SIZE		(1024*64)
+#define OSC_ADDRESS_BUFFER_SIZE		50
+#define OSC_UPDATE_CURR_STEP_INTERVAL	0.25	// How often to update the current step interval
+// If we should update the current step pointer to OSC (turn off prev step, highlight current step).
+// This gets slow though during testing.
+#define OSC_UPDATE_CURRENT_STEP		0 
 
 // We only show 4x4 grid of steps at time.
 #define TROWA_SEQ_STEP_NUM_ROWS	4	// Num of rows for display of the Steps (single Gate displayed at a time)
 #define TROWA_SEQ_STEP_NUM_COLS	(TROWA_SEQ_NUM_STEPS/TROWA_SEQ_STEP_NUM_ROWS)
 
 #define TROWA_SEQ_NUM_MODES		3
-#define TROWASEQ_STEPS_MIN_V	TROWASEQ_PATTERN_MIN_V   // Min voltage input / output for controlling # steps
-#define TROWASEQ_STEPS_MAX_V	TROWASEQ_PATTERN_MAX_V   // Max voltage input / output for controlling # steps
-#define TROWA_SEQ_BPM_KNOB_MIN		-2		// Was -2 to +6
+#define TROWA_SEQ_STEPS_MIN_V	TROWA_SEQ_PATTERN_MIN_V   // Min voltage input / output for controlling # steps
+#define TROWA_SEQ_STEPS_MAX_V	TROWA_SEQ_PATTERN_MAX_V   // Max voltage input / output for controlling # steps
+#define TROWA_SEQ_BPM_KNOB_MIN		-2	
 #define TROWA_SEQ_BPM_KNOB_MAX		 6
 #define TROWA_SEQ_SWING_ADJ_MIN			-0.5
 #define TROWA_SEQ_SWING_ADJ_MAX		     0.5
 #define TROWA_SEQ_SWING_STEPS		4
 // 0 WILL BE NO SWING
 
-#define TROWA_SEQ_COPY_GATEIX_ALL		-1 // To copy all gates/triggers in the selected target Pattern
+// To copy all gates/triggers in the selected target Pattern
+#define TROWA_SEQ_COPY_GATEIX_ALL		TROWA_INDEX_UNDEFINED 
 
 //===============================================================================
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -45,20 +72,22 @@ struct TSSequencerModuleBase : Module {
 		RUN_PARAM,
 		// Reset Trigger (Momentary)		
 		RESET_PARAM,
+		// Step length
 		STEPS_PARAM,
 		SELECTED_PATTERN_PLAY_PARAM,  // What pattern we are playing
 		SELECTED_PATTERN_EDIT_PARAM,  // What pattern we are editing
-		SELECTED_GATE_PARAM,	 // Which gate is selected for editing		
+		SELECTED_CHANNEL_PARAM,	 // Which gate is selected for editing		
 		SELECTED_OUTPUT_VALUE_MODE_PARAM,     // Which value mode we are doing	
 		SWING_ADJ_PARAM, // Amount of swing adjustment (-0.1 to 0.1)
-		COPY_PATTERN_PARAM, // Copy the current editting Pattern
-		COPY_GATE_PARAM, // Copy the current GATE/trigger in the current Pattern only.
+		COPY_PATTERN_PARAM, // Copy the current editing Pattern
+		COPY_CHANNEL_PARAM, // Copy the current Channel/gate/trigger in the current Pattern only.
 		PASTE_PARAM, // Paste what is on our clip board to the now current editing.
 		SELECTED_BPM_MULT_IX_PARAM, // Selected index into our BPM calculation multipliers (for 1/4, 1/8, 1/8T, 1/16 note calcs)
-		GATE_PARAM,
-		// We only show 4x4 (one gate at a time)
-		//NUM_PARAMS = GATE_PARAM + TROWA_SEQ_NUM_STEPS // Num Steps is not fixed at compile time anymore
-		NUM_PARAMS = GATE_PARAM // Add the number of steps separately...
+		OSC_SAVE_CONF_PARAM, // ENABLE and Save the configuration for OSC
+		OSC_DISABLE_PARAM,   // Disable OSC (ignore config values)
+		OSC_SHOW_CONF_PARAM, // Configure OSC toggle
+		CHANNEL_PARAM, // Edit Channel Knob
+		NUM_PARAMS = CHANNEL_PARAM // Add the number of steps separately...
 	};
 	enum InputIds {
 		// BPM Input
@@ -66,41 +95,48 @@ struct TSSequencerModuleBase : Module {
 		EXT_CLOCK_INPUT,
 		RESET_INPUT,
 		STEPS_INPUT,
-		SELECTED_PATTERN_PLAY_INPUT,  // What pattern we are editing and/or playing		
-		SELECTED_PATTERN_EDIT_INPUT,  // What pattern we are editing and/or playing
-		SELECTED_GATE_INPUT,
+		SELECTED_PATTERN_PLAY_INPUT,  // What pattern we are playing		
+		SELECTED_PATTERN_EDIT_INPUT,  // What pattern we are editing
+		UNUSED_INPUT,
 		NUM_INPUTS
 	};
 	// Each of the 16 voices need a gate output
 	enum OutputIds {
-		GATES_OUTPUT,
-		NUM_OUTPUTS = GATES_OUTPUT + TROWA_SEQ_NUM_TRIGS
+		CHANNELS_OUTPUT, // Output Channel ports
+		NUM_OUTPUTS = CHANNELS_OUTPUT + TROWA_SEQ_NUM_CHNLS
 	};
 	enum LightIds {
 		RUNNING_LIGHT,
-		RESET_LIGHT,
-		COPY_PATTERN_LIGHT,
-		COPY_GATE_LIGHT,
-		PASTE_LIGHT,
-		SELECTED_BPM_MULT_IX_LIGHT,
-		GATE_LIGHTS,
-		PAD_LIGHTS = GATE_LIGHTS + TROWA_SEQ_NUM_TRIGS,
-		// Num Steps is not fixed at compile time anymore
-		//PAD_LIGHTS,	// One light per step
-		//GATE_LIGHTS = PAD_LIGHTS + TROWA_SEQ_NUM_STEPS,
-		//NUM_LIGHTS = GATE_LIGHTS + TROWA_SEQ_NUM_TRIGS
+		RESET_LIGHT, 
+		COPY_PATTERN_LIGHT, // Copy pattern
+		COPY_GATE_LIGHT, // Copy channel
+		PASTE_LIGHT,	// Paste light
+		SELECTED_BPM_MULT_IX_LIGHT,	// BPM multiplier/note index
+		OSC_CONFIGURE_LIGHT, // The light for configuring OSC.
+		OSC_ENABLED_LIGHT, // Light for OSC enabled and currently running/active.
+		CHANNEL_LIGHTS, // Channel output lights.		
+		PAD_LIGHTS = CHANNEL_LIGHTS + TROWA_SEQ_NUM_CHNLS, // Lights for the steps/pads for the currently editing Channel
+		// Not the number of lights yet, add the # of steps (maxSteps)
 		NUM_LIGHTS = PAD_LIGHTS // Add the number of steps separately...
 	};
 
 	bool initialized = false;
+	// If reset is pressed while paused, when we play, we should fire step 0.
+	bool resetPaused = false;
 	// If this module is running.
 	bool running = true;
 	SchmittTrigger clockTrigger; 		// for external clock
 	SchmittTrigger runningTrigger;		// Detect running btn press
 	SchmittTrigger resetTrigger;		// Detect reset btn press
 	float realPhase = 0.0;
-	int index = 0; // Index into the sequence (step)
+	// Index into the sequence (step)
+	int index = 0; 
+	// Last index we played (for OSC)
+	int prevIndex = TROWA_INDEX_UNDEFINED;
+	// Next index in to jump to in the sequence (step) if any. (for external controls)
+	int nextIndex = TROWA_INDEX_UNDEFINED;
 	
+
 	enum GateMode : short {
 		TRIGGER = 0,
 		RETRIGGER = 1,
@@ -108,90 +144,192 @@ struct TSSequencerModuleBase : Module {
 	};
 	GateMode gateMode = TRIGGER;
 	PulseGenerator gatePulse;
-	
+
 	enum ValueMode : short {
 		VALUE_TRIGGER = 0,
 		VALUE_RETRIGGER = 1,
-		VALUE_CONTINUOUS = 2,	
+		VALUE_CONTINUOUS = 2,
 		VALUE_VOLT = 0,
-		VALUE_MIDINOTE = 1,		
-		VALUE_PATTERN = 2
+		VALUE_MIDINOTE = 1,
+		VALUE_PATTERN = 2,
+		MIN_VALUE_MODE = 0,
+		MAX_VALUE_MODE = 2,
+		NUM_VALUE_MODES = MAX_VALUE_MODE + 1
 	};
 	// Selected output value mode.
 	ValueMode selectedOutputValueMode = VALUE_TRIGGER;
 	ValueMode lastOutputValueMode = VALUE_TRIGGER;
-	
-	int maxSteps = 16;
-	int numRows = 4;
-	int numCols = 4;
-	//float triggerState[TROWASEQ_NUM_PATTERNS][TROWA_SEQ_NUM_TRIGS][TROWA_SEQ_NUM_STEPS]={};
-	float * triggerState[TROWASEQ_NUM_PATTERNS][TROWA_SEQ_NUM_TRIGS];
 
-	int currentPatternEditingIx = 0; 	// Index of which pattern we are playing
-	int currentPatternPlayingIx = 0; 	// Index of which pattern we are editing 
-	int currentTriggerEditingIx = 0; 	// Index of which get is currently displayed/edited.
-	
-	int currentNumberSteps = TROWA_SEQ_NUM_STEPS; // The current number of steps to play
-	float currentBPM = 0.0f; // Calculated current BPM 
-	bool lastStepWasExternalClock = false; // If the last step was the external clock
-	std::chrono::high_resolution_clock::time_point lastExternalStepTime;
-	
-	// Lights
-	// We only show 4x4 (16 steps) for one gate at a time.
-	//float stepLights[TROWA_SEQ_STEP_NUM_ROWS][TROWA_SEQ_STEP_NUM_COLS];
-	//float gateLights[TROWA_SEQ_STEP_NUM_ROWS][TROWA_SEQ_STEP_NUM_COLS];	
-	float** stepLights;
-	float** gateLights;	
-	
+	// Maximum number of steps for this sequencer.
+	int maxSteps = 16;
+	// The number of rows for steps (for layout).
+	int numRows = 4;
+	// The number of columns for steps (for layout).
+	int numCols = 4;
+	// Step data for each pattern and channel.
+	float * triggerState[TROWA_SEQ_NUM_PATTERNS][TROWA_SEQ_NUM_CHNLS];
+	SchmittTrigger* gateTriggers;
+
+	// Knob indices for top control knobs.
+	enum KnobIx {
+		// Playing pattern knob ix
+		PlayPatternKnob = 0,
+		// Playing BPM knob ix
+		BPMKnob,
+		// Playing Step Length ix
+		StepLengthKnob,
+		// Output mode knob ix
+		OutputModeKnob,
+		// Edit pattern knob ix
+		EditPatternKnob,
+		// Edic channel knob ix
+		EditChannelKnob,
+		// Number of Control Knobs
+		NumKnobs
+	};
+	// References to input knobs (top row of knobs)
+	SVGKnob* controlKnobs[NumKnobs];
+
+	// Another flag to reload the matrix.
+	bool reloadEditMatrix = false;
+	// Keep track of the pattern that was playing last step (for OSC)
+	int lastPatternPlayingIx = -1;
+	// Index of which pattern we are playing
+	int currentPatternEditingIx = 0; 	
+	// Index of which pattern we are editing 
+	int currentPatternPlayingIx = 0; 	
+	// Index of which channel (trigger/gate/voice) is currently displayed/edited.
+	int currentChannelEditingIx = 0; 	
+	/// TODO: Perhaps change this to setting for each pattern or each pattern-channel.
+	// The current number of steps to play
+	int currentNumberSteps = TROWA_SEQ_NUM_STEPS; 
+	// Calculated current BPM
+	float currentBPM = 0.0f;  
+	// If the last step was the external clock
+	bool lastStepWasExternalClock = false; 
+	//// Last time of the external step
+	//std::chrono::high_resolution_clock::time_point lastExternalStepTime;
+
+	// Pad/Knob lights - Step On
+	float** stepLights; /// TODO: Just make linear
+	float** gateLights; /// TODO: Just make linear
+
 	// Default values for our pads/knobs:
 	float defaultStateValue = 0.0;
-	
+
 	// References to our pad lights
-	//ColorValueLight * padLightPtrs[TROWA_SEQ_STEP_NUM_ROWS][TROWA_SEQ_STEP_NUM_COLS];
-	ColorValueLight*** padLightPtrs;
-	
+	ColorValueLight*** padLightPtrs; /// TODO: Just make linear
+
 	// Output lights (for triggers/gate jacks)
-	float gateLightsOut[TROWA_SEQ_NUM_TRIGS]; 
-	
-	NVGcolor voiceColors[TROWA_SEQ_NUM_TRIGS] = { 
+	float gateLightsOut[TROWA_SEQ_NUM_CHNLS];
+	// Colors for each channel
+	NVGcolor voiceColors[TROWA_SEQ_NUM_CHNLS] = {
 		COLOR_TS_RED, COLOR_DARK_ORANGE, COLOR_YELLOW, COLOR_TS_GREEN,
 		COLOR_CYAN, COLOR_TS_BLUE, COLOR_PURPLE, COLOR_PINK,
 		COLOR_TS_RED, COLOR_DARK_ORANGE, COLOR_YELLOW, COLOR_TS_GREEN,
 		COLOR_CYAN, COLOR_TS_BLUE, COLOR_PURPLE, COLOR_PINK
 	};
-	
+
 	// Swing ////////////////////////////////
 	float swingAdjustment = 0.0; // Amount of swing adjustment (i.e. -0.1 to 0.1)
 	const int swingResetSteps = TROWA_SEQ_SWING_STEPS; // These many steps need to be adjusted.
 	float swingAdjustedPhase = 0.0;
 	int swingRealSteps = 0;
-	
+
 	// Copy & Paste /////////////////////////
+	// Source pattern to copy
 	int copySourcePatternIx = -1;
-	int copySourceGateIx = TROWA_SEQ_COPY_GATEIX_ALL; // Which gate/trigger we are copying, -1 for all
-	//float copyBuffer[TROWA_SEQ_NUM_TRIGS][TROWA_SEQ_NUM_STEPS];
-	float* copyBuffer[TROWA_SEQ_NUM_TRIGS];
-	
+	// Source channel to copy (or TROWA_SEQ_COPY_GATEIX_ALL for all).
+	int copySourceGateIx = TROWA_SEQ_COPY_GATEIX_ALL;
+	// Copy buffer
+	float* copyBuffer[TROWA_SEQ_NUM_CHNLS];
 	SchmittTrigger copyPatternTrigger;
 	SchmittTrigger copyGateTrigger;
 	SchmittTrigger pasteTrigger;
 	/// TODO: Maybe eventually separate UI controls from module (UI changes in Widget not Module).
+	// Light for paste button
 	TS_LightString* pasteLight;
+	// Light for copy pattern button
 	ColorValueLight* copyPatternLight;
+	// Light for copy channel button
 	ColorValueLight* copyGateLight;
-	
+
 	// BPM Calculation //////////////
 	// Index into the array BPMOptions
 	int selectedBPMNoteIx = 1; // 1/8th
 	SchmittTrigger selectedBPMNoteTrigger;
-	
-	
+
+	// External Messages ///////////////////////////////////////////////
+	// Message queue for external (to Rack) control messages
+	std::queue<TSExternalControlMessage> ctlMsgQueue;
+
+	enum ExternalControllerMode {
+		// Edit Mode : Send to control what we are editing.
+		EditMode = 0,
+		// Performance/Play mode : Send to controller what we are playing
+		// SetStepValue messages should be interupted as SetPlayingStep (Jump)
+		PerformanceMode = 1
+	};
+	// The current control mode (i.e. Edit Mode or Play / Performance Mode)
+	ExternalControllerMode currentCtlMode = ExternalControllerMode::EditMode;
+
+	// OSC Messaging ////////////////
+	// If we allow osc or not.
+	bool allowOSC = true;
+	// Flag if we should use OSC or not.
+	bool useOSC = true;
+	// An OSC id.
+	int oscId = 0;
+	// Mutex for osc messaging.
+	std::mutex oscMutex;
+	// Current OSC IP address and port settings.
+	TSOSCConnectionInfo currentOSCSettings = { OSC_ADDRESS_DEF,  OSC_OUTPORT_DEF , OSC_INPORT_DEF };
+	// OSC Configure trigger
+	SchmittTrigger oscConfigTrigger;
+	SchmittTrigger oscConnectTrigger;
+	SchmittTrigger oscDisconnectTrigger;
+	// Show the OSC configuration screen or not.
+	bool oscShowConfigurationScreen = false;
+	// Flag if OSC objects have been initialized
+	bool oscInitialized = false;
+	// If there is an osc error.
+	bool oscError = false;
+	// OSC output buffer.
+	char* oscBuffer = NULL;
+	// OSC namespace to use
+	std::string oscNamespace = OSC_DEFAULT_NS;
+	// Sending OSC socket
+	UdpTransmitSocket* oscTxSocket = NULL;
+	// OSC message listener
+	TSOSCSequencerListener* oscListener = NULL;
+	// Receiving OSC socket
+	UdpListeningReceiveSocket* oscRxSocket = NULL;
+	// The OSC listener thread
+	std::thread oscListenerThread;
+	// Osc address buffer. 
+	char oscAddrBuffer[SeqOSCOutputMsg::NUM_OSC_OUTPUT_MSGS][OSC_ADDRESS_BUFFER_SIZE];
+	// Prev step that was last turned off (when going to a new step).
+	int oscLastPrevStepUpdated = TROWA_INDEX_UNDEFINED;
+	// Settings for new OSC.
+	TSOSCInfo oscNewSettings = { OSC_ADDRESS_DEF,  OSC_OUTPORT_DEF , OSC_INPORT_DEF };
+	// OSC Mode action (i.e. Enable, Disable)
+	enum OSCAction {
+		None,
+		Disable,
+		Enable
+	};
+	// Flag for our module to either enable or disable osc.
+	OSCAction oscCurrentAction = OSCAction::None;
+
+
 	// Mode /////////////////////////	
 	// The mode string.
 	const char* modeString;
-	const char* modeStrings[3]; // Mode strings
+	// Mode strings
+	const char* modeStrings[3]; 
 
-	bool firstLoad = true;		
+	// If it is the first load this session
+	bool firstLoad = true;
 	const float lightLambda = 0.05;
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -203,115 +341,56 @@ struct TSSequencerModuleBase : Module {
 	// @numRows * @numCols = @numSteps
 	// @defStateVal : (IN) The default state value (i.e. 0/false for a boolean step sequencer or whatever float value you want).
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int numRows, /*in*/ int numCols, /*in*/ float defStateVal) : Module(NUM_PARAMS + numSteps, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS + numSteps) 
-	{
-		lastStepWasExternalClock = false;
-		defaultStateValue = defStateVal;
-		currentTriggerEditingIx = 0;
-		currentPatternEditingIx = 0;
-		currentPatternPlayingIx = 0;
-		// Number of steps in not static at compile time anymore...
-		maxSteps = numSteps; // Num Steps may vary now up to 64
-		currentNumberSteps = maxSteps; 
-		this->numRows = numRows;
-		this->numCols = numCols;
-
-		stepLights = new float*[numRows];
-		gateLights = new float*[numRows];
-		padLightPtrs = new ColorValueLight**[numRows];
-		
-		for (int r = 0; r < numRows; r++)
-		{
-			stepLights[r] = new float[numCols];
-			gateLights[r] = new float[numCols];
-			padLightPtrs[r] = new ColorValueLight*[numCols];
-			for (int c = 0; c < numCols; c++)
-			{
-				stepLights[r][c] = 0;
-				gateLights[r][c] = 0;
-			}
-		}		
-		for (int g = 0; g < TROWA_SEQ_NUM_TRIGS; g++)
-		{				
-			copyBuffer[g] = new float[maxSteps];
-		}			
-		
-		for (int p = 0;  p < TROWASEQ_NUM_PATTERNS; p++)
-		{
-			for (int g = 0; g < TROWA_SEQ_NUM_TRIGS; g++)
-			{				
-				triggerState[p][g] = new float[maxSteps];
-				for (int s = 0; s < maxSteps; s++)
-				{
-					triggerState[p][g][s] = defaultStateValue;
-				}
-			}			
-		}		
-		modeStrings[0] = "TRIG";
-		modeStrings[1] = "RTRG";
-		modeStrings[2] = "CONT";	
-		
-		copySourcePatternIx = -1;
-		copySourceGateIx = TROWA_SEQ_COPY_GATEIX_ALL; // Which trigger we are copying, -1 for all		
-
-		initialized = false;
-		firstLoad = true;
-		return;
-	}
+	TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int numRows, /*in*/ int numCols, /*in*/ float defStateVal);
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// Delete our goodies.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	~TSSequencerModuleBase()
-	{
-		for (int r = 0; r < numRows; r++)
-		{
-			delete [] stepLights[r];
-			delete [] gateLights[r];
-			delete [] padLightPtrs[r];
-		}
-		delete [] stepLights; stepLights = NULL;
-		delete [] gateLights; gateLights = NULL;
-		delete [] padLightPtrs;	padLightPtrs = NULL;
-		
-		for (int g = 0; g < TROWA_SEQ_NUM_TRIGS; g++)
-		{				
-			delete [] copyBuffer[g];
-			copyBuffer[g] = NULL; // We should be totally dead & unreferenced anyway, so I'm not sure we have NULL our ptrs???
-		}
-		
-		for (int p = 0;  p < TROWASEQ_NUM_PATTERNS; p++)
-		{
-			for (int g = 0; g < TROWA_SEQ_NUM_TRIGS; g++)
-			{				
-				delete [] triggerState[p][g];
-				triggerState[p][g] = NULL;
-			}
-		}
-		return;
-	}
-	
+	~TSSequencerModuleBase();
 	// Get the inputs for this step.
 	void getStepInputs(bool* pulse, bool* reloadMatrix, bool* valueModeChanged);
 	// Paste the clipboard pattern and/or specific gate to current selected pattern and/or gate.
 	bool paste();
 	// Copy the contents:
 	void copy(int patternIx, int gateIx);
-	
+	// Set a single step value
+	virtual void setStepValue(int step, float val, int channel, int pattern);
+	// Get the toggle step value
+	virtual float getToggleStepValue(int step, float val, int channel, int pattern) = 0;
+	// Calculate a representation of all channels for this step
+	virtual float getPlayingStepValue(int step, int pattern) = 0;
+
+	// Initialize OSC on the given ip and ports.
+	void initOSC(const char* ipAddress, int outputPort, int inputPort);
+	// Clean up OSC.
+	void cleanupOSC();
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// Set the OSC namespace.
+	// @oscNs: (IN) The namespace for OSC.
+	// Sets the command address strings too.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	void setOSCNamespace(const char* oscNs);
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// reset(void)
+	// Reset ALL step values to default.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	void reset() override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// randomize(void)
 	// Only randomize the current gate/trigger steps.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	void randomize() override
 	{
-		for (int s = 0; s < maxSteps; s++) 
+		for (int s = 0; s < maxSteps; s++)
 		{
-			triggerState[currentPatternEditingIx][currentTriggerEditingIx][s] = (randomf() > 0.5);		
-		}	
+			triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = (randomf() > 0.5);
+		}
+		reloadEditMatrix = true;
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// clearClipboard(void)
-	// Shallow clear of clipboard and reset the Copy/Paste lights.
+	// Shallow clear of clipboard and reset the Copy/Paste lights
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
 	void clearClipboard()
 	{
@@ -335,7 +414,7 @@ struct TSSequencerModuleBase : Module {
 		
 		// Current Items:
 		json_object_set_new(rootJ, "currentPatternEditIx", json_integer((int) currentPatternEditingIx));
-		json_object_set_new(rootJ, "currentTriggerEditIx", json_integer((int) currentTriggerEditingIx));
+		json_object_set_new(rootJ, "currentTriggerEditIx", json_integer((int) currentChannelEditingIx));
 		// The current output / knob mode.
 		json_object_set_new(rootJ, "selectedOutputValueMode", json_integer((int) selectedOutputValueMode));
 		// Current BPM calculation note (i.e. 1/4, 1/8, 1/8T, 1/16)
@@ -343,9 +422,9 @@ struct TSSequencerModuleBase : Module {
 		
 		// triggers
 		json_t *triggersJ = json_array();
-		for (int p = 0; p < TROWASEQ_NUM_PATTERNS; p++)
+		for (int p = 0; p < TROWA_SEQ_NUM_PATTERNS; p++)
 		{
-			for (int t = 0; t < TROWA_SEQ_NUM_TRIGS; t++)
+			for (int t = 0; t < TROWA_SEQ_NUM_CHNLS; t++)
 			{
 				for (int s = 0; s < maxSteps; s++)
 				{
@@ -359,6 +438,13 @@ struct TSSequencerModuleBase : Module {
 		// gateMode
 		json_t *gateModeJ = json_integer((int) gateMode);
 		json_object_set_new(rootJ, "gateMode", gateModeJ);
+
+		// OSC Parameters
+		json_t* oscJ = json_object();
+		json_object_set_new(oscJ, "IpAddress", json_string(this->currentOSCSettings.oscTxIpAddress.c_str()));
+		json_object_set_new(oscJ, "TxPort", json_integer(this->currentOSCSettings.oscTxPort));
+		json_object_set_new(oscJ, "RxPort", json_integer(this->currentOSCSettings.oscRxPort));
+		json_object_set_new(rootJ, "osc", oscJ);
 
 		return rootJ;
 	} // end toJson()
@@ -379,7 +465,7 @@ struct TSSequencerModuleBase : Module {
 			currentPatternEditingIx = json_integer_value(currJ);
 		currJ = json_object_get(rootJ, "currentTriggerEditIx");
 		if (currJ)
-			currentTriggerEditingIx = json_integer_value(currJ);
+			currentChannelEditingIx = json_integer_value(currJ);
 		currJ = json_object_get(rootJ, "selectedOutputValueMode");
 		if (currJ)
 		{			
@@ -396,9 +482,9 @@ struct TSSequencerModuleBase : Module {
 		if (triggersJ)
 		{
 			int i = 0;
-			for (int p = 0; p < TROWASEQ_NUM_PATTERNS; p++)
+			for (int p = 0; p < TROWA_SEQ_NUM_PATTERNS; p++)
 			{
-				for (int t = 0; t < TROWA_SEQ_NUM_TRIGS; t++)
+				for (int t = 0; t < TROWA_SEQ_NUM_CHNLS; t++)
 				{
 					for (int s = 0; s < maxSteps; s++)
 					{
@@ -413,6 +499,21 @@ struct TSSequencerModuleBase : Module {
 		json_t *gateModeJ = json_object_get(rootJ, "gateMode");
 		if (gateModeJ)
 			gateMode = (GateMode)json_integer_value(gateModeJ);
+
+		json_t* oscJ = json_object_get(rootJ, "osc");
+		if (oscJ)
+		{
+			currJ = json_object_get(oscJ, "IpAddress");
+			if (currJ)
+				this->currentOSCSettings.oscTxIpAddress = json_string_value(currJ);
+			currJ = json_object_get(oscJ, "TxPort");
+			if (currJ)
+				this->currentOSCSettings.oscTxPort = (uint16_t)( json_integer_value(currJ) );
+			currJ = json_object_get(oscJ, "RxPort");
+			if (currJ)
+				this->currentOSCSettings.oscRxPort = (uint16_t)(json_integer_value(currJ));
+		}
+
 
 		firstLoad = true;
 		return;
@@ -431,6 +532,7 @@ struct TSSeqDisplay : TransparentWidget {
 	std::shared_ptr<Font> labelFont;
 	int fontSize;
 	char messageStr[TROWA_DISP_MSG_SIZE]; // tmp buffer for our strings.
+	bool showDisplay = true;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// TSSeqDisplay(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -439,24 +541,15 @@ struct TSSeqDisplay : TransparentWidget {
 		labelFont = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
 		fontSize = 12;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
-			messageStr[i] = '\0';		
+			messageStr[i] = '\0';
+		showDisplay = true;
+		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
 	// @vg : (IN) NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void draw(/*in*/ NVGcontext *vg) override {
-		int currPlayPattern = module->currentPatternPlayingIx + 1;
-		int currEditPattern = module->currentPatternEditingIx + 1;
-		int currentGate = module->currentTriggerEditingIx + 1;
-		int currentNSteps = module->currentNumberSteps;
-		float currentBPM = module->currentBPM;
-		
-		// Default Font:
-		nvgFontSize(vg, fontSize);
-		nvgFontFaceId(vg, font->handle);
-		nvgTextLetterSpacing(vg, 2.5);
-
 		// Background Colors:
 		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
 		NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
@@ -470,9 +563,22 @@ struct TSSeqDisplay : TransparentWidget {
 		nvgStrokeColor(vg, borderColor);
 		nvgStroke(vg);
 		
+		if (!showDisplay)
+			return;
+
+		int currPlayPattern = module->currentPatternPlayingIx + 1;
+		int currEditPattern = module->currentPatternEditingIx + 1;
+		int currentGate = module->currentChannelEditingIx + 1;
+		int currentNSteps = module->currentNumberSteps;
+		float currentBPM = module->currentBPM;
+
+		// Default Font:
+		nvgFontSize(vg, fontSize);
+		nvgFontFaceId(vg, font->handle);
+		nvgTextLetterSpacing(vg, 2.5);
 
 		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-		NVGcolor currColor = module->voiceColors[module->currentTriggerEditingIx];
+		NVGcolor currColor = module->voiceColors[module->currentChannelEditingIx];
 		
 		int y1 = 42;
 		int y2 = 27;
@@ -612,7 +718,7 @@ struct TSSeqDisplay : TransparentWidget {
 		x = 6;
 		nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go to the left
 		
-		x = labelX+49; 
+		x = labelX+52; 
 		y = 5;
 		nvgMoveTo(vg, /*x*/ x, /*y*/ y); // To the Right of "Playback"
 		x = 165; //x + 62 ;
@@ -688,10 +794,17 @@ struct TSSeqLabelArea : TransparentWidget {
 		y = 350;		
 		nvgText(vg, x, y, "OUTPUTS", NULL);
 		
-		// Copy btn labels
+		// TINY btn labels
 		nvgFontSize(vg, fontSize * 0.6);
-		x = 300;
-		y = 103;		
+		// OSC Labels
+		y = 103;
+		if (module->allowOSC)
+		{
+			x = 240;
+			nvgText(vg, x, y, "OSC", NULL);
+		}
+		// Copy button labels:
+		x = 302;
 		nvgText(vg, x, y, "CPY", NULL);
 		x = 362;		
 		nvgText(vg, x, y, "CPY", NULL);
@@ -732,4 +845,5 @@ struct TSSeqLabelArea : TransparentWidget {
 		return;
 	} // end draw()
 }; // end struct TSSeqLabelArea
+
 #endif
