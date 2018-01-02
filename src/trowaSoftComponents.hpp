@@ -738,11 +738,11 @@ struct TS_ColorSlider : Knob {
 	// If this control should be rendered
 	bool visible = true;
 	// Starting color.
-	TSColorHSL startColorHSL = { 0.0, 1.0, 0.5 };
+	TSColorHSL startColorHSL;
 	// Ending color.
-	TSColorHSL endColorHSL = { 1.0, 1.0, 0.5 };
+	TSColorHSL endColorHSL;
 	// HSL representation of the selected color.
-	TSColorHSL selectedColorHSL = { 1.0, 1.0, 0.5 };
+	TSColorHSL selectedColorHSL;
 	// NVGcolor of the selected color (RGBA)
 	NVGcolor selectedColor;
 	// Number of stops for the gradients (doing them manually since nanovg only lets you have 2 colors)
