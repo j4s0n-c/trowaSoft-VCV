@@ -1,5 +1,8 @@
 SHELL:=/bin/bash -O extglob
 
+SLUG = trowaSoft
+VERSION = 0.5.5.1
+
 # FLAGS will be passed to both C and C++ compiler
 #	-Werror=implicit-function-declaration \
 FLAGS = \
@@ -27,16 +30,16 @@ CXXFLAGS +=
 # Static libraries are fine.
 include ../../arch.mk
 
-ifeq ($(ARCH), lin)
-	LDFLAGS += -L../../dep/lib -lGLEW -lglfw
-endif
+#ifeq ($(ARCH), lin)
+#	LDFLAGS += -L../../dep/lib -lGLEW -lglfw
+#endif
 
-ifeq ($(ARCH), mac)
-	LDFLAGS += -L../../dep/lib -lGLEW -lglfw
-endif
+#ifeq ($(ARCH), mac)
+#	LDFLAGS += -L../../dep/lib -lGLEW -lglfw  
+#endif
 
 ifeq ($(ARCH), win)	
-	LDFLAGS += -L../../dep/lib -lglew32 -lglfw3dll
+	LDFLAGS += -L../../dep/lib -lglew32 -lglfw3dll 
 endif
 
 # Add .cpp and .c files to the build
