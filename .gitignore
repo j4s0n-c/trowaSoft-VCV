@@ -2,6 +2,7 @@
 *.o
 *.zip
 build/*.*
+dist/*
 dist/*.*
 *.dll
 .vs/*.*
