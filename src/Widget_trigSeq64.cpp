@@ -12,7 +12,6 @@
 #define N64_NUM_COLS	 (N64_NUM_STEPS/N64_NUM_ROWS)
 
 
-
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // 64SeqWidget
 // Widget for the trowaSoft 64-step sequencer.
@@ -50,17 +49,17 @@ trigSeq64Widget::trigSeq64Widget() : TSSequencerWidgetBase()
 			TS_PadSwitch* pad = new TS_PadSwitch(padSize);
 			pad->box.pos = Vec(x, y);
 			pad->module = module;
-			pad->paramId = TSSequencerModuleBase::CHANNEL_PARAM + r*module->numCols + c;
+			pad->paramId = TSSequencerModuleBase::GATE_PARAM + r*module->numCols + c;
 			pad->setLimits(0, 1);
 			pad->setDefaultValue(0);
 			pad->value = 0;
 			addParam(pad);
-			//addParam(createParam<TS_PadSquare>(Vec(x, y), module, TSSequencerModuleBase::CHANNEL_PARAM + r*TROWA_SEQ_STEP_NUM_COLS + c, 0.0, 1.0, 0.0));
+			//addParam(createParam<TS_PadSquare>(Vec(x, y), module, TSSequencerModuleBase::GATE_PARAM + r*TROWA_SEQ_STEP_NUM_COLS + c, 0.0, 1.0, 0.0));
 			// Keep a reference to our pad lights so we can change the colors
 			module->padLightPtrs[r][c] = dynamic_cast<TS_LightSquare*>(TS_createColorValueLight<TS_LightSquare>(/*pos */ Vec(x+dx, y+dx), 
 				/*module*/ module, 
 				/*lightId*/ TSSequencerModuleBase::PAD_LIGHTS + r*module->numCols + c,
-				/* size */ lSize, /* color */ module->voiceColors[module->currentChannelEditingIx]));
+				/* size */ lSize, /* color */ module->voiceColors[module->currentTriggerEditingIx]));
 			addChild( module->padLightPtrs[r][c] );
 			
 			module->lights[TSSequencerModuleBase::PAD_LIGHTS + r*module->numCols + c].value = 0;

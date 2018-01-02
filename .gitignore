@@ -3,7 +3,6 @@
 *.zip
 build/*.*
 dist/*.*
-dist/trowasoft/*
 *.dll
 .vs/*.*
 *.opendb
@@ -14,8 +13,3 @@ settings.json
 *.config
 .vs/trowaSoft/v15/.suo
 *.db
-*.txt
-trowaSoft.json
-voltSeq_Maschine.pd
-src/.DS_Store
-.DS_Store
