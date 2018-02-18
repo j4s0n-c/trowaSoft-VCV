@@ -1,9 +1,7 @@
 SHELL:=/bin/bash -O extglob
 
 SLUG = trowaSoft
-<<<<<<< HEAD
 VERSION = 0.5.5.2
-VERSION = 0.5.5.1
 
 # FLAGS will be passed to both C and C++ compiler
 #	-Werror=implicit-function-declaration \
@@ -34,12 +32,8 @@ include ../../arch.mk
 #endif
 
 ifeq ($(ARCH), win)	
-<<<<<<< HEAD
 	# TODO: Figure out how to get this to compile in Win without this
 	LDFLAGS += -L../../dep/lib -lglew32 -lglfw3dll
-=======
-	LDFLAGS += -L../../dep/lib -lglew32 -lglfw3dll 
->>>>>>> 46999121d16f7d9fdf9c5f73163ee14ca40544d2
 endif
 
 # Add .cpp and .c files to the build
