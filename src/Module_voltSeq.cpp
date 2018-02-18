@@ -1,4 +1,4 @@
-#include <string.h>
+﻿#include <string.h>
 #include <stdio.h>
 #include <math.h> 
 #include "trowaSoft.hpp"
@@ -10,6 +10,7 @@
 
 #define TROWA_VOLTSEQ_OSC_ROUND_VAL					 100   // Mult & Divisor for rounding.
 #define TROWA_VOLTSEQ_KNOB_CHANGED_THRESHOLD		0.01  // Value must change at least this much to send changed value over OSC
+
 
 // Round the value for OSC. We will match what VOLT mode shows
 inline float roundValForOSC(float val) {
@@ -54,25 +55,11 @@ float voltSeq::getToggleStepValue(int step, float val, int channel, int pattern)
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 float voltSeq::getPlayingStepValue(int step, int pattern)
 {
-	//// u16 : 65535
-	//// u32: 2,147,483,647 (2.147E10)
-	//// float (pos part): 3.402823E38.
-	//uint32_t val = 0;
-	//int max = (TROWA_SEQ_NUM_CHNLS > 32) ? 32 : TROWA_SEQ_NUM_CHNLS;
-	//for (int c = 0; c < max; c++)
-	//{
-	//	val += (bool)(this->triggerState[pattern][c][step] > 0.05 || this->triggerState[pattern][c][step] < -0.05) << c;
-	//} // end for
-
-	// u16 : 65535
-	// u32: 2,147,483,647 (2.147E10)
-	// float (pos part): 3.402823E38.
 	int count = 0;
 	for (int c = 0; c < TROWA_SEQ_NUM_CHNLS; c++)
 	{
 		count += (this->triggerState[pattern][c][step] > 0.05 || this->triggerState[pattern][c][step] < -0.05);
 	} // end for
-
 	return (float)(count) / (float)(TROWA_SEQ_NUM_CHNLS);
 } // end getPlayingStepValue()
 
@@ -96,18 +83,134 @@ void voltSeq::setStepValue(int step, float val, int channel, int pattern)
 	{
 		pattern = currentPatternEditingIx;
 	}
+	triggerState[pattern][channel][step] = val;
 	r = step / this->numCols;
 	c = step % this->numCols;
-	// Do base method
-	TSSequencerModuleBase::setStepValue(step, val, channel, pattern);
+	if (pattern == currentPatternEditingIx && channel == currentChannelEditingIx)
+	{
+		if (triggerState[pattern][channel][step])
+		{
+			gateLights[r][c] = 1.0f - stepLights[r][c];
+			if (gateTriggers != NULL)
+				gateTriggers[step].state = SchmittTrigger::HIGH;
+		}
+		else
+		{
+			gateLights[r][c] = 0.0f; // Turn light off	
+			if (gateTriggers != NULL)
+				gateTriggers[step].state = SchmittTrigger::LOW;
+		}
+	}
+	oscMutex.lock();
+	if (useOSC && oscInitialized)
+	{
+		// Send the result back
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+		debug("voltSeq:step() - Received a msg (s=%d, v=%0.2f, c=%d, p=%d), sending back (%s).",
+			step, val, channel, pattern,
+			oscAddrBuffer[SeqOSCOutputMsg::EditStep]);
+#endif
+		char valOutputBuffer[20] = { 0 };
+		char addrBuff[50] = { 0 };
+		float val = roundValForOSC(triggerState[pattern][channel][step]);
+		ValueModes[selectedOutputValueMode]->GetDisplayString(ValueModes[selectedOutputValueMode]->GetOutputValue(triggerState[pattern][channel][step]), valOutputBuffer);
+
+		sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], step + 1);
+		osc::OutboundPacketStream oscStream(oscBuffer, OSC_OUTPUT_BUFFER_SIZE);
+		oscStream << osc::BeginBundleImmediate
+			<< osc::BeginMessage(addrBuff)
+			<< val // Rounded value for touchOSC
+			<< osc::EndMessage;
+		sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStepString], step + 1);
+		oscStream << osc::BeginMessage( addrBuff )
+			<< valOutputBuffer // String version of the value (touchOSC needs this)
+			<< osc::EndMessage
+			<< osc::EndBundle;
+		oscTxSocket->Send(oscStream.Data(), oscStream.Size());
+	}
+	oscMutex.unlock();
 
 	// Set our knobs
 	if (pattern == currentPatternEditingIx && channel == currentChannelEditingIx)
 	{
 		this->knobStepMatrix[r][c]->setKnobValue(val);
+		this->params[ParamIds::CHANNEL_PARAM + step].value = val;
 	}
 	return;
 } // end setStepValue()
+
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// Shift all steps (+/-) some number of volts.
+// @patternIx : (IN) The index into our pattern matrix (0-15). Or TROWA_INDEX_UNDEFINED for all patterns.
+// @channelIx : (IN) The index of the channel (gate/trigger/voice) if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL/TROWA_INDEX_UNDEFINED for all).
+// @volts: (IN) The number of volts to add.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+void voltSeq::shiftValues(/*in*/ int patternIx, /*in*/ int channelIx, /*in*/ float volts)
+{
+	// Normal Range -10 to +10 V (20)
+	// Midi: -5 to +5 V or -4 to + 6 V (10), so +1 octave will be +2V in 'Normal' range.
+	float add = volts;
+
+	if (selectedOutputValueMode == ValueMode::VALUE_MIDINOTE)
+	{
+		add = volts * 2.0;
+	}
+	else if (selectedOutputValueMode == ValueMode::VALUE_PATTERN)
+	{
+		add = (voltSeq_STEP_KNOB_MAX - voltSeq_STEP_KNOB_MIN) / TROWA_SEQ_NUM_PATTERNS * volts;
+	}
+	if (patternIx == TROWA_INDEX_UNDEFINED)
+	{
+		debug("shiftValues(ALL Patterns, %f) - Add %f", volts, add);
+		// All patterns:
+		for (int p = 0; p < TROWA_SEQ_NUM_PATTERNS; p++)
+		{
+			shiftValues(p, TROWA_INDEX_UNDEFINED, volts); // All channels
+		}
+	}
+	else if (channelIx == TROWA_INDEX_UNDEFINED)
+	{
+		debug("shiftValues(This Pattern, %f) - Add %f", volts, add);
+		// This pattern:
+		for (int channelIx = 0; channelIx < TROWA_SEQ_NUM_CHNLS; channelIx++)
+		{
+			for (int s = 0; s < maxSteps; s++)
+			{
+				float tmp = clampf(triggerState[patternIx][channelIx][s] + add, /*min*/ voltSeq_STEP_KNOB_MIN,  /*max*/ voltSeq_STEP_KNOB_MAX);
+				triggerState[patternIx][channelIx][s] = tmp;
+				if (patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx)
+				{
+					int r = s / numCols;
+					int c = s % numCols;
+					this->params[CHANNEL_PARAM + s].value = tmp;
+					knobStepMatrix[r][c]->setKnobValue(tmp);
+				}
+			}
+		}
+		//this->reloadEditMatrix = true;
+	}
+	else
+	{
+		// Just this channel
+		debug("shiftValues(%d, %d, %f) - Add %f", patternIx, channelIx, volts, add);
+		for (int s = 0; s < maxSteps; s++)
+		{
+			float tmp = clampf(triggerState[patternIx][channelIx][s] + add, /*min*/ voltSeq_STEP_KNOB_MIN,  /*max*/ voltSeq_STEP_KNOB_MAX);
+			debug(" %d = %f + %fV (add %f) = %f", s, triggerState[patternIx][channelIx][s], volts, add, tmp);
+			triggerState[patternIx][channelIx][s] = tmp;
+			if (patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx)
+			{
+				int r = s / numCols;
+				int c = s % numCols;
+				this->params[CHANNEL_PARAM + s].value = tmp;
+				knobStepMatrix[r][c]->setKnobValue(tmp);
+			}
+		}
+		//if (patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx)
+		//	this->reloadEditMatrix = true;
+	}
+	return;
+} // end shiftValues()
 
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -148,7 +251,10 @@ void voltSeq::step()
 	sendOSC = useOSC && currentCtlMode == ExternalControllerMode::EditMode && oscInitialized;
 	//-- * Load the trigger we are editing into our button matrix for display:
 	// This is what we are showing not what we playing
-	if (reloadMatrix || valueModeChanged)
+	char valOutputBuffer[20] = { 0 };
+	char addrBuff[100] = { 0 };
+	std::string stepStringAddr = std::string(oscAddrBuffer[SeqOSCOutputMsg::EditStepString]);
+	if (reloadMatrix || reloadEditMatrix || valueModeChanged)
 	{
 		reloadEditMatrix = false;
 		oscMutex.lock();
@@ -161,7 +267,7 @@ void voltSeq::step()
 			oscStream << osc::BeginBundleImmediate;
 		}
 		oscMutex.unlock();
-		// Load this gate and/or pattern into our 4x4 matrix
+		// Load this channel into our 4x4 matrix
 		for (int s = 0; s < maxSteps; s++) 
 		{
 			r = s / this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
@@ -174,9 +280,41 @@ void voltSeq::step()
 			oscMutex.lock();
 			if (sendOSC && oscInitialized)
 			{
+				// Each step may have up to 4-ish messages, so send 4 or 8 steps at a time.
+				if (s > 0 && s % 8 == 0) // There is a limit to client buffer size, so let's not make the bundles too large. Hopefully they can take this many steps at a time.
+				{
+					// Send this bundle and then start a new one
+					oscStream << osc::EndBundle;
+					oscTxSocket->Send(oscStream.Data(), oscStream.Size());
+					oscStream.Clear();
+					// Start new bundle:
+					oscStream << osc::BeginBundleImmediate;
+				}
 				oscLastSentVals[s] = roundValForOSC(triggerState[currentPatternEditingIx][currentChannelEditingIx][s]);
-				oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditStep])
-					<< s << oscLastSentVals[s]
+				currOutputValueMode->GetDisplayString(currOutputValueMode->GetOutputValue(triggerState[currentPatternEditingIx][currentChannelEditingIx][s]), valOutputBuffer);
+				// Step value:
+				sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s+1);
+				oscStream << osc::BeginMessage(addrBuff)
+					<< oscLastSentVals[s]
+					<< osc::EndMessage;
+				if (oscCurrentClient == OSCClient::touchOSCClient)
+				{
+					// Change color
+					sprintf(addrBuff, OSC_TOUCH_OSC_CHANGE_COLOR_FS, addrBuff);
+					oscStream << osc::BeginMessage(addrBuff)
+						<< touchOSC::ChannelColors[currentChannelEditingIx]
+						<< osc::EndMessage;
+					// LED Color (current step LED):
+					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], s + 1);
+					sprintf(addrBuff, OSC_TOUCH_OSC_CHANGE_COLOR_FS, addrBuff);
+					oscStream << osc::BeginMessage(addrBuff)
+						<< touchOSC::ChannelColors[currentChannelEditingIx]
+						<< osc::EndMessage;
+				}
+				// Step String
+				sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStepString], s+1);
+				oscStream << osc::BeginMessage( addrBuff )
+					<< valOutputBuffer // String version of the value (touchOSC needs this)
 					<< osc::EndMessage;
 			}
 			oscMutex.unlock();
@@ -184,6 +322,16 @@ void voltSeq::step()
 		oscMutex.lock();
 		if (sendOSC && oscInitialized)
 		{
+			if (oscCurrentClient == OSCClient::touchOSCClient)
+			{
+				// Also change color on the Channel control:
+				sprintf(addrBuff, OSC_TOUCH_OSC_CHANGE_COLOR_FS, oscAddrBuffer[SeqOSCOutputMsg::EditChannel]);
+				oscStream << osc::BeginMessage(addrBuff)
+					<< touchOSC::ChannelColors[currentChannelEditingIx]
+					<< osc::EndMessage;
+			}
+
+			// End last bundle and send:
 			oscStream << osc::EndBundle;
 			oscTxSocket->Send(oscStream.Data(), oscStream.Size());
 		}
@@ -194,25 +342,15 @@ void voltSeq::step()
 	{		
 		oscMutex.lock();
 		osc::OutboundPacketStream oscStream(oscBuffer, OSC_OUTPUT_BUFFER_SIZE);
-#if OSC_UPDATE_CURRENT_STEP
-		bool updateCurrentStepOSC = false;
-#endif
 		if (sendOSC && oscInitialized)
 		{
 			oscStream << osc::BeginBundleImmediate;
-#if OSC_UPDATE_CURRENT_STEP
-			updateCurrentStepOSC = oscLastPrevStepUpdated != prevIndex && index != prevIndex;
-			if (updateCurrentStepOSC)
-				oscLastPrevStepUpdated = prevIndex;
-
-			updateCurrentStepOSC = false;
-#endif
 		}
 		oscMutex.unlock();
 
 		int numChanged = 0;
 		const float threshold = TROWA_VOLTSEQ_KNOB_CHANGED_THRESHOLD;
-		// Gate buttons (we only show one gate) - Read Inputs
+		// Channel step knobs - Read Inputs
 		for (int s = 0; s < maxSteps; s++) 
 		{
 			bool sendLightVal = false;
@@ -226,13 +364,8 @@ void voltSeq::step()
 			lights[PAD_LIGHTS + s].value = gateLights[r][c];
 
 			oscMutex.lock();
-#if OSC_UPDATE_CURRENT_STEP
-			// This step has changed or this is the current step or this is the previous step
-			if ((updateCurrentStepOSC && (prevIndex == s || index == s)) || sendLightVal)
-#else
 			// This step has changed and we are doing OSC
 			if (sendLightVal && oscInitialized)
-#endif
 			{		
 				oscLastSentVals[s] = roundValForOSC(triggerState[currentPatternEditingIx][currentChannelEditingIx][s]);
 				// voltSeq should send the actual values.
@@ -242,8 +375,16 @@ void voltSeq::step()
 					dv,
 					oscAddrBuffer[SeqOSCOutputMsg::EditStep]);
 #endif
-				oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditStep])
-					<< s << oscLastSentVals[s]
+				// Now also send the equivalent string:
+				currOutputValueMode->GetDisplayString(currOutputValueMode->GetOutputValue( triggerState[currentPatternEditingIx][currentChannelEditingIx][s] ), valOutputBuffer);
+				sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s + 1);
+				debug("Send: %s -> %s : %s", oscAddrBuffer[SeqOSCOutputMsg::EditStepString], addrBuff, valOutputBuffer);
+				oscStream << osc::BeginMessage(addrBuff)
+					<< oscLastSentVals[s]
+					<< osc::EndMessage;
+				sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStepString], s + 1);
+				oscStream << osc::BeginMessage(addrBuff)
+					<< valOutputBuffer // String version of the value (touchOSC needs this)
 					<< osc::EndMessage;
 				numChanged++;
 			} // end if send the value over OSC
@@ -336,4 +477,119 @@ voltSeqWidget::voltSeqWidget() : TSSequencerWidgetBase()
 	} // end loop through 4x4 grid
 	module->initialized = true;
 	return;
+}
+
+struct voltSeq_ShiftVoltageSubMenuItem : MenuItem {
+	voltSeq* sequencerModule;
+	float amount = 1.0;
+	enum ShiftType {
+		// Current Edit Pattern & Channel
+		CurrentChannelOnly,
+		// Current Edit Pattern, All Channels
+		ThisPattern,
+		// All patterns, all channels
+		AllPatterns
+	};
+	ShiftType Target = ShiftType::CurrentChannelOnly;
+
+	voltSeq_ShiftVoltageSubMenuItem(std::string text, ShiftType target, float amount, voltSeq* seqModule)
+	{
+		this->box.size.x = 200;
+		this->text = text;
+		this->Target = target;
+		this->amount = amount;
+		this->sequencerModule = seqModule;
+	}
+
+	void onAction(EventAction &e) override {
+		if (this->Target == ShiftType::AllPatterns)
+		{
+			sequencerModule->shiftValues(TROWA_INDEX_UNDEFINED, TROWA_SEQ_COPY_CHANNELIX_ALL, amount);
+		}
+		else if (this->Target == ShiftType::ThisPattern)
+		{
+			sequencerModule->shiftValues(sequencerModule->currentPatternEditingIx, TROWA_SEQ_COPY_CHANNELIX_ALL, amount);
+		}
+		else //if (this->Target == ShiftType::CurrentChannelOnly)
+		{
+			sequencerModule->shiftValues(sequencerModule->currentPatternEditingIx, sequencerModule->currentChannelEditingIx, amount);
+		}
+	}
+	void step() override {
+		//rightText = (seq3->gateMode == gateMode) ? "✔" : "";
+	}
+};
+
+struct voltSeq_ShiftVoltageSubMenu : Menu {
+	voltSeq* sequencerModule;
+	float amount = 1.0;
+
+	voltSeq_ShiftVoltageSubMenu(float amount, voltSeq* seqModule)
+	{
+		this->box.size = Vec(200, 60);
+		this->amount = amount;
+		this->sequencerModule = seqModule;
+		return;
+	}
+
+	void createChildren()
+	{
+		voltSeq_ShiftVoltageSubMenuItem* menuItem = new voltSeq_ShiftVoltageSubMenuItem("Current Edit Channel", voltSeq_ShiftVoltageSubMenuItem::ShiftType::CurrentChannelOnly, this->amount, this->sequencerModule);
+		addChild(menuItem); //this->pushChild(menuItem);
+		menuItem = new voltSeq_ShiftVoltageSubMenuItem("Current Edit Pattern", voltSeq_ShiftVoltageSubMenuItem::ShiftType::ThisPattern, this->amount, this->sequencerModule);
+		addChild(menuItem);// this->pushChild(menuItem);
+		menuItem = new voltSeq_ShiftVoltageSubMenuItem("ALL Patterns", voltSeq_ShiftVoltageSubMenuItem::ShiftType::AllPatterns, this->amount, this->sequencerModule);
+		addChild(menuItem);// this->pushChild(menuItem);
+		return;
+	}
+};
+// First tier menu item. Create Submenu
+struct voltSeq_ShiftVoltageMenuItem : MenuItem {
+	voltSeq* sequencerModule;
+	float amount = 1.0;
+
+	voltSeq_ShiftVoltageMenuItem(std::string text, float amount, voltSeq* seqModule)
+	{
+		this->text = text;
+		this->amount = amount;
+		this->sequencerModule = seqModule;
+		return;
+	}
+	Menu *createChildMenu() override {
+		voltSeq_ShiftVoltageSubMenu* menu = new voltSeq_ShiftVoltageSubMenu(amount, sequencerModule);
+		menu->amount = this->amount;
+		menu->sequencerModule = this->sequencerModule;
+		menu->createChildren();
+		menu->box.size = Vec(200, 60);
+		return menu;
+	}
+};
+
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// voltSeqWidget
+// Create context menu with the ability to shift 1 V (1 octave).
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+Menu *voltSeqWidget::createContextMenu()
+{
+	Menu *menu = TSSequencerWidgetBase::createContextMenu();
+
+	// Add voltSeq specific options:
+	MenuLabel *spacerLabel = new MenuLabel();
+	menu->addChild(spacerLabel); //menu->pushChild(spacerLabel);
+
+
+	voltSeq* sequencerModule = dynamic_cast<voltSeq*>(module);
+	assert(sequencerModule);
+
+	//-------- Shift Values Up/Down ------- //
+	// (Affects N steps).
+	MenuLabel *modeLabel = new MenuLabel();
+	modeLabel->text = "Shift Values";
+	menu->addChild(modeLabel); //menu->pushChild(modeLabel);
+
+	//voltSeq_ShiftVoltageMenuItem* menuItem = new voltSeq_ShiftVoltageMenuItem("> +1 V/Octave/Patt", 1.0, sequencerModule);
+	menu->addChild(new voltSeq_ShiftVoltageMenuItem("> +1 V/Octave/Patt", 1.0, sequencerModule));// menu->pushChild(menuItem);
+	//menuItem = new voltSeq_ShiftVoltageMenuItem("> -1 V/Octave/Patt", -1.0, sequencerModule);
+	menu->addChild(new voltSeq_ShiftVoltageMenuItem("> -1 V/Octave/Patt", -1.0, sequencerModule));// menu->pushChild(menuItem);
+	return menu;
 }

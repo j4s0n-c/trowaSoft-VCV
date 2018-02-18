@@ -1,6 +1,7 @@
 *.d
 *.o
 *.zip
+*.ignore
 build/*.*
 dist/*
 dist/*.*
@@ -12,5 +13,11 @@ dist/*.*
 CppProperties.json
 settings.json
 *.config
+notes/*
 .vs/trowaSoft/v15/.suo
 *.db
+*.txt
+.DS_Store
+trowaSoft.json
+voltSeq_Maschine.pd
+*.old

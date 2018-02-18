@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "trowaSoft.hpp"
 #include "dsp/digital.hpp"
+#include "TSSequencerWidgetBase.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
 #include "TSSequencerModuleBase.hpp"

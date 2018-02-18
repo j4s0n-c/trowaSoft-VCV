@@ -12,9 +12,34 @@ extern Plugin *plugin;
 #include <stdlib.h>
 #include "TSTextField.hpp"
 #include "trowaSoftComponents.hpp"
+#include "TSOSCCommon.hpp"
+//#include "TSSequencerModuleBase.hpp"
 
 #define TSOSC_NUM_TXTFIELDS		3
 #define TSOSC_STATUS_COLOR		nvgRGB(0x00, 0xff, 0xff)
+
+// Button to chose OSC client from drop down.
+struct TSOSCClientSelectBtn : ChoiceButton {
+	// The selected value.
+	OSCClient selectedOSCClient;
+	bool visible = false;
+	void step() override;
+	void onAction(EventAction &e) override;
+	// Draw if visible
+	void draw(NVGcontext *vg) override;
+};
+// An OSC client option in dropdown.
+struct TSOSCClientItem : MenuItem {
+	OSCClient oscClient;
+	TSOSCClientSelectBtn* parentButton;
+	TSOSCClientItem(TSOSCClientSelectBtn* parent)
+	{
+		parentButton = parent;
+		return;
+	}
+	void onAction(EventAction &e) override;
+};
+
 
 struct TSOSCConfigWidget : OpaqueWidget
 {
@@ -23,14 +48,16 @@ struct TSOSCConfigWidget : OpaqueWidget
 	TSTextField* tbIpAddress;
 	TSTextField* tbTxPort;
 	TSTextField* tbRxPort;
+	// Client select/drop down.
+	TSOSCClientSelectBtn* btnClientSelect;
 	// Reference to module.
 	Module* module;
-	// Save button light
-	TS_LightString* btnSaveLight;
-	// Save/Enable button
+	// Save (Enable/Disable) button
 	TS_PadBtn* btnSave;
+	// If the btn should be Enable (true) or Disable (false).
+	bool btnActionEnable = true;
 	// Disable OSC
-	TS_PadBtn* btnDisable;
+	//TS_PadBtn* btnDisable;
 	std::string errorMsg;
 	std::string successMsg;
 	// The current status
@@ -49,8 +76,8 @@ struct TSOSCConfigWidget : OpaqueWidget
 	// Callback/event for when a VALID form is submitted.
 	void(*formSubmitted)();
 
-	TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId);
-	TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, std::string ipAddress, uint16_t txPort, uint16_t rxPort);
+	TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, OSCClient selectedClient);
+	TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, OSCClient selectedClient, std::string ipAddress, uint16_t txPort, uint16_t rxPort);
 
 	// If visible, check for btn submit
 	void step() override;
@@ -76,7 +103,16 @@ struct TSOSCConfigWidget : OpaqueWidget
 		tbIpAddress->visible = isVisible;
 		tbTxPort->visible = isVisible;
 		tbRxPort->visible = isVisible;
+		btnClientSelect->visible = visible;
 		return;
+	}
+	// Get the selected OSC Client.
+	OSCClient getSelectedClient() {
+		return btnClientSelect->selectedOSCClient;
+	}
+	// Set the selected OSC Client.
+	void setSelectedClient(OSCClient client) {
+		btnClientSelect->selectedOSCClient = client;
 	}
 
 	// Get the input ip address.

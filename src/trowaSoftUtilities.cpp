@@ -2,6 +2,20 @@
 
 const char * TROWA_NOTES[TROWA_SEQ_NUM_NOTES] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 
+// Split a string
+std::vector<std::string> str_split(const std::string& s, char delimiter)
+{
+	std::vector<std::string> tokens;
+	std::string token;
+	std::istringstream tokenStream(s);
+	while (std::getline(tokenStream, token, delimiter))
+	{
+		tokens.push_back(token);
+	}
+	return tokens;
+}
+
+
 namespace trowaSoft
 {
 	void TSColorToHSL(NVGcolor color, TSColorHSL* hsv)

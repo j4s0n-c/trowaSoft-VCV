@@ -19,7 +19,7 @@ using namespace rack;
 #define TROWA_REGEX_NUMERIC_CHAR_NOT		"[^0-9]"
 
 // IP Address: Entire string validation
-#define TROWA_REGEX_IP_ADDRESS			 "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" //"^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$"
+#define TROWA_REGEX_IP_ADDRESS			 "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" 
 // IP Address: Single char validation
 #define TROWA_REGEX_IP_CHAR				"^([0-9]|\\.)$"
 // IP Address: Not a valid character 

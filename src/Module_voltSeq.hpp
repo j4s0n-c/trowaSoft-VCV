@@ -91,6 +91,21 @@ struct voltSeq : TSSequencerModuleBase
 		delete [] oscLastSentVals;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// fromJson(void)
+	// Read in our junk from json.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	void fromJson(json_t *rootJ) override {
+		TSSequencerModuleBase::fromJson(rootJ);
+
+		//// Check for old version and try to do graceful conversion from -5 to +5V 
+		//// in Note Mode to -4 to +6V
+		//if (saveVersion < 7 && selectedOutputValueMode == ValueMode::VALUE_MIDINOTE)
+		//{
+		//	this->shiftValues(TROWA_INDEX_UNDEFINED, TROWA_INDEX_UNDEFINED, 1.0);
+		//}
+		return;
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// Set a single the step value
 	// (i.e. this command probably comes from an external source).
 	// >> Should set the control knob value too if applicable. <<
@@ -103,10 +118,39 @@ struct voltSeq : TSSequencerModuleBase
 	void step() override;
 	// Only randomize the current gate/trigger steps.
 	void randomize() override;
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getRandomValue()
+	// Get a random value for a step in this sequencer.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	float getRandomValue() override {
+		return voltSeq_STEP_KNOB_MIN + randomf()*(voltSeq_STEP_KNOB_MAX - voltSeq_STEP_KNOB_MIN);
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// onShownStepChange()
+	// If we changed a step that is shown on the matrix, then do something.
+	// For voltSeq to adjust the knobs so we dont' read the old knob values again.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	void onShownStepChange(int step, float val) override {
+		this->params[CHANNEL_PARAM + step].value = val;
+		int r = step / numRows;
+		int c = step % numRows;
+		knobStepMatrix[r][c]->setKnobValue(val);
+		return;
+	}
+
+
 	// Get the toggle step value
 	float getToggleStepValue(int step, float val, int channel, int pattern) override;
 	// Calculate a representation of all channels for this step
 	float getPlayingStepValue(int step, int pattern) override;
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// Shift all steps (+/-) some number of volts.
+	// @patternIx : (IN) The index into our pattern matrix (0-15). Or TROWA_INDEX_UNDEFINED for all patterns.
+	// @channelIx : (IN) The index of the channel (gate/trigger/voice) if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL/TROWA_INDEX_UNDEFINED for all).
+	// @volts: (IN) The number of volts to add.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	void shiftValues(/*in*/ int patternIx, /*in*/ int channelIx, /*in*/ float volts);
 };
 
 #endif // end if not defined

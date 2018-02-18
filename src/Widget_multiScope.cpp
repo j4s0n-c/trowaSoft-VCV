@@ -6,12 +6,22 @@
 #include "Module_multiScope.hpp"
 #include "Widget_multiScope.hpp"
 
+using namespace trowaSoft;
+
 #define SCREW_DIAMETER						 15
 #define TROWA_WIDGET_TOP_BAR_HEIGHT	 		 15
-#define	TROWA_SCOPE_INPUT_AREA_WIDTH		265  // 260
-#define TROWA_SCOPE_MIN_SCOPE_AREA_WIDTH	(240 - RACK_GRID_WIDTH)
+#define	TROWA_SCOPE_INPUT_AREA_WIDTH		365  // 295 265
+#define TROWA_SCOPE_MIN_SCOPE_AREA_WIDTH	(240 - RACK_GRID_WIDTH) // 240-RACK_GRID_WIDTH
+#define TROWA_SCOPE_DISPLAY_AREA_WIDTH		400 
 #define KNOB_X	0
 #define KNOB_Y	1
+#define HUE_IX		0
+#define SAT_IX		1
+#define VAL_IX		2
+
+
+
+
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // multiScopeWidget(void)
@@ -71,13 +81,21 @@ multiScopeWidget::multiScopeWidget()
 	// Black background for Scope screen
 	////////////////////////////////////	
 	{
-		screenBackground = new TS_Panel();
-		screenBackground->backgroundColor = nvgRGB(0, 0, 0);
-		screenBackground->box.pos = Vec(inputAreaWidth - 1, 0);
-		screenBackground->box.size = Vec(box.size.x - inputAreaWidth + 1, box.size.y);
-		dynamic_cast<TS_Panel*>(screenBackground)->setBorderWidth(/*top*/ borderWidth, /*right*/ 0, /*bottom*/ borderWidth, /*left*/ 0);
-		dynamic_cast<TS_Panel*>(screenBackground)->borderColor = borderColor;
-		addChild(screenBackground);
+		screenContainer = new TS_Panel();
+		screenContainer->backgroundColor = COLOR_BLACK;
+		screenContainer->originalBackgroundColor = COLOR_BLACK;
+		screenContainer->box.pos = Vec(inputAreaWidth - 1, 0);
+		screenContainer->box.size = Vec(box.size.x - inputAreaWidth + 1, box.size.y);
+		dynamic_cast<TS_Panel*>(screenContainer)->setBorderWidth(/*top*/ borderWidth, /*right*/ 0, /*bottom*/ borderWidth, /*left*/ 0);
+		dynamic_cast<TS_Panel*>(screenContainer)->borderColor = borderColor;
+
+		TS_Panel* screenBg = new TS_Panel();
+		screenBg->backgroundColor = module->plotBackgroundColor;
+		screenBg->originalBackgroundColor = screenBg->backgroundColor;
+		screenBg->box.pos = Vec(0, RACK_GRID_WIDTH);
+		screenBg->box.size = Vec(screenContainer->box.size.x - RACK_GRID_WIDTH, screenContainer->box.size.y - 2 * RACK_GRID_WIDTH);
+		screenContainer->addChild(screenBg);
+		addChild(screenContainer);
 	}
 
 	Vec tinyBtnSize = Vec(10, 10);
@@ -98,7 +116,16 @@ multiScopeWidget::multiScopeWidget()
 		displayToggleBtn->box.size = tinyBtnSize;
 		displayToggleBtn->value = 1.0;
 		ColorValueLight* displayLED = TS_createColorValueLight<ColorValueLight>(displayToggleBtn->box.pos, module, multiScope::INFO_DISPLAY_TOGGLE_LED, tinyBtnSize, TROWA_SCOPE_INFO_DISPLAY_ON_COLOR);
+
+		// Background Color
+		TS_PadSwitch* colorDisplayToggleBtn = dynamic_cast<TS_PadSwitch*>(createParam<TS_PadSwitch>(Vec(20, 65), module, multiScope::BGCOLOR_DISPLAY_PARAM, 0, 1, 1));
+		colorDisplayToggleBtn->box.size = tinyBtnSize;
+		colorDisplayToggleBtn->value = 1.0;
+		ColorValueLight* colorDisplayLED = TS_createColorValueLight<ColorValueLight>(colorDisplayToggleBtn->box.pos, module, multiScope::BGCOLOR_DISPLAY_LED, tinyBtnSize, TROWA_SCOPE_INFO_DISPLAY_ON_COLOR);
+
 		TSScopeModuleResizeHandle* rightHandle = new TSScopeModuleResizeHandle(minimumWidgetWidth, svgpanel, displayToggleBtn, displayLED);
+		rightHandle->colorDisplayToggleBtn = colorDisplayToggleBtn;
+		rightHandle->colorDisplayToggleLED = colorDisplayLED;
 		rightHandle->right = true;
 		rightHandle->box.pos = Vec(box.size.x - rightHandle->box.size.x, 0);
 		rightHandle->setChildPositions(); // Adjust the positions of our children.
@@ -112,6 +139,10 @@ multiScopeWidget::multiScopeWidget()
 
 		addParam(displayToggleBtn);		
 		addChild(displayLED);
+#if ENABLE_BG_COLOR_PICKER
+		addParam(colorDisplayToggleBtn);
+		addChild(colorDisplayLED);
+#endif
 		module->lights[multiScope::INFO_DISPLAY_TOGGLE_LED].value = 1.0;
 		module->infoDisplayOnTrigger.state = SchmittTrigger::HIGH;
 	}
@@ -120,18 +151,43 @@ multiScopeWidget::multiScopeWidget()
 	// Scope Display 
 	////////////////////////////////////		
 	int wIx = 0;
-	int scopeGraphWidth = box.size.x - inputAreaWidth - 2 - this->rightHandle->box.size.x;
+	int scopeGraphWidth = box.size.x - inputAreaWidth - this->rightHandle->box.size.x;
 	for (wIx = 0; wIx < TROWA_SCOPE_NUM_WAVEFORMS; wIx++)
 	{
 		//info("Adding scope area %d.", wIx);
 		multiScopeDisplay* scopeArea = new multiScopeDisplay();
 		scopeArea->wIx = wIx;
 		scopeArea->module = module;
-		scopeArea->box.pos = Vec(inputAreaWidth + 1, borderSize);
-		scopeArea->box.size = Vec(scopeGraphWidth, scopeGraphHeight);// box.size.y - borderSize * 2);
+		scopeArea->box.pos = Vec(inputAreaWidth - 1, borderSize);
+		scopeArea->box.size = Vec(scopeGraphWidth, scopeGraphHeight);
 		addChild(scopeArea);
 		this->display[wIx] = scopeArea;
 	}
+
+	// Single Controls:
+	// Color sliders
+	const int sliderHeight = 20;
+	const int margin = 10;
+	int yslider = this->display[0]->box.pos.y + this->display[0]->box.size.y - 3 * (sliderHeight + margin) - margin;
+
+	//info("Adding color sliders");
+	for (int i = 0; i < 3; i++)
+	{
+		this->colorSliders[i] = new TS_ColorSlider(Vec(160, sliderHeight));
+		this->colorSliders[i]->startColorHSL.h = (i == 0) ? 0.0 : 0.5;
+		this->colorSliders[i]->startColorHSL.s = (i == 1) ? 0.0 : 1.0;
+		this->colorSliders[i]->startColorHSL.lum = (i == 2) ? 0.0 : 0.5;
+		this->colorSliders[i]->endColorHSL.h = (i == 0) ? 1.0 : 0.5;
+		this->colorSliders[i]->endColorHSL.s = (i == 1) ? 1.0 : 1.0;
+		this->colorSliders[i]->endColorHSL.lum = (i == 2) ? 1.0 : 0.5;
+
+		//this->colorSliders[i]->endColor = endColors[i];
+		this->colorSliders[i]->visible = false;
+		this->colorSliders[i]->box.pos = Vec(inputAreaWidth + 21, yslider);
+		addChild(this->colorSliders[i]);
+		yslider += sliderHeight + margin;
+	}
+
 	
 	////////////////////////////////////
 	// Control Display
@@ -140,11 +196,12 @@ multiScopeWidget::multiScopeWidget()
 		TSScopeDisplay* sDisplay = new TSScopeDisplay();
 		//sDisplay->box.pos = Vec(13, controlDisplayY);;
 		//sDisplay->box.size = Vec(inputAreaWidth - 13 * 2, controlDisplayHeight);
-		sDisplay->box.pos = Vec(screenBackground->box.pos.x + 15, controlDisplayY);;
+		sDisplay->box.pos = Vec(screenContainer->box.pos.x + 15, controlDisplayY);;
 		sDisplay->box.size = Vec(scopeGraphWidth - 13 * 2, controlDisplayHeight);
 		sDisplay->module = module;
 		sDisplay->visible = true; // By default show display
-		sDisplay->originalWidth = sDisplay->box.size.x;
+		float minWidth = TROWA_SCOPE_DISPLAY_AREA_WIDTH - 13 * 2;
+		sDisplay->originalWidth = (sDisplay->box.size.x > minWidth) ? sDisplay->box.size.x : minWidth;
 		scopeInfoDisplay = sDisplay;
 		addChild(sDisplay);
 	}
@@ -200,6 +257,12 @@ multiScopeWidget::multiScopeWidget()
 		float knobHueVal = rescalef(module->waveForms[wIx]->waveHue, 0, 1.0, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX);
 		addParam(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y2 + TROWA_SCOPE_COLOR_KNOB_Y_OFFSET), module, multiScope::COLOR_PARAM + wIx, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, knobHueVal));
 		module->params[multiScope::COLOR_PARAM + wIx].value = knobHueVal;
+		//// Highlights toggle (close to knob)
+		//TS_PadSwitch* highlightsBtn = dynamic_cast<TS_PadSwitch*>(createParam<TS_PadSwitch>(Vec(x + knobOffset + tinyOffset, y3 - 7), module, multiScope::HIGHLIGHT_PARAM + wIx, 0, 1, 0));
+		//highlightsBtn->box.size = tinyBtnSize;
+		//addParam(highlightsBtn);
+		//addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + knobOffset + tinyOffset, y3 - 7), module, multiScope::HIGHLIGHT_LED + wIx, tinyBtnSize, TROWA_SCOPE_HIGHLIGHT_ON_COLOR));
+
 #if TROWA_SCOPE_USE_COLOR_LIGHTS
 		//module->waveForms[wIx]->waveLight = TS_createColorValueLight<ColorValueLight>(Vec(x + knobOffset, y3), module, multiScope::COLOR_LED + wIx, ledSize, module->waveForms[wIx]->waveColor, backColor);
 		module->waveForms[wIx]->waveLight = TS_createColorValueLight<ColorValueLight>(Vec(x + knobOffset + tinyOffset, y3 + tinyOffset), module, multiScope::COLOR_LED + wIx, tinyBtnSize, module->waveForms[wIx]->waveColor, backColor);
@@ -214,6 +277,28 @@ multiScopeWidget::multiScopeWidget()
 		// Pen On:
 		inputPorts[multiScope::PEN_ON_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y3 - knobOffset), module, multiScope::PEN_ON_INPUT + wIx, plugLightsEnabled, module->waveForms[wIx]->waveColor));
 		addInput(inputPorts[multiScope::PEN_ON_INPUT + wIx]);
+
+		// Fill Color Controls:
+		x += dx;
+		inputPorts[multiScope::FILL_COLOR_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), module, multiScope::FILL_COLOR_INPUT + wIx, plugLightsEnabled, module->waveForms[wIx]->fillColor));
+		addInput(inputPorts[multiScope::FILL_COLOR_INPUT + wIx]);
+		knobHueVal = rescalef(module->waveForms[wIx]->fillHue, 0, 1.0, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX);
+		addParam(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y2 + TROWA_SCOPE_COLOR_KNOB_Y_OFFSET), module, multiScope::FILL_COLOR_PARAM + wIx, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, knobHueVal));
+		module->params[multiScope::FILL_COLOR_PARAM + wIx].value = knobHueVal;
+		// Fill On toggle
+		// close to knob: Vec(x + knobOffset + tinyOffset, y3 - 7)
+		TS_PadSwitch* fillBtn = dynamic_cast<TS_PadSwitch*>(createParam<TS_PadSwitch>(Vec(x + knobOffset + tinyOffset, y3 - 7), module, multiScope::FILL_ON_PARAM + wIx, 0, 1, 0));
+		fillBtn->box.size = tinyBtnSize;
+		addParam(fillBtn);
+		this->fillColorLEDs[wIx] = TS_createColorValueLight<ColorValueLight>(Vec(x + knobOffset + tinyOffset, y3 - 7), module, multiScope::FILL_ON_LED + wIx, tinyBtnSize, module->waveForms[wIx]->fillColor);
+		addChild(fillColorLEDs[wIx]);
+
+		// Fill Opacity:
+		x += dx;
+		inputPorts[multiScope::FILL_OPACITY_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), module, multiScope::FILL_OPACITY_INPUT + wIx, plugLightsEnabled, module->waveForms[wIx]->fillColor));
+		addInput(inputPorts[multiScope::FILL_OPACITY_INPUT + wIx]);
+		addParam(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), module, multiScope::FILL_OPACITY_PARAM + wIx, TROWA_SCOPE_MIN_OPACITY, TROWA_SCOPE_MAX_OPACITY, TROWA_SCOPE_MAX_OPACITY));
+
 
 		// Rotation Controls:
 		x += dx;
@@ -237,12 +322,6 @@ multiScopeWidget::multiScopeWidget()
 		inputPorts[multiScope::TIME_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), module, multiScope::TIME_INPUT + wIx, plugLightsEnabled, module->waveForms[wIx]->waveColor));
 		addInput(inputPorts[multiScope::TIME_INPUT + wIx]);
 		addParam(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), module, multiScope::TIME_PARAM + wIx, TROWA_SCOPE_TIME_KNOB_MIN, TROWA_SCOPE_TIME_KNOB_MAX, TROWA_SCOPE_TIME_KNOB_DEF));
-		//TS_PadSwitch* mirrorBtn = dynamic_cast<TS_PadSwitch*>(createParam<TS_PadSwitch>(Vec(x + knobOffset, y3), module, multiScope::MIRROR_X_PARAM + wIx, 0, 1, 0));
-		//mirrorBtn->box.size = tinyBtnSize;
-		//addParam(mirrorBtn);
-		//mirrorBtn = dynamic_cast<TS_PadSwitch*>(createParam<TS_PadSwitch>(Vec(x + knobOffset, y3 + tinyBtnSize.y + 2), module, multiScope::MIRROR_Y_PARAM + wIx, 0, 1, 0));
-		//mirrorBtn->box.size = tinyBtnSize;
-		//addParam(mirrorBtn);
 		TS_PadSwitch* lissajousBtn = dynamic_cast<TS_PadSwitch*>(createParam<TS_PadSwitch>(Vec(x + knobOffset + tinyOffset, y3 + tinyOffset), module, multiScope::LISSAJOUS_PARAM + wIx, 0, 1, 1));
 		lissajousBtn->box.size = tinyBtnSize;
 		lissajousBtn->value = 1.0;
@@ -251,6 +330,16 @@ multiScopeWidget::multiScopeWidget()
 		module->params[multiScope::LISSAJOUS_PARAM + wIx].value = 1.0;
 		module->waveForms[wIx]->lissajousTrigger.state = SchmittTrigger::HIGH;
 		module->lights[multiScope::LISSAJOUS_LED + wIx].value = 1.0;
+
+		// Thickness:
+		x += dx;
+		inputPorts[multiScope::THICKNESS_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), module, multiScope::THICKNESS_INPUT + wIx, plugLightsEnabled, module->waveForms[wIx]->waveColor));
+		addInput(inputPorts[multiScope::THICKNESS_INPUT + wIx]);
+		addParam(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), module, multiScope::THICKNESS_PARAM + wIx, TROWA_SCOPE_THICKNESS_MIN, TROWA_SCOPE_THICKNESS_MAX, TROWA_SCOPE_THICKNESS_DEF));
+		// Effect Controls:
+		//x += dx;
+		addParam(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y3), module, multiScope::EFFECT_PARAM + wIx, TROWA_SCOPE_EFFECT_KNOB_MIN, TROWA_SCOPE_EFFECT_KNOB_MAX, TROWA_SCOPE_EFFECT_KNOB_DEF));
+
 
 		y = y3 + dy + shapeSpacingY; // Extra space between shapes / waveforms		
 	} // end loop
@@ -274,17 +363,86 @@ multiScopeWidget::multiScopeWidget()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void multiScopeWidget::step() {
 	multiScope* scopeModule = dynamic_cast<multiScope*>(module);
+
+	static NVGcolor* lastEditColorPtr;
 	
 	if (scopeModule->initialized)
 	{
+		// Display toggle
 		if (scopeModule->infoDisplayOnTrigger.process(scopeModule->params[multiScope::INFO_DISPLAY_TOGGLE_PARAM].value)) {
 			scopeInfoDisplay->visible = !scopeInfoDisplay->visible;
 		}
 		scopeModule->lights[multiScope::INFO_DISPLAY_TOGGLE_LED].value = (scopeInfoDisplay->visible) ? 1.0 : 0.0;
 
+#if ENABLE_BG_COLOR_PICKER
+		// Color Picker (On-Screen)
+		for (int i = 0; i < 3; i++)
+		{
+			colorSliders[i]->visible = scopeModule->showColorPicker;
+		}
+		if (scopeModule->showColorPicker)
+		{
+			if (lastEditColorPtr == NULL || lastEditColorPtr != scopeModule->editColorPointer)
+			{
+				if (scopeModule->editColorPointer != NULL)
+				{
+					TSColorHSL selectedColor;
+					trowaSoft::TSColorToHSL(*(scopeModule->editColorPointer), &selectedColor);
+					// Load new color:
+					for (int i = 0; i < 3; i++)
+					{
+						colorSliders[i]->value = clampf(selectedColor.hsl[i], 0, 1.0); // first slider is for hue, second is for sat, last is for value
+						for (int j = i + 1; j < 3; j++)
+						{
+							colorSliders[j]->setComponent(i, selectedColor.hsl[i]);
+						}
+					}
+				}
+			} // end if
+			else
+			{
+				// Read in color
+				TSColorHSL selectedColor;
+				for (int i = 0; i < 3; i++)
+				{
+					selectedColor.hsl[i] = colorSliders[i]->value;
+					for (int j = i + 1; j < 3; j++)
+					{
+						colorSliders[j]->setComponent(i, selectedColor.hsl[i]);
+					}
+				}
+				// Set our color
+				if (scopeModule->editColorPointer != NULL)
+				{
+					*(scopeModule->editColorPointer) = nvgHSL(selectedColor.h, selectedColor.s, selectedColor.lum);
+				}
+			} // end else
+			lastEditColorPtr = scopeModule->editColorPointer;
+		} // end if we're showing the color picker
+#endif
+
+
 		// Resizing ///////////////////////////////
-		float width = box.size.x - inputAreaWidth - 2  - this->rightHandle->box.size.x;
-		screenBackground->box.size.x = box.size.x - inputAreaWidth + 1;
+		float width = box.size.x - inputAreaWidth  - this->rightHandle->box.size.x;
+		screenContainer->box.size.x = box.size.x - inputAreaWidth;
+		TS_Panel* screenBg = screenContainer->getFirstDescendantOfType<TS_Panel>();
+		if (screenBg)
+		{
+			screenBg->box.size.x = screenContainer->box.size.x - RACK_GRID_WIDTH;
+
+			// Set background color of plot area:
+			// Negative Image (Invert Color)
+			if (scopeModule->negativeImage)
+			{
+				screenBg->backgroundColor = ColorInvertToNegative(scopeModule->plotBackgroundColor);
+			}
+			else
+			{
+				screenBg->backgroundColor = scopeModule->plotBackgroundColor;
+			}
+		}
+
+
 		if (width - 15 < scopeInfoDisplay->box.size.x)
 		{
 			scopeInfoDisplay->box.size.x = width - 15;
@@ -309,6 +467,14 @@ void multiScopeWidget::step() {
 					inputPorts[multiScope::TIME_INPUT + wIx]->setLightColor(scopeModule->waveForms[wIx]->waveColor);
 					inputPorts[multiScope::X_INPUT + wIx]->setLightColor(scopeModule->waveForms[wIx]->waveColor);
 					inputPorts[multiScope::Y_INPUT + wIx]->setLightColor(scopeModule->waveForms[wIx]->waveColor);
+					inputPorts[multiScope::THICKNESS_INPUT + wIx]->setLightColor(scopeModule->waveForms[wIx]->waveColor);
+
+					inputPorts[multiScope::FILL_COLOR_INPUT + wIx]->setLightColor(scopeModule->waveForms[wIx]->fillColor);
+					inputPorts[multiScope::FILL_OPACITY_INPUT + wIx]->setLightColor(scopeModule->waveForms[wIx]->fillColor);
+					if (scopeModule->waveForms[wIx]->doFill)
+					{
+						fillColorLEDs[wIx]->setColor(scopeModule->waveForms[wIx]->fillColor);
+					}
 				}
 			}
 			// Adjusting Knobs ///////////////////////////////////////////////
@@ -353,6 +519,8 @@ void multiScopeWidget::step() {
 		}
 		rightHandle->box.pos.x = box.size.x - rightHandle->box.size.x;		
 		rightHandle->setChildPositions(); // Move the items that are artificially "in" this bar (really belong to multiScopeWidget, but should be rendered on top of rightHandle)
+		
+
 		ModuleWidget::step();
 	}
 	return;

@@ -7,6 +7,7 @@
 #include "TSSequencerModuleBase.hpp"
 #include "Module_trigSeq.hpp"
 #include "TSOSCSequencerOutputMessages.hpp"
+#include "TSOSCCommon.hpp"
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // trigSeq::randomize()
@@ -79,8 +80,10 @@ void trigSeq::step() {
 
 	// Only send OSC if it is enabled, initialized, and we are in EDIT mode.
 	sendOSC = useOSC && oscInitialized; //&& currentCtlMode == ExternalControllerMode::EditMode
+	char addrBuff[50] = { 0 };
 	//-- * Load the trigger we are editing into our button matrix for display:
 	// This is what we are showing not what we playing
+	int gridRow, gridCol; // for touchOSC grids
 	if (reloadMatrix)
 	{
 		reloadEditMatrix = false;
@@ -115,8 +118,34 @@ void trigSeq::step() {
 			oscMutex.lock();
 			if (sendOSC && oscInitialized)
 			{
-				oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditStep])
-					<< s << triggerState[currentPatternEditingIx][currentChannelEditingIx][s]
+				if (s > 0 && s % 16 == 0) // There is a limit to client buffer size, so let's not make the bundles too large. Hopefully they can take 16-steps at a time.
+				{
+					// Send this bundle and then start a new one
+					oscStream << osc::EndBundle;
+					oscTxSocket->Send(oscStream.Data(), oscStream.Size());
+					oscStream.Clear();
+					// Start new bundle:
+					oscStream << osc::BeginBundleImmediate;
+				}
+				if (this->oscCurrentClient == OSCClient::touchOSCClient)
+				{
+					// LED Color (current step LED):
+					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], s + 1);
+					sprintf(addrBuff, OSC_TOUCH_OSC_CHANGE_COLOR_FS, addrBuff);
+					oscStream << osc::BeginMessage(addrBuff)
+						<< touchOSC::ChannelColors[currentChannelEditingIx]
+						<< osc::EndMessage;
+					// Step:
+					touchOSC::stepIndex_to_mcRowCol(s, numRows, numCols, &gridRow, &gridCol);
+					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditTOSC_GridStep], gridRow, gridCol); // Grid's /<row>/<col> to accomodate touchOSC's lack of multi-parameter support.
+				}
+				else
+				{
+					// Step
+					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s + 1); // Changed to /<step> to accomodate touchOSC's lack of multi-parameter support.
+				}
+				oscStream << osc::BeginMessage(addrBuff)
+					<< triggerState[currentPatternEditingIx][currentChannelEditingIx][s]
 					<< osc::EndMessage;
 			}
 			oscMutex.unlock();
@@ -124,6 +153,19 @@ void trigSeq::step() {
 		oscMutex.lock();
 		if (sendOSC && oscInitialized)
 		{
+			// Send color of grid:
+			if (this->oscCurrentClient == OSCClient::touchOSCClient)
+			{
+				oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditStepGridColor])
+					<< touchOSC::ChannelColors[currentChannelEditingIx]
+					<< osc::EndMessage;
+				// Also change color on the Channel control:
+				sprintf(addrBuff, OSC_TOUCH_OSC_CHANGE_COLOR_FS, oscAddrBuffer[SeqOSCOutputMsg::EditChannel]);
+				oscStream << osc::BeginMessage(addrBuff)
+					<< touchOSC::ChannelColors[currentChannelEditingIx]
+					<< osc::EndMessage;
+			}
+			// End last bundle and send:
 			oscStream << osc::EndBundle;
 			oscTxSocket->Send(oscStream.Data(), oscStream.Size());
 		}
@@ -134,19 +176,9 @@ void trigSeq::step() {
 	{		
 		oscMutex.lock();
 		osc::OutboundPacketStream oscStream(oscBuffer, OSC_OUTPUT_BUFFER_SIZE);
-#if OSC_UPDATE_CURRENT_STEP
-		bool updateCurrentStepOSC = false;
-#endif
 		if (sendOSC && oscInitialized)
 		{
 			oscStream << osc::BeginBundleImmediate;
-#if OSC_UPDATE_CURRENT_STEP
-			updateCurrentStepOSC = oscLastPrevStepUpdated != prevIndex && index != prevIndex;
-			if (updateCurrentStepOSC)
-				oscLastPrevStepUpdated = prevIndex;
-
-			updateCurrentStepOSC = false;
-#endif
 		}
 		oscMutex.unlock();
 		int numChanged = 0;
@@ -168,20 +200,24 @@ void trigSeq::step() {
 			lights[PAD_LIGHTS + s].value = gateLights[r][c];
 
 			oscMutex.lock();
-#if OSC_UPDATE_CURRENT_STEP
-			// This step has changed or this is the current step or this is the previous step
-			if ((updateCurrentStepOSC && (prevIndex == s || index == s)) || sendLightVal)
-#else
 			// This step has changed and we are doing OSC
 			if (sendLightVal && oscInitialized)
-#endif
 			{
-				// Now just send the light value (not the actual step value)
+				// Send the step value
+				if (this->oscCurrentClient == OSCClient::touchOSCClient)
+				{
+					touchOSC::stepIndex_to_mcRowCol(s, numRows, numCols, &gridRow, &gridCol);
+					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditTOSC_GridStep], gridRow, gridCol); // Grid's /<row>/<col> to accomodate touchOSC's lack of multi-parameter support.
+				}
+				else
+				{
+					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s + 1); // Changed to /<step> to accomodate touchOSC's lack of multi-parameter support.
+				}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-				debug("Step changed %d (new val is %.2f), sending OSC %s", s, gateLights[r][c], oscAddrBuffer[SeqOSCOutputMsg::EditStep]);
+				debug("Step changed %d (new val is %.2f), sending OSC %s", s, triggerState[currentPatternEditingIx][currentChannelEditingIx][s], addrBuff);
 #endif
-				oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditStep])
-					<< s << (float)((int)(gateLights[r][c]))
+				oscStream << osc::BeginMessage(addrBuff)
+					<< triggerState[currentPatternEditingIx][currentChannelEditingIx][s]
 					<< osc::EndMessage;
 				numChanged++;
 			} // end if send the value over OSC
@@ -246,7 +282,9 @@ trigSeqWidget::trigSeqWidget() : TSSequencerWidgetBase()
 		for (int c = 0; c < module->numCols; c++)
 		{			
 			// Pad buttons:
-			addParam(createParam<TS_PadSquare>(Vec(x, y), module, TSSequencerModuleBase::CHANNEL_PARAM + r*module->numCols + c, 0.0, 1.0, 0.0));
+			TS_PadSquare* padBtn = dynamic_cast<TS_PadSquare*>(createParam<TS_PadSquare>(Vec(x, y), module, TSSequencerModuleBase::CHANNEL_PARAM + r * module->numCols + c, 0.0, 1.0, 0.0));
+			padBtn->groupId = module->oscId; // For now this is unique.
+			addParam(padBtn);
 			// Keep a reference to our pad lights so we can change the colors
 			module->padLightPtrs[r][c] = dynamic_cast<TS_LightSquare*>(TS_createColorValueLight<TS_LightSquare>(/*pos */ Vec(x+dx, y+dx), 
 				/*module*/ module, 

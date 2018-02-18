@@ -4,6 +4,7 @@
 #include "gui.hpp"
 // for key codes
 #include <GLFW/glfw3.h>
+using namespace rack;
 
 
 // Draw if visible.
@@ -37,7 +38,8 @@ std::string TSTextField::cleanseString(std::string newText)
 	{
 		// Remove invalid chars
 		std::stringstream cleansedStr;
-		std::regex_replace(std::ostream_iterator<char>(cleansedStr), newText.begin(), newText.end(), regexInvalidChar, "");
+		// Issue: https://github.com/j4s0n-c/trowaSoft-VCV/issues/5. Changed from string constant (emtpy string "") to string object empty string ("") to older Linux compilers. Thx to @Chaircrusher.
+		std::regex_replace(std::ostream_iterator<char>(cleansedStr), newText.begin(), newText.end(), regexInvalidChar, std::string(""));
 		return cleansedStr.str().substr(0, maxLength);
 	}
 } // end cleanseString()
@@ -46,10 +48,8 @@ std::string TSTextField::cleanseString(std::string newText)
 void TSTextField::insertText(std::string newText) {
 	if (begin < end)
 		text.erase(begin, end - begin);
-	debug("insertText(%s) at %d in text %s.", newText.c_str(), begin, text.c_str());
 	std::string cleansedStr = cleanseString(newText);
 	text.insert(begin, cleansedStr);
-	debug("insertText(%s) Cleansed %s, now text is %s.", newText.c_str(), cleansedStr.c_str(), text.c_str());
 	if (text.length() > maxLength)
 		text = text.substr(0, maxLength);
 	begin += cleansedStr.size();
@@ -60,11 +60,9 @@ void TSTextField::insertText(std::string newText) {
 } // end insertText()
 // When the text changes.
 void TSTextField::onTextChange() {
-	debug("Text is now %s.", text.c_str());
 	text = cleanseString(text);
 	begin = mini(maxi(begin, 0), text.size());
 	end = mini(maxi(end, 0), text.size());
-	debug("Cleansed Text is now %s.", text.c_str());
 	return;
 } // end onTextChanged()
 // On key press.
@@ -76,7 +74,7 @@ void TSTextField::onKey(EventKey &e) {
 		return;
 	}
 	// Flag if we need to validate/cleanse this character (only if printable and if we are doing validation).
-	bool checkKey = isPrintableKey(e.key) && (this->allowedTextType != TextType::Any);
+	bool checkKey = (this->allowedTextType != TextType::Any) && isPrintableKey(e.key);
 	switch (e.key) {
 	case GLFW_KEY_BACKSPACE:
 		if (begin < end) {

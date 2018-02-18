@@ -49,7 +49,9 @@ trigSeq64Widget::trigSeq64Widget() : TSSequencerWidgetBase()
 			// Pad buttons:
 			TS_PadSwitch* pad = new TS_PadSwitch(padSize);
 			pad->box.pos = Vec(x, y);
+			pad->btnId = r * module->numCols + c;
 			pad->module = module;
+			pad->groupId = module->oscId; // For now this is unique.
 			pad->paramId = TSSequencerModuleBase::CHANNEL_PARAM + r*module->numCols + c;
 			pad->setLimits(0, 1);
 			pad->setDefaultValue(0);

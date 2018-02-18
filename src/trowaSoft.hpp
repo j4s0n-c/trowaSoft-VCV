@@ -7,6 +7,11 @@ using namespace rack;
 #define TROWA_PLUGIN_NAME	"trowaSoft"
 extern Plugin *plugin;
 
+// An internal version number (integer) value. Simple int value for quick/dirty easy comparison.
+#define TROWA_INTERNAL_VERSION_INT		7 
+// 7: 0.5.5.2
+
+
 #include "TSSModuleWidgetBase.hpp"
 #include "TSSequencerWidgetBase.hpp"
 
@@ -28,6 +33,8 @@ struct trigSeqWidget : TSSequencerWidgetBase {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct voltSeqWidget : TSSequencerWidgetBase {
 	voltSeqWidget();
+	// Create context menu with shifting.
+	Menu *createContextMenu() override;
 };
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

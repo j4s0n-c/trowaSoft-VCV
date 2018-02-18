@@ -225,10 +225,12 @@ bool ReceivedMessageArgument::AsBoolUnchecked() const
 
 int32 ReceivedMessageArgument::AsInt32() const
 {
-    if( !typeTagPtr_ )
-        throw MissingArgumentException();
-	else if( *typeTagPtr_ == INT32_TYPE_TAG )
+	if (!typeTagPtr_)
+		throw MissingArgumentException();
+	else if (*typeTagPtr_ == INT32_TYPE_TAG)
 		return AsInt32Unchecked();
+	else if (*typeTagPtr_ == osc::TypeTagValues::FLOAT_TYPE_TAG) // Do conversion for touchOSC's limited values
+		return static_cast<osc::int32>(AsFloatUnchecked());
 	else
 		throw WrongArgumentTypeException();
 }

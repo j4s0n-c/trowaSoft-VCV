@@ -4,6 +4,7 @@
 #include <thread> // std::thread
 #include <mutex>
 #include <queue>
+#include <vector>
 #include <string.h>
 #include <stdio.h>
 #include "trowaSoft.hpp"
@@ -13,9 +14,11 @@
 #include <chrono>
 #include "TSTempoBPM.hpp"
 #include "TSExternalControlMessage.hpp"
+#include "TSOSCCommon.hpp"
 #include "TSOSCSequencerListener.hpp"
 #include "TSOSCCommunicator.hpp"
 #include "TSOSCSequencerOutputMessages.hpp"
+#include "TSSequencerWidgetBase.hpp"
 
 #include "../lib/oscpack/osc/OscOutboundPacketStream.h"
 #include "../lib/oscpack/ip/UdpSocket.h"
@@ -34,12 +37,11 @@
 #define OSC_INPORT_DEF		7001
 // Default namespace for OSC
 #define OSC_DEFAULT_NS				"/tsseq"
-#define OSC_OUTPUT_BUFFER_SIZE		(1024*64)
+#define OSC_OUTPUT_BUFFER_SIZE		(1024*TROWA_SEQ_MAX_NUM_STEPS)
 #define OSC_ADDRESS_BUFFER_SIZE		50
-#define OSC_UPDATE_CURR_STEP_INTERVAL	0.25	// How often to update the current step interval
 // If we should update the current step pointer to OSC (turn off prev step, highlight current step).
 // This gets slow though during testing.
-#define OSC_UPDATE_CURRENT_STEP		0 
+#define OSC_UPDATE_CURRENT_STEP_LED		1
 
 // We only show 4x4 grid of steps at time.
 #define TROWA_SEQ_STEP_NUM_ROWS	4	// Num of rows for display of the Steps (single Gate displayed at a time)
@@ -56,7 +58,15 @@
 // 0 WILL BE NO SWING
 
 // To copy all gates/triggers in the selected target Pattern
-#define TROWA_SEQ_COPY_GATEIX_ALL		TROWA_INDEX_UNDEFINED 
+#define TROWA_SEQ_COPY_CHANNELIX_ALL		TROWA_INDEX_UNDEFINED 
+
+#define TROWA_SEQ_NUM_RANDOM_PATTERNS		11
+// Random Structure
+// From feature request: https ://github.com/j4s0n-c/trowaSoft-VCV/issues/10
+struct RandStructure {
+	uint8_t numDiffVals;
+	std::vector<uint8_t> pattern;
+};
 
 //===============================================================================
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -86,7 +96,7 @@ struct TSSequencerModuleBase : Module {
 		OSC_SAVE_CONF_PARAM, // ENABLE and Save the configuration for OSC
 		OSC_DISABLE_PARAM,   // Disable OSC (ignore config values)
 		OSC_SHOW_CONF_PARAM, // Configure OSC toggle
-		CHANNEL_PARAM, // Edit Channel Knob
+		CHANNEL_PARAM, // Edit Channel/Step Buttons/Knobs
 		NUM_PARAMS = CHANNEL_PARAM // Add the number of steps separately...
 	};
 	enum InputIds {
@@ -109,7 +119,7 @@ struct TSSequencerModuleBase : Module {
 		RUNNING_LIGHT,
 		RESET_LIGHT, 
 		COPY_PATTERN_LIGHT, // Copy pattern
-		COPY_GATE_LIGHT, // Copy channel
+		COPY_CHANNEL_LIGHT, // Copy channel
 		PASTE_LIGHT,	// Paste light
 		SELECTED_BPM_MULT_IX_LIGHT,	// BPM multiplier/note index
 		OSC_CONFIGURE_LIGHT, // The light for configuring OSC.
@@ -120,6 +130,10 @@ struct TSSequencerModuleBase : Module {
 		NUM_LIGHTS = PAD_LIGHTS // Add the number of steps separately...
 	};
 
+	// The random structures/patterns
+	static RandStructure RandomPatterns[TROWA_SEQ_NUM_RANDOM_PATTERNS];
+
+	// If the module has been fully initialized or not.
 	bool initialized = false;
 	// If reset is pressed while paused, when we play, we should fire step 0.
 	bool resetPaused = false;
@@ -207,6 +221,15 @@ struct TSSequencerModuleBase : Module {
 	float currentBPM = 0.0f;  
 	// If the last step was the external clock
 	bool lastStepWasExternalClock = false; 
+	// Currently stored pattern (for external control like OSC clients that can not store values themselves, the controls can set a 'stored' value
+	// and then have some button click fire off the SetPlayPattern message with -1 as argument and we'll use this.
+	int storedPatternPlayingIx = 0;
+	// Currently stored length (for external control like OSC clients that can not store values themselves, the controls can set a 'stored' value
+	// and then have some button click fire off the SetPlayLength message with -1 as argument and we'll use this.
+	int storedNumberSteps = TROWA_SEQ_NUM_STEPS;
+	// Currently stored BPM (for external control like OSC clients that can not store values themselves, the controls can set a 'stored' value
+	// and then have some button click fire off the SetPlayBPM message with -1 as argument and we'll use this.
+	int storedBPM = 120;
 	//// Last time of the external step
 	//std::chrono::high_resolution_clock::time_point lastExternalStepTime;
 
@@ -239,8 +262,8 @@ struct TSSequencerModuleBase : Module {
 	// Copy & Paste /////////////////////////
 	// Source pattern to copy
 	int copySourcePatternIx = -1;
-	// Source channel to copy (or TROWA_SEQ_COPY_GATEIX_ALL for all).
-	int copySourceGateIx = TROWA_SEQ_COPY_GATEIX_ALL;
+	// Source channel to copy (or TROWA_SEQ_COPY_CHANNELIX_ALL for all).
+	int copySourceChannelIx = TROWA_SEQ_COPY_CHANNELIX_ALL;
 	// Copy buffer
 	float* copyBuffer[TROWA_SEQ_NUM_CHNLS];
 	SchmittTrigger copyPatternTrigger;
@@ -319,8 +342,9 @@ struct TSSequencerModuleBase : Module {
 		Enable
 	};
 	// Flag for our module to either enable or disable osc.
-	OSCAction oscCurrentAction = OSCAction::None;
-
+	OSCAction oscCurrentAction = OSCAction::None;	
+	// The current osc client. Clients such as touchOSC and Lemur are limited and need special treatment.
+	OSCClient oscCurrentClient = OSCClient::GenericClient;
 
 	// Mode /////////////////////////	
 	// The mode string.
@@ -330,7 +354,11 @@ struct TSSequencerModuleBase : Module {
 
 	// If it is the first load this session
 	bool firstLoad = true;
+	// If this was loaded from a save, what version
+	int saveVersion = -1;
 	const float lightLambda = 0.05;
+
+	
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// TSSequencerModuleBase()
@@ -351,7 +379,7 @@ struct TSSequencerModuleBase : Module {
 	// Paste the clipboard pattern and/or specific gate to current selected pattern and/or gate.
 	bool paste();
 	// Copy the contents:
-	void copy(int patternIx, int gateIx);
+	void copy(int patternIx, int channelIx);
 	// Set a single step value
 	virtual void setStepValue(int step, float val, int channel, int pattern);
 	// Get the toggle step value
@@ -370,6 +398,7 @@ struct TSSequencerModuleBase : Module {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void setOSCNamespace(const char* oscNs);
 
+
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// reset(void)
 	// Reset ALL step values to default.
@@ -381,13 +410,41 @@ struct TSSequencerModuleBase : Module {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	void randomize() override
 	{
-		for (int s = 0; s < maxSteps; s++)
-		{
-			triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = (randomf() > 0.5);
-		}
-		reloadEditMatrix = true;
+		randomize(currentPatternEditingIx, currentChannelEditingIx, false);
+		//for (int s = 0; s < maxSteps; s++)
+		//{
+		//	triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = (randomf() > 0.5);
+		//}
+		//reloadEditMatrix = true;
 		return;
 	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// randomize()
+	// @patternIx : (IN) The index into our pattern matrix (0-15). Or TROWA_INDEX_UNDEFINED for all patterns.
+	// @channelIx : (IN) The index of the channel (gate/trigger/voice) if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL/TROWA_INDEX_UNDEFINED for all).
+	// @useStructured: (IN) Create a random sequence/pattern of random values.
+	// Random all from : https://github.com/j4s0n-c/trowaSoft-VCV/issues/8
+	// Structured from : https://github.com/j4s0n-c/trowaSoft-VCV/issues/10
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	virtual void randomize(int patternIx, int channelIx, bool useStructured);
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getRandomValue()
+	// Get a random value for a step in this sequencer.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	virtual float getRandomValue() {
+		// Default are boolean sequencers
+		return randomf() > 0.5;
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// onShownStepChange()
+	// If we changed a step that is shown on the matrix, then do something.
+	// For voltSeq to adjust the knobs so we dont' read the old knob values again.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	virtual void onShownStepChange(int step, float val) {
+		// DO nothing
+		return;
+	}
+
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// clearClipboard(void)
 	// Shallow clear of clipboard and reset the Copy/Paste lights
@@ -395,8 +452,8 @@ struct TSSequencerModuleBase : Module {
 	void clearClipboard()
 	{
 		copySourcePatternIx = -1;
-		copySourceGateIx = TROWA_SEQ_COPY_GATEIX_ALL; // Which trigger we are copying, -1 for all		
-		lights[COPY_GATE_LIGHT].value = 0;		
+		copySourceChannelIx = TROWA_SEQ_COPY_CHANNELIX_ALL; // Which trigger we are copying, -1 for all		
+		lights[COPY_CHANNEL_LIGHT].value = 0;		
 		pasteLight->setColor(COLOR_WHITE); // Return the paste light to white
 		lights[COPY_PATTERN_LIGHT].value = 0;		
 		lights[PASTE_LIGHT].value = 0;			
@@ -408,6 +465,9 @@ struct TSSequencerModuleBase : Module {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	json_t *toJson() override {
 		json_t *rootJ = json_object();
+
+		// version
+		json_object_set_new(rootJ, "version", json_integer(TROWA_INTERNAL_VERSION_INT));
 
 		// running
 		json_object_set_new(rootJ, "running", json_boolean(running));
@@ -444,6 +504,7 @@ struct TSSequencerModuleBase : Module {
 		json_object_set_new(oscJ, "IpAddress", json_string(this->currentOSCSettings.oscTxIpAddress.c_str()));
 		json_object_set_new(oscJ, "TxPort", json_integer(this->currentOSCSettings.oscTxPort));
 		json_object_set_new(oscJ, "RxPort", json_integer(this->currentOSCSettings.oscRxPort));
+		json_object_set_new(oscJ, "Client", json_integer(this->oscCurrentClient));
 		json_object_set_new(rootJ, "osc", oscJ);
 
 		return rootJ;
@@ -452,7 +513,7 @@ struct TSSequencerModuleBase : Module {
 	// fromJson(void)
 	// Read in our junk from json.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void fromJson(json_t *rootJ) override {
+	virtual void fromJson(json_t *rootJ) override {
 		// running
 		json_t *runningJ = json_object_get(rootJ, "running");
 		if (runningJ)
@@ -512,9 +573,19 @@ struct TSSequencerModuleBase : Module {
 			currJ = json_object_get(oscJ, "RxPort");
 			if (currJ)
 				this->currentOSCSettings.oscRxPort = (uint16_t)(json_integer_value(currJ));
+			currJ = json_object_get(oscJ, "Client");
+			if (currJ)
+				this->oscCurrentClient = static_cast<OSCClient>( (uint8_t)(json_integer_value(currJ)) );
+
 		}
 
-
+		saveVersion = 0;
+		currJ = NULL;
+		currJ = json_object_get(rootJ, "version");
+		if (currJ)
+		{
+			saveVersion = (int)(json_integer_value(currJ));
+		}
 		firstLoad = true;
 		return;
 	} // end fromJson()
@@ -815,7 +886,7 @@ struct TSSeqLabelArea : TransparentWidget {
 		
 		if (drawGridLines)
 		{
-			NVGcolor gridColor = nvgRGB(0x66, 0x66, 0x66);
+			NVGcolor gridColor = nvgRGB(0x44, 0x44, 0x44);
 			nvgBeginPath(vg);
 			x = 80;
 			y = 228;
@@ -831,7 +902,7 @@ struct TSSeqLabelArea : TransparentWidget {
 			// Vertical
 			nvgBeginPath(vg);
 			x = 192;
-			y = 117;
+			y = 116;
 			nvgMoveTo(vg, /*start x*/ x, /*start y*/ y);// Starts new sub-path with specified point as first point
 			y += 225;			
 			nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go to the left			

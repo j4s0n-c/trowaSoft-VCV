@@ -5,7 +5,7 @@
 using namespace rack;
 
 #include "TSSModuleWidgetBase.hpp"
-#include "TSSequencerModuleBase.hpp"
+//#include "TSSequencerModuleBase.hpp"
 #include "TSOSCConfigWidget.hpp"
 
 struct TSSeqDisplay;
@@ -27,5 +27,7 @@ struct TSSequencerWidgetBase : TSSModuleWidgetBase {
 	void addBaseControls() { addBaseControls(false); }
 	// Add base controls.
 	void addBaseControls(bool addGridLines);
+	// Create context menu with common adds to sequencers.
+	Menu *createContextMenu() override;
 };
 #endif

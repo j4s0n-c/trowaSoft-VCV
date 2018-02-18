@@ -9,6 +9,22 @@
 #include "TSOSCSequencerListener.hpp"
 #include "TSOSCSequencerOutputMessages.hpp"
 #include "TSOSCCommunicator.hpp"
+#include "TSSequencerWidgetBase.hpp"
+
+// Static Variables:
+RandStructure TSSequencerModuleBase::RandomPatterns[TROWA_SEQ_NUM_RANDOM_PATTERNS] = {
+	{ 1, { 0 } },
+	{ 2, { 0, 1 } },
+	{ 2, { 0,0,0,1 } },
+	{ 2, { 0,0,1,1 } },
+	{ 2, { 0,1,1,1 } },
+	{ 2, { 0,1,1,0 } },
+	{ 3, { 0,0,1,2 } },
+	{ 3, { 0,1,0,2 } },
+	{ 3, { 0,1,2,0 } },
+	{ 3, { 0,1,1,2 } },
+	{ 3, { 0,2,1,2 } }
+};
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // TSSequencerModuleBase()
@@ -48,6 +64,7 @@ TSSequencerModuleBase::TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int num
 	// Number of steps in not static at compile time anymore...
 	maxSteps = numSteps; // Num Steps may vary now up to 64
 	currentNumberSteps = maxSteps;
+	storedNumberSteps = maxSteps;
 	this->numRows = numRows;
 	this->numCols = numCols;
 
@@ -87,7 +104,7 @@ TSSequencerModuleBase::TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int num
 	modeStrings[2] = "GATE"; // CONT/GATE
 
 	copySourcePatternIx = -1;
-	copySourceGateIx = TROWA_SEQ_COPY_GATEIX_ALL; // Which trigger we are copying, -1 for all		
+	copySourceChannelIx = TROWA_SEQ_COPY_CHANNELIX_ALL; // Which trigger we are copying, -1 for all		
 
 	initialized = false;
 	firstLoad = true;
@@ -162,7 +179,75 @@ void TSSequencerModuleBase::reset()
 			}
 		}
 	}
+	/// TODO: Also clear our clipboard and turn off OSC?
 	reloadEditMatrix = true;
+	return;
+}
+
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// randomize()
+// @patternIx : (IN) The index into our pattern matrix (0-15). Or TROWA_INDEX_UNDEFINED for all patterns.
+// @channelIx : (IN) The index of the channel (gate/trigger/voice) if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL/TROWA_INDEX_UNDEFINED for all).
+// @useStructured: (IN) Create a random sequence/pattern of random values.
+// Random all from : https://github.com/j4s0n-c/trowaSoft-VCV/issues/8
+// Structured from : https://github.com/j4s0n-c/trowaSoft-VCV/issues/10
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+void TSSequencerModuleBase::randomize(int patternIx, int channelIx, bool useStructured)
+{
+	if (patternIx == TROWA_INDEX_UNDEFINED)
+	{
+		// All patterns:
+		for (int p = 0; p < TROWA_SEQ_NUM_PATTERNS; p++)
+		{
+			randomize(p, TROWA_INDEX_UNDEFINED, useStructured); // All channels
+		}
+	}
+	else if (channelIx == TROWA_INDEX_UNDEFINED)
+	{
+		// This pattern:
+		for (int c = 0; c < TROWA_SEQ_NUM_CHNLS; c++)
+		{
+			randomize(patternIx, c, useStructured);
+		}
+	}
+	else
+	{
+		// -- Randomize Channel Specified --
+		float val;
+		if (useStructured)
+		{
+			// Use a pattern
+			// A, AB, ABBA, ABAC
+			int rIx = rand() % TROWA_SEQ_NUM_RANDOM_PATTERNS;
+			int n = RandomPatterns[rIx].numDiffVals;
+			float* randVals = new float[n];
+			int patternLen = RandomPatterns[rIx].pattern.size();
+			// Every Channel should get its own random pattern
+			for (int i = 0; i < n; i++)
+				randVals[i] = getRandomValue();
+
+			for (int s = 0; s < maxSteps; s++)
+			{
+				val = randVals[RandomPatterns[rIx].pattern[s % patternLen]];
+				triggerState[patternIx][channelIx][s] = val;
+				if (patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx)
+					onShownStepChange(s, val);
+			}
+			delete[] randVals;
+		} // end if random pattern/structure
+		else
+		{
+			// Every value is random
+			for (int s = 0; s < maxSteps; s++)
+			{
+				val = getRandomValue();
+				triggerState[patternIx][channelIx][s] = val;
+				if (patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx)
+					onShownStepChange(s, val);
+			}
+		} // end else (normal Rand -- all values random)
+		reloadEditMatrix = (patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx);
+	} // end else (channel and pattern specified)
 	return;
 }
 
@@ -179,6 +264,13 @@ void TSSequencerModuleBase::setOSCNamespace(const char* oscNs)
 		// Create our array of output addresses based on the base format and the osc name space.
 		sprintf(this->oscAddrBuffer[i], TSSeqOSCOutputFormats[i], oscNamespace.c_str());
 	}
+	// Add %d (all this was changed for touchOSC's limitations)
+	std::strcat(oscAddrBuffer[SeqOSCOutputMsg::EditStepString], "%d");
+	std::strcat(oscAddrBuffer[SeqOSCOutputMsg::EditStep], "%d");
+	std::strcat(oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], "%d");
+	// [touchOSC] Add some <row>/<col>
+	std::strcat(oscAddrBuffer[SeqOSCOutputMsg::EditTOSC_GridStep], "%d/%d");
+
 	return;
 } // end setOSCNameSpace()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -305,14 +397,13 @@ void TSSequencerModuleBase::cleanupOSC()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // copy()
 // @patternIx : (IN) The index into our pattern matrix (0-15).
-// @gateIx : (IN) The index of the gate/trigger/voice to copy if any (0-15, or 
-// TROWA_SEQ_COPY_GATEIX_ALL for all).
+// @channelIx : (IN) The index of the channel (gate/trigger/voice) to copy if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL for all).
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSSequencerModuleBase::copy(/*in*/ int patternIx, /*in*/ int gateIx)
+void TSSequencerModuleBase::copy(/*in*/ int patternIx, /*in*/ int channelIx)
 {
-	copySourceGateIx = gateIx;
+	copySourceChannelIx = channelIx;
 	copySourcePatternIx = patternIx;
-	if (copySourceGateIx == TROWA_SEQ_COPY_GATEIX_ALL)
+	if (copySourceChannelIx == TROWA_SEQ_COPY_CHANNELIX_ALL)
 	{
 		// Copy entire pattern (all gates/triggers/voices)
 		for (int g = 0; g < TROWA_SEQ_NUM_CHNLS; g++)
@@ -328,7 +419,7 @@ void TSSequencerModuleBase::copy(/*in*/ int patternIx, /*in*/ int gateIx)
 		// Copy just the gate:
 		for (int s = 0; s < maxSteps; s++)
 		{
-			copyBuffer[copySourceGateIx][s] = triggerState[copySourcePatternIx][copySourceGateIx][s];
+			copyBuffer[copySourceChannelIx][s] = triggerState[copySourcePatternIx][copySourceChannelIx][s];
 		}		
 	}
 	return;
@@ -342,7 +433,7 @@ bool TSSequencerModuleBase::paste()
 {
 	if (copySourcePatternIx < 0) // Nothing to copy
 		return false;
-	if (copySourceGateIx == TROWA_SEQ_COPY_GATEIX_ALL)
+	if (copySourceChannelIx == TROWA_SEQ_COPY_CHANNELIX_ALL)
 	{
 		// Copy entire pattern (all gates/triggers/voices)
 		for (int g = 0; g < TROWA_SEQ_NUM_CHNLS; g++)
@@ -358,7 +449,7 @@ bool TSSequencerModuleBase::paste()
 		// Copy just the channel:
 		for (int s = 0; s < maxSteps; s++)
 		{
-			triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = copyBuffer[copySourceGateIx][s];
+			triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = copyBuffer[copySourceChannelIx][s];
 		}
 	}
 	return true;
@@ -401,22 +492,45 @@ void TSSequencerModuleBase::setStepValue(int step, float val, int channel, int p
 				gateTriggers[step].state = SchmittTrigger::LOW;
 		}
 	}
+	oscMutex.lock();
 	if (useOSC && oscInitialized)
 	{
-		// Send the result back
+		try
+		{
+			char addrBuff[50] = { 0 };
+			// Send the result back
+			if (this->oscCurrentClient == OSCClient::touchOSCClient)
+			{
+				int gridRow, gridCol;
+				touchOSC::stepIndex_to_mcRowCol(step, numRows, numCols, &gridRow, &gridCol);
+				sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditTOSC_GridStep], gridRow, gridCol); // Grid's /<row>/<col> to accomodate touchOSC's lack of multi-parameter support.
+			}
+			else
+			{
+				sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], step + 1); // Changed to /<step> to accomodate touchOSC's lack of multi-parameter support.
+			}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-		debug("step() - Received a msg (s=%d, v=%0.2f, c=%d, p=%d), sending back (%s).", 
-			step, val, channel, pattern,
-			oscAddrBuffer[SeqOSCOutputMsg::EditStep]);
+			debug("setStepValue() - Received a msg (s=%d, v=%0.2f, c=%d, p=%d), sending back (%s).",
+				step, val, channel, pattern,
+				addrBuff);
 #endif
-		osc::OutboundPacketStream oscStream(oscBuffer, OSC_OUTPUT_BUFFER_SIZE);
-		oscStream << osc::BeginBundleImmediate
-			<< osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditStep])
-			<< step << triggerState[pattern][channel][step]
-			<< osc::EndMessage
-			<< osc::EndBundle;
-		oscTxSocket->Send(oscStream.Data(), oscStream.Size());
+			osc::OutboundPacketStream oscStream(oscBuffer, OSC_OUTPUT_BUFFER_SIZE);
+			oscStream << osc::BeginBundleImmediate
+				<< osc::BeginMessage(addrBuff)
+				<< triggerState[pattern][channel][step]
+				<< osc::EndMessage
+				<< osc::EndBundle;
+			oscTxSocket->Send(oscStream.Data(), oscStream.Size());
+
+		}
+		catch (const std::exception &e)
+		{
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
+			debug("seStepValue - Error sending back msg: %s.", e.what());
+#endif
+		}
 	}
+	oscMutex.unlock();
 	return;
 } // end setStepValue()
 
@@ -438,6 +552,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	bool playBPMChanged = false;
 	bool lastRunning = running;
 	int lastBPMNoteIx = this->selectedBPMNoteIx;
+	int lastStepIndex = index;
 
 	// Run
 	if (runningTrigger.process(params[RUN_PARAM].value)) {
@@ -471,6 +586,33 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 
 	
 	bool nextStep = false;
+	// Now calculate BPM even if we are paused:
+	// BPM calculation selection
+	if (selectedBPMNoteTrigger.process(params[SELECTED_BPM_MULT_IX_PARAM].value)) {
+		if (selectedBPMNoteIx < TROWA_TEMP_BPM_NUM_OPTIONS - 1)
+			selectedBPMNoteIx++;
+		else
+			selectedBPMNoteIx = 0; // Wrap around
+		lights[SELECTED_BPM_MULT_IX_LIGHT].value = 1.0;
+	}
+	float clockTime = 1.0;
+	float input = 1.0;
+	if (inputs[BPM_INPUT].active)
+	{
+		// Use whatever voltage we are getting (-10 TO 10 input)
+		input = rescalef(inputs[BPM_INPUT].value, TROWA_SEQ_PATTERN_MIN_V, TROWA_SEQ_PATTERN_MAX_V,
+			TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
+	}
+	else
+	{
+		// Otherwise read our knob
+		input = params[BPM_PARAM].value; // -2 to 6
+	}
+	clockTime = powf(2.0, input); // -2 to 6
+	// Calculate his all the time now instead of just on next step:
+	currentBPM = roundf(clockTime * BPMOptions[selectedBPMNoteIx]->multiplier);
+	playBPMChanged = lastBPM != currentBPM;
+
 	if (running) 
 	{
 		if (inputs[EXT_CLOCK_INPUT].active) 
@@ -485,31 +627,8 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		}
 		else 
 		{
-			// BPM calculation selection
-			if (selectedBPMNoteTrigger.process(params[SELECTED_BPM_MULT_IX_PARAM].value)) {
-				if (selectedBPMNoteIx < TROWA_TEMP_BPM_NUM_OPTIONS - 1)
-					selectedBPMNoteIx++;
-				else
-					selectedBPMNoteIx = 0; // Wrap around
-				lights[SELECTED_BPM_MULT_IX_LIGHT].value = 1.0;
-			}
-
 			// Internal clock
 			lastStepWasExternalClock = false;
-			float clockTime = 1.0;
-			float input = 1.0;
-			if (inputs[BPM_INPUT].active)
-			{
-				// Use whatever voltage we are getting (-10 TO 10 input)
-				input = rescalef(inputs[BPM_INPUT].value, TROWA_SEQ_PATTERN_MIN_V, TROWA_SEQ_PATTERN_MAX_V, 
-					TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
-			}
-			else
-			{
-				// Otherwise read our knob
-				input = params[BPM_PARAM].value; // -2 to 6
-			}
-			clockTime = powf(2.0, input); // -2 to 6
 			float dt = clockTime / engineGetSampleRate(); // Real dt
 			realPhase += dt; // Real Time no matter what
 			if (realPhase >= 1.0) 
@@ -517,11 +636,11 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 				realPhase -= 1.0;
 				nextStep = true;
 			}			
-			if (nextStep)
-			{				
-				currentBPM = roundf(clockTime * BPMOptions[selectedBPMNoteIx]->multiplier);
-				playBPMChanged = lastBPM != currentBPM;
-			}
+			//if (nextStep)
+			//{	
+				//currentBPM = roundf(clockTime * BPMOptions[selectedBPMNoteIx]->multiplier);
+				//playBPMChanged = lastBPM != currentBPM;
+			//}
 		}
 	} // end if running
 	
@@ -561,48 +680,6 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		currentChannelEditingIx = TROWA_SEQ_NUM_CHNLS - 1;
 	editChannelChanged = lastChannelIx != currentChannelEditingIx;
 	
-	bool pasteCompleted = false;
-	if (pasteTrigger.process(params[PASTE_PARAM].value))
-	{
-		pasteCompleted = paste(); // Paste whatever we have if we have anything		
-	}
-	else
-	{
-		// Check Copy
-		if (copyPatternTrigger.process(params[COPY_PATTERN_PARAM].value))
-		{
-			if (copySourcePatternIx > -1 && copySourceGateIx == TROWA_SEQ_COPY_GATEIX_ALL)
-			{
-				// Clear clipboard 
-				clearClipboard();
-			}
-			else
-			{
-				copy(currentPatternEditingIx, TROWA_SEQ_COPY_GATEIX_ALL);
-				lights[PASTE_LIGHT].value = 1;	// Activate paste light to show there is something on the clipboard
-				pasteLight->setColor(COLOR_WHITE);
-				lights[COPY_PATTERN_LIGHT].value = 1; // Light up Pattern Copy as Active clipboard
-				lights[COPY_GATE_LIGHT].value = 0;	  // Inactivate Gate Copy light				
-			}
-		}
-		if (copyGateTrigger.process(params[COPY_CHANNEL_PARAM].value))
-		{
-			if (copySourcePatternIx > -1 && copySourceGateIx > -1)
-			{
-				// Clear clipboard 
-				clearClipboard();
-			}
-			else 
-			{
-				copy(currentPatternEditingIx, currentChannelEditingIx);
-				lights[PASTE_LIGHT].value = 1;	// Activate paste light to show there is something on the clipboard
-				pasteLight->setColor(voiceColors[currentChannelEditingIx]);
-				lights[COPY_GATE_LIGHT].value = 1;		// Light up Gate Copy Light as Active clipboard
-				copyGateLight->setColor(voiceColors[currentChannelEditingIx]); // Match the color with our Trigger color
-				lights[COPY_PATTERN_LIGHT].value = 0; // Inactivate Pattern Copy Light				
-			}
-		} // end if copyGateTrigger()
-	}
 
 	int r = 0;
 	int c = 0;
@@ -631,6 +708,12 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	/// TODO: Check performance hit from sending OSC in general
 	/// TODO: Some thread safety and make sure that this queue never gets unruly? such that we start getting out of time.
 	bool resetMsg = false;
+	bool doPaste = false;
+	int prevCopyPatternIx = copySourcePatternIx;
+	int prevCopyChannelIx = copySourceChannelIx;
+	bool storedPatternChanged = false;
+	bool storedLengthChanged = false;
+	bool storedBPMChanged = false;
 	while (ctlMsgQueue.size() > 0)
 	{
 		TSExternalControlMessage recvMsg = (TSExternalControlMessage)(ctlMsgQueue.front());
@@ -717,14 +800,26 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 #endif
 			break;
 		case TSExternalControlMessage::MessageType::SetPlayPattern:
-			currentPatternPlayingIx = recvMsg.pattern;
+			if (recvMsg.pattern == TROWA_INDEX_UNDEFINED)
+				recvMsg.pattern = storedPatternPlayingIx; // Check our stored pattern
+			if (recvMsg.pattern > -1 && recvMsg.pattern < TROWA_SEQ_NUM_PATTERNS)
+			{
+				currentPatternPlayingIx = recvMsg.pattern;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Set Play Pattern: %d.", currentPatternPlayingIx);
+				debug("Set Play Pattern: %d.", currentPatternPlayingIx);
 #endif
-			// Update our knob
-			controlKnobs[KnobIx::PlayPatternKnob]->value = currentPatternPlayingIx;
-			controlKnobs[KnobIx::PlayPatternKnob]->dirty = true;
-			params[ParamIds::SELECTED_PATTERN_PLAY_PARAM].value = currentPatternPlayingIx;
+				// Update our knob
+				controlKnobs[KnobIx::PlayPatternKnob]->value = currentPatternPlayingIx;
+				controlKnobs[KnobIx::PlayPatternKnob]->dirty = true;
+				params[ParamIds::SELECTED_PATTERN_PLAY_PARAM].value = currentPatternPlayingIx;
+			}
+			break;
+		case TSExternalControlMessage::MessageType::StorePlayPattern:
+			if (storedPatternPlayingIx != recvMsg.pattern)
+			{
+				storedPatternPlayingIx = recvMsg.pattern;
+				storedPatternChanged = true;
+			}
 			break;
 		case TSExternalControlMessage::MessageType::SetPlayOutputMode:
 			// -- Set Ouput Mode: (TRIG, RTRIG, GATE) or (VOLT, NOTE, PATT) --
@@ -772,13 +867,60 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 			debug("Set Control Mode: %d.", currentCtlMode);
 #endif
 			break;
-		case TSExternalControlMessage::MessageType::SetPlayBPM:
+		case TSExternalControlMessage::MessageType::StorePlayBPM:
+			if (storedBPM != recvMsg.mode)
+			{
+				storedBPMChanged = true;
+				storedBPM = recvMsg.mode;
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+				debug("Store BPM (%d): %.2f.", recvMsg.mode, storedBPM);
+#endif
+			}
+			break;
+		// Now BPM and Tempo are separate in OSC.
+		/// TODO: Maybe move the calcs to the listener thread? But if we have other external messages from non-OSC, then it would have to repeated somewhere...
+		case TSExternalControlMessage::MessageType::SetPlayBPM: // "BPM" is relative to the note
+			//float bpm = recvMsg.mode;
+			// currentBPM = 2^knob * mult
+			// currentBPM / mult = 2 ^ knob
+			// log2(currentBPM / mult) = knob
+			if (recvMsg.mode == TROWA_INDEX_UNDEFINED)
+				recvMsg.mode = storedBPM;
+			tmp = clampf(std::log2f(recvMsg.mode / BPMOptions[selectedBPMNoteIx]->multiplier), TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
+			controlKnobs[KnobIx::BPMKnob]->value = tmp;
+			controlKnobs[KnobIx::BPMKnob]->dirty = true;
+			params[ParamIds::BPM_PARAM].value = tmp;
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+			debug("Set BPM (%d): %.2f.", recvMsg.mode, tmp);
+#endif
+			break;
+		case TSExternalControlMessage::MessageType::AddPlayBPM: // "BPM" is relative to the note
+			tmp = pow(2, controlKnobs[KnobIx::BPMKnob]->value) // Current BPM
+				+ recvMsg.mode / BPMOptions[selectedBPMNoteIx]->multiplier;
+			tmp = std::log2f(tmp);
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+			debug("Add BPM (%d): Knob %.2f, End is %.2f", recvMsg.mode, controlKnobs[KnobIx::BPMKnob]->value, tmp);
+#endif
+			controlKnobs[KnobIx::BPMKnob]->value = clampf(tmp, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
+			controlKnobs[KnobIx::BPMKnob]->dirty = true;
+			params[ParamIds::BPM_PARAM].value = tmp;
+			break;
+		case TSExternalControlMessage::MessageType::SetPlayTempo: // Tempo goes from 0 to 1
 			tmp = rescalef(recvMsg.val, 0.0, 1.0, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
 			controlKnobs[KnobIx::BPMKnob]->value = tmp;
 			controlKnobs[KnobIx::BPMKnob]->dirty = true;
 			params[ParamIds::BPM_PARAM].value = tmp;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Set BPM tempo knob: %.2f.", tmp);
+			debug("Set Tempo (%.2f): Knob %.2f.", recvMsg.val, tmp);
+#endif
+			break;
+		case TSExternalControlMessage::MessageType::AddPlayTempo: // Tempo goes from 0 to 1
+			tmp = rescalef(recvMsg.val, 0.0, 1.0, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
+			controlKnobs[KnobIx::BPMKnob]->value = clampf(tmp + controlKnobs[KnobIx::BPMKnob]->value, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
+			controlKnobs[KnobIx::BPMKnob]->dirty = true;
+			params[ParamIds::BPM_PARAM].value = tmp;
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+			debug("Add Tempo (%.2f): Knob %.2f.", recvMsg.val, controlKnobs[KnobIx::BPMKnob]->value);
 #endif
 			break;
 		case TSExternalControlMessage::MessageType::AddPlayBPMNote:
@@ -793,15 +935,85 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 			debug("Set BPM Note Ix: %d.", selectedBPMNoteIx);
 #endif
 			break;
+		case TSExternalControlMessage::MessageType::StorePlayLength:
+			if (recvMsg.step != storedNumberSteps)
+			{
+				storedNumberSteps = recvMsg.step;
+				storedLengthChanged = true;
+			}
+			break;
 		case TSExternalControlMessage::MessageType::SetPlayLength:
-			currentNumberSteps = recvMsg.step;
+			// Use our stored value if sent is -1
+			recvMsg.step = (recvMsg.step == TROWA_INDEX_UNDEFINED) ? storedNumberSteps : recvMsg.step;
+			if (recvMsg.step > 0 && recvMsg.step <= maxSteps)
+			{
+				currentNumberSteps = recvMsg.step;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Set Play Step Length: %d.", currentNumberSteps);
+				debug("Set Play Step Length: %d.", currentNumberSteps);
 #endif
-			// Update our knob
-			controlKnobs[KnobIx::StepLengthKnob]->value = currentNumberSteps;
-			controlKnobs[KnobIx::StepLengthKnob]->dirty = true;
-			params[ParamIds::STEPS_PARAM].value = currentNumberSteps;
+				// Update our knob
+				controlKnobs[KnobIx::StepLengthKnob]->value = currentNumberSteps;
+				controlKnobs[KnobIx::StepLengthKnob]->dirty = true;
+				params[ParamIds::STEPS_PARAM].value = currentNumberSteps;
+			}
+			break;
+		case TSExternalControlMessage::MessageType::PasteEditClipboard:
+			doPaste = true;
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+			debug("Paste message.");
+#endif
+			break;
+		case TSExternalControlMessage::MessageType::CopyEditPattern:	
+		{
+			int pat = (recvMsg.pattern == CURRENT_EDIT_PATTERN_IX) ? currentPatternEditingIx : recvMsg.pattern;
+			if (copySourcePatternIx > -1 && copySourceChannelIx == TROWA_SEQ_COPY_CHANNELIX_ALL)
+			{
+				// Clear clipboard 
+				clearClipboard();
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+				debug("(clear clipboard) Copy Edit Pattern: %d.", pat);
+#endif
+			}
+			else
+			{
+				//int c = (recvMsg.channel == CURRENT_EDIT_CHANNEL_IX) ? currentChannelEditingIx : recvMsg.channel;
+				copy(pat, TROWA_SEQ_COPY_CHANNELIX_ALL);
+				lights[PASTE_LIGHT].value = 1;	// Activate paste light to show there is something on the clipboard
+				pasteLight->setColor(COLOR_WHITE);
+				lights[COPY_PATTERN_LIGHT].value = 1; // Light up Pattern Copy as Active clipboard
+				lights[COPY_CHANNEL_LIGHT].value = 0;	  // Inactivate Gate Copy light
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+				debug("Copy Edit Pattern: %d.", pat);
+#endif
+			}
+		}
+			break;
+		case TSExternalControlMessage::MessageType::CopyEditChannel:
+		{
+			int pat = (recvMsg.pattern == CURRENT_EDIT_PATTERN_IX) ? currentPatternEditingIx : recvMsg.pattern;
+			int ch = (recvMsg.channel == CURRENT_EDIT_CHANNEL_IX) ? currentChannelEditingIx : recvMsg.channel;
+			if (copySourcePatternIx > -1 && copySourceChannelIx > -1)
+			{
+				// Clear clipboard 
+				clearClipboard();
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+				debug("(clear clipboard) Copy Edit Channel: (P:%d, C:%d).", pat, ch);
+#endif
+			}
+			else
+			{
+				copy(pat, ch);
+				lights[PASTE_LIGHT].value = 1;	// Activate paste light to show there is something on the clipboard
+				pasteLight->setColor(voiceColors[currentChannelEditingIx]);
+				lights[COPY_CHANNEL_LIGHT].value = 1;		// Light up Channel Copy Light as Active clipboard
+				copyGateLight->setColor(voiceColors[currentChannelEditingIx]); // Match the color with our Channel color
+				lights[COPY_PATTERN_LIGHT].value = 0; // Inactivate Pattern Copy Light
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+				debug("Copy Edit Channel: (P:%d, C:%d).", pat, ch);
+#endif
+			}
+
+		}
 			break;
 		case TSExternalControlMessage::MessageType::SetPlayRunningState:
 		case TSExternalControlMessage::MessageType::TogglePlayRunningState:
@@ -820,6 +1032,22 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 			params[RUN_PARAM].value = running;
 			lights[RUNNING_LIGHT].value = running ? 1.0 : 0.0;
 			break;
+		case TSExternalControlMessage::MessageType::RandomizeEditStepValue:
+			randomize();
+			break;
+		case TSExternalControlMessage::MessageType::InitializeEditModule:
+			reset();
+			for (int i = 0; i < KnobIx::NumKnobs; i++)
+			{
+				controlKnobs[i]->value = controlKnobs[i]->defaultValue;
+				controlKnobs[i]->dirty = true;
+			}
+			// We also need to make sure our controls reset....
+			//Module::reset(); // Base method reset should do the knobs
+			//_ParentWidget->reset();
+			/// TODO: We should also send our new values to OSC if OSC is enabled. We would have to re-read the vals though,
+			/// I think the values should trigger that they changed next step()... TODO: double check that this happens
+			break;
 		default:
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
 			debug("Ooops - didn't handle this control message type yet %d.", recvMsg.messageType);
@@ -827,6 +1055,53 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 			break;
 		} // end switch
 	} // end loop through message queue	
+
+
+	//-- COPY / PASTE --
+	bool pasteCompleted = false;
+	if (pasteTrigger.process(params[PASTE_PARAM].value) || doPaste)
+	{
+		pasteCompleted = paste(); // Paste whatever we have if we have anything		
+	}
+	else
+	{
+		// Check Copy
+		if (copyPatternTrigger.process(params[COPY_PATTERN_PARAM].value))
+		{
+			if (copySourcePatternIx > -1 && copySourceChannelIx == TROWA_SEQ_COPY_CHANNELIX_ALL)
+			{
+				// Clear clipboard 
+				clearClipboard();
+			}
+			else
+			{
+				copy(currentPatternEditingIx, TROWA_SEQ_COPY_CHANNELIX_ALL);
+				lights[PASTE_LIGHT].value = 1;	// Activate paste light to show there is something on the clipboard
+				pasteLight->setColor(COLOR_WHITE);
+				lights[COPY_PATTERN_LIGHT].value = 1; // Light up Pattern Copy as Active clipboard
+				lights[COPY_CHANNEL_LIGHT].value = 0;	  // Inactivate Gate Copy light				
+			}
+		}
+		if (copyGateTrigger.process(params[COPY_CHANNEL_PARAM].value))
+		{
+			if (copySourcePatternIx > -1 && copySourceChannelIx > -1)
+			{
+				// Clear clipboard 
+				clearClipboard();
+			}
+			else
+			{
+				copy(currentPatternEditingIx, currentChannelEditingIx);
+				lights[PASTE_LIGHT].value = 1;	// Activate paste light to show there is something on the clipboard
+				pasteLight->setColor(voiceColors[currentChannelEditingIx]);
+				lights[COPY_CHANNEL_LIGHT].value = 1;		// Light up Channel Copy Light as Active clipboard
+				copyGateLight->setColor(voiceColors[currentChannelEditingIx]); // Match the color with our Channel color
+				lights[COPY_PATTERN_LIGHT].value = 0; // Inactivate Pattern Copy Light				
+			}
+		} // end if copyGateTrigger()
+	}
+
+
 
 
 	// Check value mode change after we have processed incoming messages.
@@ -880,10 +1155,11 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		oscMutex.lock();
 		if (useOSC && oscInitialized)
 		{
+			// [01/06/2018] Changed to one-based for OSC (send index+1 instead of index)
 			osc::OutboundPacketStream oscStream(oscBuffer, OSC_OUTPUT_BUFFER_SIZE);
 			oscStream << osc::BeginBundleImmediate
 				<< osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::PlayClock])
-				<< index << osc::EndMessage
+				<< index + 1 << osc::EndMessage
 				<< osc::EndBundle;
 			oscTxSocket->Send(oscStream.Data(), oscStream.Size());
 		}
@@ -914,12 +1190,14 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 
 
 	// Send messages if needed
+	/// TODO: Make a message sender to do this crap
+	oscMutex.lock();
 	if (useOSC && oscInitialized)
 	{
 		bool bundleOpened = false;
-		oscMutex.lock();
+		// If something has changed or we just started up osc, then send the status of our sequencer.
 		osc::OutboundPacketStream oscStream(oscBuffer, OSC_OUTPUT_BUFFER_SIZE);
-		if (lastRunning != running)
+		if (lastRunning != running || oscStarted)
 		{
 			if (!bundleOpened)
 			{
@@ -929,8 +1207,12 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 			oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::PlayRunningState])
 				<< (int)(running)
 				<< osc::EndMessage;
+			// Send another toggle message for touchOSC
+			oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::PlayToggleRun])
+				<< (int)(running)
+				<< osc::EndMessage;
 		}
-		if (lastPatternPlayingIx != currentPatternPlayingIx)
+		if (lastPatternPlayingIx != currentPatternPlayingIx || oscStarted)
 		{
 			if (!bundleOpened)
 			{
@@ -941,7 +1223,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 				<< (currentPatternPlayingIx + 1)
 				<< osc::EndMessage;
 		}
-		if (playBPMChanged)
+		if (playBPMChanged || oscStarted)
 		{
 			if (!bundleOpened)
 			{
@@ -952,7 +1234,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 				<< currentBPM << this->selectedBPMNoteIx
 				<< osc::EndMessage;
 		}
-		if (lastNumberSteps != currentNumberSteps)
+		if (lastNumberSteps != currentNumberSteps || oscStarted)
 		{
 			if (!bundleOpened)
 			{
@@ -963,18 +1245,18 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 				<< currentNumberSteps
 				<< osc::EndMessage;
 		} // end playLengthChanged
-		if (*valueModeChanged)
+		if (*valueModeChanged || oscStarted)
 		{
 			if (!bundleOpened)
 			{
 				oscStream << osc::BeginBundleImmediate;
 				bundleOpened = true;
 			}
-			oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::PlayLength])
+			oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::PlayOutputMode])
 				<< (int)(this->selectedOutputValueMode)
 				<< osc::EndMessage;
 		} // end playOutputModeChanged
-		if (editPatternChanged)
+		if (editPatternChanged || oscStarted)
 		{
 			if (!bundleOpened)
 			{
@@ -985,7 +1267,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 				<< (currentPatternEditingIx + 1)
 				<< osc::EndMessage;
 		} // end editPatternChanged
-		if (editChannelChanged)
+		if (editChannelChanged || oscStarted)
 		{
 			if (!bundleOpened)
 			{
@@ -996,7 +1278,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 				<< (currentChannelEditingIx + 1)
 				<< osc::EndMessage;
 		} // end editChannelChanged
-		if (lastBPMNoteIx != this->selectedBPMNoteIx)
+		if (lastBPMNoteIx != this->selectedBPMNoteIx || oscStarted)
 		{
 			if (!bundleOpened)
 			{
@@ -1007,6 +1289,129 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 				<< selectedBPMNoteIx
 				<< osc::EndMessage;
 		} // end bpmNoteChanged
+
+		if (storedPatternChanged || oscStarted)
+		{
+			if (!bundleOpened)
+			{
+				oscStream << osc::BeginBundleImmediate;
+				bundleOpened = true;
+			}
+			oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::PlayPatternSav])
+				<< ((storedPatternPlayingIx > -1) ? storedPatternPlayingIx + 1 : currentPatternPlayingIx + 1)
+				<< osc::EndMessage;
+		} // end storedPatternChanged
+
+		if (storedLengthChanged || oscStarted)
+		{
+			if (!bundleOpened)
+			{
+				oscStream << osc::BeginBundleImmediate;
+				bundleOpened = true;
+			}
+			oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::PlayLengthSav])
+				<< ((storedNumberSteps > 0) ? storedNumberSteps : currentNumberSteps)
+				<< osc::EndMessage;
+		} // end storedPatternChanged
+
+		if (storedBPMChanged || oscStarted)
+		{
+			if (!bundleOpened)
+			{
+				oscStream << osc::BeginBundleImmediate;
+				bundleOpened = true;
+			}
+			oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::PlayBPMSav])
+				<< ((storedBPM > 0) ? storedBPM : (int)(currentBPM))
+				<< osc::EndMessage;
+		}
+
+
+		if (copySourcePatternIx != prevCopyPatternIx || copySourceChannelIx != prevCopyChannelIx || oscStarted)
+		{
+			// Clipboard has changed
+			if (!bundleOpened)
+			{
+				oscStream << osc::BeginBundleImmediate;
+				bundleOpened = true;
+			}
+
+			if (copySourcePatternIx == TROWA_INDEX_UNDEFINED)
+			{
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+				debug("Sending Clear Clipboard: %s %d.", oscAddrBuffer[SeqOSCOutputMsg::EditChannelCpyCurr], 0);
+#endif
+				oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditClipboard])
+					<< 0
+					<< 0
+					<< osc::EndMessage;
+
+				// Clipboard was cleared
+				oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditChannelCpyCurr])
+					<< 0
+					<< osc::EndMessage;
+				oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditPatternCpyCurr])
+					<< 0
+					<< osc::EndMessage;
+			}
+			else
+			{
+				// Send clipboard message (pattern, channel)
+				oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditClipboard])
+					<< (copySourcePatternIx + 1)
+					<< (copySourceChannelIx + 1)
+					<< osc::EndMessage;
+				if (copySourceChannelIx == TROWA_SEQ_COPY_CHANNELIX_ALL)
+				{
+					// Pattern copied (pattern)
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+					debug("Sending Copied Pattern: %s %d.", oscAddrBuffer[SeqOSCOutputMsg::EditPatternCpyCurr], (copySourcePatternIx + 1));
+#endif
+					oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditPatternCpyCurr])
+						<< (copySourcePatternIx + 1)
+						<< osc::EndMessage;
+					oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditChannelCpyCurr])
+						<< 0
+						<< osc::EndMessage;
+				}
+				else
+				{
+					// Channel copied (channel)
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+					debug("Sending Copied Channel: %s %d.", oscAddrBuffer[SeqOSCOutputMsg::EditChannelCpyCurr], (copySourceChannelIx + 1));
+#endif
+					oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditPatternCpyCurr])
+						<< 0
+						<< osc::EndMessage;
+					oscStream << osc::BeginMessage(oscAddrBuffer[SeqOSCOutputMsg::EditChannelCpyCurr])
+						<< (copySourceChannelIx + 1)
+						<< osc::EndMessage;
+				}
+			}// end else
+		} // end if clipboard change
+
+#if OSC_UPDATE_CURRENT_STEP_LED
+		if (lastStepIndex != index)
+		{
+			// Turn off last led, turn on this led
+			if (!bundleOpened)
+			{
+				oscStream << osc::BeginBundleImmediate;
+				bundleOpened = true;
+			}
+			char addrBuff[50] = { 0 };
+			// Prev step should turn off:
+			sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], lastStepIndex + 1);
+			oscStream << osc::BeginMessage(addrBuff)
+				<< 0
+				<< osc::EndMessage;
+			// Current step should turn on:
+			sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], index + 1);
+			oscStream << osc::BeginMessage(addrBuff)
+				<< 1
+				<< osc::EndMessage;
+		}
+#endif
 		
 		//--- FINISH BUNDLE ---
 		if (bundleOpened)
@@ -1015,9 +1420,10 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 			oscStream << osc::EndBundle;
 			oscTxSocket->Send(oscStream.Data(), oscStream.Size());
 		}
-		oscMutex.unlock();
 	} // end send osc
+	oscMutex.unlock();
 
 	firstLoad = false;
 	return;
 } // end getStepInputs()
+

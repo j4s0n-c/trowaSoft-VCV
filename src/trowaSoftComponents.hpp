@@ -9,8 +9,10 @@ using namespace rack;
 #include "math.hpp"
 #include "dsp/digital.hpp"
 #include "components.hpp"
+#include "plugin.hpp"
 #include "trowaSoftUtilities.hpp"
 
+extern Plugin* plugin;
 
 //=======================================================
 // trowaSoft - TurtleMonkey Components 
@@ -113,30 +115,52 @@ struct ColorValueLight : ModuleLightWidget {
 // Empty momentary switch of given size.
 //--------------------------------------------------------------
 struct TS_PadSwitch : MomentarySwitch {
+	int btnId = -1;
+	// Group id (to match guys that should respond to mouse down drag).
+	int groupId = -1;
 	TS_PadSwitch() {
 		return;
 	}
 	TS_PadSwitch(Vec size) {
 		box.size = size;		
 		return;
-	}	
+	}
+	// Allow mouse-down & drag to set buttons (i.e. on Sequencer grid where there are many buttons). 
+	// Suggestion from @LKHSogpit, Solution from @AndrewBelt.
+	// https://github.com/j4s0n-c/trowaSoft-VCV/issues/7
+	// https://github.com/VCVRack/Rack/issues/607
+	void onDragStart(EventDragStart &e) override {
+		setValue(maxValue);
+		return;
+	}
+	void onDragEnter(EventDragEnter &e) override {
+		// Set these no matter what because if you drag back onto your starting square, you want to toggle it again.
+		TS_PadSwitch *origin = dynamic_cast<TS_PadSwitch*>(e.origin);
+		if (origin && origin->groupId == this->groupId) {
+			setValue(maxValue); // Momentary trigger on
+		}
+	}
+	void onDragLeave(EventDragEnter &e) override {
+		TS_PadSwitch *origin = dynamic_cast<TS_PadSwitch*>(e.origin);
+		if (origin && origin->groupId == this->groupId) {
+			setValue(minValue); // Momentary trigger off
+		}
+	}
 };
 
 //--------------------------------------------------------------
 // TS_PadSquare - A Square Pad button.
 //--------------------------------------------------------------
-struct TS_PadSquare : SVGSwitch, MomentarySwitch {	
+struct TS_PadSquare : SVGSwitch, TS_PadSwitch {
 	TS_PadSquare() 
 	{
 		addFrame(SVG::load(assetPlugin(plugin,"res/ComponentLibrary/TS_pad_0.svg")));
-		addFrame(SVG::load(assetPlugin(plugin,"res/ComponentLibrary/TS_pad_1.svg")));
 		sw->wrap();
 		box.size = sw->box.size;
 	}
 	TS_PadSquare(Vec size)
 	{
 		addFrame(SVG::load(assetPlugin(plugin, "res/ComponentLibrary/TS_pad_0.svg")));
-		addFrame(SVG::load(assetPlugin(plugin, "res/ComponentLibrary/TS_pad_1.svg")));
 		sw->box.size = size;
 		box.size = size;
 	}
@@ -418,7 +442,7 @@ struct TS_LightSquare : ColorValueLight
 	void draw(NVGcontext *vg) override
 	{
 		float radius = box.size.x / 2.0;
-		float oradius = radius*1.2;
+		float oradius = radius*1.1;
 
 		NVGcolor backColor = bgColor;
 		NVGcolor outerColor = color;
@@ -448,9 +472,9 @@ struct TS_LightSquare : ColorValueLight
 		icol.a *= 0.25;
 		NVGcolor ocol = outerColor;// color;
 		ocol.a = 0.0;
-		float feather = 3;
-		// Feather defines how blurry the border of the rectangle is.
-		paint = nvgBoxGradient(vg, /*x*/ -5, /*y*/ -5, /*w*/ oradius - 10, /*h*/ oradius - 10, 
+		float feather = 2;
+		// Feather defines how blurry the border of the rectangle is. // Fixed 01/19/2018, made it too tiny before
+		paint = nvgBoxGradient(vg, /*x*/ radius - oradius, /*y*/ radius - oradius, /*w*/ 2 * oradius, /*h*/ 2 * oradius,  //vg, /*x*/ -5, /*y*/ -5, /*w*/ 2*oradius + 10, /*h*/ 2*oradius + 10, 
 			/*r: corner radius*/ cornerRadius, /*f: feather*/ feather, 
 			/*inner color*/ icol, /*outer color */ ocol);
 		nvgFillPaint(vg, paint);
@@ -746,7 +770,7 @@ struct TS_ColorSlider : Knob {
 	// NVGcolor of the selected color (RGBA)
 	NVGcolor selectedColor;
 	// Number of stops for the gradients (doing them manually since nanovg only lets you have 2 colors)
-	int numStops = 20;
+	int numStops = 24;
 	float handleWidth = 15.0;
 	float handleMargin = 3.0;
 	TS_ColorSlider() : Knob()

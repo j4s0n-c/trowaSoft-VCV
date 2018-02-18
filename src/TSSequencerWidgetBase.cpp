@@ -40,6 +40,7 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	////////////////////////////////////
 	{
 		TSOSCConfigWidget* oscConfig = new TSOSCConfigWidget(thisModule, TSSequencerModuleBase::ParamIds::OSC_SAVE_CONF_PARAM, TSSequencerModuleBase::ParamIds::OSC_DISABLE_PARAM,
+			thisModule->oscCurrentClient,
 			thisModule->currentOSCSettings.oscTxIpAddress.c_str(), thisModule->currentOSCSettings.oscTxPort, thisModule->currentOSCSettings.oscRxPort);
 		oscConfig->visible = false;
 		oscConfig->box.pos = display->box.pos;
@@ -159,7 +160,7 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(knobStart + (knobSpacing * 5) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::COPY_CHANNEL_PARAM, 0, 1, 0));
 	btn->box.size = ledSize;
 	addParam(btn);
-	thisModule->copyGateLight = TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 5) + dx, knobRow), module, TSSequencerModuleBase::LightIds::COPY_GATE_LIGHT, ledSize, COLOR_WHITE);
+	thisModule->copyGateLight = TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 5) + dx, knobRow), module, TSSequencerModuleBase::LightIds::COPY_CHANNEL_LIGHT, ledSize, COLOR_WHITE);
 	addChild(thisModule->copyGateLight);
 	// CHANGE BPM CALC NOTE (1/4, 1/8, 1/8T, 1/16)
 	//SELECTED_BPM_MULT_IX_PARAM
@@ -252,6 +253,8 @@ void TSSequencerWidgetBase::step()
 
 			}
 			this->oscConfigurationScreen->setValues(thisModule->currentOSCSettings.oscTxIpAddress, thisModule->currentOSCSettings.oscTxPort, thisModule->currentOSCSettings.oscRxPort);
+			this->oscConfigurationScreen->setSelectedClient(thisModule->oscCurrentClient); // OSC Client
+			this->oscConfigurationScreen->btnActionEnable = !thisModule->oscInitialized;
 
 			this->oscConfigurationScreen->errorMsg = "";
 			if (thisModule->oscError)
@@ -265,54 +268,59 @@ void TSSequencerWidgetBase::step()
 		// Check for enable/disable
 		if (thisModule->oscConnectTrigger.process(thisModule->params[TSSequencerModuleBase::ParamIds::OSC_SAVE_CONF_PARAM].value))
 		{
-			// User checked to connect
-			if (!this->oscConfigurationScreen->isValidIpAddress())
+			if (oscConfigurationScreen->btnActionEnable)
 			{
+				// Enable OSC ------------------------------------------------------------------------
+				// User checked to connect
+				if (!this->oscConfigurationScreen->isValidIpAddress())
+				{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-				debug("IP Address is not valid.");
+					debug("IP Address is not valid.");
 #endif
-				this->oscConfigurationScreen->errorMsg = "Invalid IP Address.";
-				this->oscConfigurationScreen->tbIpAddress->requestFocus();
-			}
-			else if (!this->oscConfigurationScreen->isValidTxPort())
-			{
+					this->oscConfigurationScreen->errorMsg = "Invalid IP Address.";
+					this->oscConfigurationScreen->tbIpAddress->requestFocus();
+				}
+				else if (!this->oscConfigurationScreen->isValidTxPort())
+				{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-				debug("Tx Port is not valid.");
+					debug("Tx Port is not valid.");
 #endif
-				this->oscConfigurationScreen->errorMsg = "Invalid Output Port (0-" + std::to_string(0xFFFF) + ").";
-				this->oscConfigurationScreen->tbTxPort->requestFocus();
+					this->oscConfigurationScreen->errorMsg = "Invalid Output Port (0-" + std::to_string(0xFFFF) + ").";
+					this->oscConfigurationScreen->tbTxPort->requestFocus();
 
-			}
-			else if (!this->oscConfigurationScreen->isValidRxPort())
-			{
+				}
+				else if (!this->oscConfigurationScreen->isValidRxPort())
+				{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-				debug("Rx Port is not valid.");
+					debug("Rx Port is not valid.");
 #endif
-				this->oscConfigurationScreen->errorMsg = "Invalid Input Port (0-" + std::to_string(0xFFFF) + ").";
-				this->oscConfigurationScreen->tbRxPort->requestFocus();
-			}
+					this->oscConfigurationScreen->errorMsg = "Invalid Input Port (0-" + std::to_string(0xFFFF) + ").";
+					this->oscConfigurationScreen->tbRxPort->requestFocus();
+				}
+				else
+				{
+					// Try to connect
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+					debug("Save OSC Configuration clicked, save information for module.");
+#endif
+					this->oscConfigurationScreen->errorMsg = "";
+					thisModule->oscNewSettings.oscTxIpAddress = this->oscConfigurationScreen->tbIpAddress->text.c_str();
+					thisModule->oscNewSettings.oscTxPort = this->oscConfigurationScreen->getTxPort();
+					thisModule->oscNewSettings.oscRxPort = this->oscConfigurationScreen->getRxPort(); 
+					thisModule->oscCurrentClient = this->oscConfigurationScreen->getSelectedClient();
+					thisModule->oscCurrentAction = TSSequencerModuleBase::OSCAction::Enable;
+				}
+			} // end if enable osc
 			else
 			{
-				// Try to connect
+				// Disable OSC ------------------------------------------------------------------
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-				debug("Save OSC Configuration clicked, save information for module.");
+				debug("Disable OSC clicked.");
 #endif
 				this->oscConfigurationScreen->errorMsg = "";
-				thisModule->oscNewSettings.oscTxIpAddress = this->oscConfigurationScreen->tbIpAddress->text.c_str();
-				thisModule->oscNewSettings.oscTxPort = this->oscConfigurationScreen->getTxPort();//  atoi(this->oscConfigurationScreen->tbTxPort->text.c_str());
-				thisModule->oscNewSettings.oscRxPort = this->oscConfigurationScreen->getRxPort(); //atoi(this->oscConfigurationScreen->tbRxPort->text.c_str());
-				thisModule->oscCurrentAction = TSSequencerModuleBase::OSCAction::Enable;
-			}
-		}
-		else if (thisModule->oscDisconnectTrigger.process(thisModule->params[TSSequencerModuleBase::ParamIds::OSC_DISABLE_PARAM].value))
-		{
-			// Disable OSC
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Disable OSC clicked.");
-#endif
-			this->oscConfigurationScreen->errorMsg = "";
-			thisModule->oscCurrentAction = TSSequencerModuleBase::OSCAction::Disable;
-		}
+				thisModule->oscCurrentAction = TSSequencerModuleBase::OSCAction::Disable;
+			} // end else disable OSC
+		} // end if OSC Save btn pressed
 		else
 		{
 			if (thisModule->oscError)
@@ -321,21 +329,125 @@ void TSSequencerWidgetBase::step()
 					this->oscConfigurationScreen->errorMsg = "Error connecting to " + thisModule->currentOSCSettings.oscTxIpAddress + ".";
 			}
 		}
-		// Current status
+		// Current status of OSC
 		if (thisModule->useOSC && thisModule->oscInitialized)
 		{
-			this->oscConfigurationScreen->statusMsg = thisModule->currentOSCSettings.oscTxIpAddress;
+			this->oscConfigurationScreen->statusMsg = OSCClientAbbr[thisModule->oscCurrentClient] + " " + thisModule->currentOSCSettings.oscTxIpAddress;
 			this->oscConfigurationScreen->statusMsg2 = ":" + std::to_string(thisModule->currentOSCSettings.oscTxPort)
 				+ " :" + std::to_string(thisModule->currentOSCSettings.oscRxPort);
+			this->oscConfigurationScreen->btnActionEnable = false;
 		}
 		else
 		{
 			this->oscConfigurationScreen->successMsg = "";
 			this->oscConfigurationScreen->statusMsg = "OSC Not Connected";
 			this->oscConfigurationScreen->statusMsg2 = "";
+			this->oscConfigurationScreen->btnActionEnable = true;
 		}
-	}
+	} // end if show OSC config screen
 
 	ModuleWidget::step();
 	return;
 } // end step()
+
+struct seqRandomSubMenuItem : MenuItem {
+	TSSequencerModuleBase* sequencerModule;
+	bool useStucturedRandom;
+	enum ShiftType {
+		// Current Edit Pattern & Channel
+		CurrentChannelOnly,
+		// Current Edit Pattern, All Channels
+		ThisPattern,
+		// All patterns, all channels
+		AllPatterns
+	};
+	ShiftType Target = ShiftType::CurrentChannelOnly;
+
+	seqRandomSubMenuItem(std::string text, ShiftType target, bool useStructured, TSSequencerModuleBase* seqModule)
+	{
+		this->box.size.x = 200;
+		this->text = text;
+		this->Target = target;
+		this->useStucturedRandom = useStructured;
+		this->sequencerModule = seqModule;
+	}
+
+	void onAction(EventAction &e) override {
+		if (this->Target == ShiftType::AllPatterns)
+		{
+			sequencerModule->randomize(TROWA_INDEX_UNDEFINED, TROWA_SEQ_COPY_CHANNELIX_ALL, useStucturedRandom);
+		}
+		else if (this->Target == ShiftType::ThisPattern)
+		{
+			sequencerModule->randomize(sequencerModule->currentPatternEditingIx, TROWA_SEQ_COPY_CHANNELIX_ALL, useStucturedRandom);
+		}
+		else //if (this->Target == ShiftType::CurrentChannelOnly)
+		{
+			sequencerModule->randomize(sequencerModule->currentPatternEditingIx, sequencerModule->currentChannelEditingIx, useStucturedRandom);
+		}
+	}
+};
+
+struct seqRandomSubMenu : Menu {
+	TSSequencerModuleBase* sequencerModule;
+	bool useStucturedRandom;
+
+	seqRandomSubMenu(bool useStructured, TSSequencerModuleBase* seqModule)
+	{
+		this->box.size = Vec(200, 60);
+		this->useStucturedRandom = useStructured;
+		this->sequencerModule = seqModule;
+		return;
+	}
+
+	void createChildren()
+	{
+		addChild(new seqRandomSubMenuItem("Current Edit Channel", seqRandomSubMenuItem::ShiftType::CurrentChannelOnly, this->useStucturedRandom, this->sequencerModule));
+		addChild(new seqRandomSubMenuItem("Current Edit Pattern", seqRandomSubMenuItem::ShiftType::ThisPattern, this->useStucturedRandom, this->sequencerModule));
+		addChild(new seqRandomSubMenuItem("ALL Patterns", seqRandomSubMenuItem::ShiftType::AllPatterns, this->useStucturedRandom, this->sequencerModule));
+		return;
+	}
+};
+// First tier menu item. Create Submenu
+struct seqRandomMenuItem : MenuItem {
+	TSSequencerModuleBase* sequencerModule;
+	bool useStucturedRandom;
+
+	seqRandomMenuItem(std::string text, bool useStructured, TSSequencerModuleBase* seqModule)
+	{
+		this->text = text;
+		this->useStucturedRandom = useStructured;
+		this->sequencerModule = seqModule;
+		return;
+	}
+	Menu *createChildMenu() override {
+		seqRandomSubMenu* menu = new seqRandomSubMenu(useStucturedRandom, sequencerModule);
+		menu->sequencerModule = this->sequencerModule;
+		menu->createChildren();
+		menu->box.size = Vec(200, 60);
+		return menu;
+	}
+};
+
+
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// createContextMenu()
+// Create context menu with more random options for sequencers.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+Menu *TSSequencerWidgetBase::createContextMenu()
+{
+	Menu *menu = ModuleWidget::createContextMenu();
+
+	MenuLabel *spacerLabel = new MenuLabel();
+	menu->addChild(spacerLabel);
+
+	TSSequencerModuleBase* sequencerModule = dynamic_cast<TSSequencerModuleBase*>(module);
+
+	//-------- Random ------- //
+	MenuLabel *modeLabel = new MenuLabel();
+	modeLabel->text = "Random Options";
+	menu->addChild(modeLabel); //menu->pushChild(modeLabel);
+	menu->addChild(new seqRandomMenuItem("> All Steps Random", false, sequencerModule));
+	menu->addChild(new seqRandomMenuItem("> Structured Random", true, sequencerModule));
+	return menu;
+}

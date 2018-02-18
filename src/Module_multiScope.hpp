@@ -2,13 +2,19 @@
 #define MODULE_MULTISCOPE_HPP
 
 #include <string.h>
+#include <stdint.h>
 #include "trowaSoft.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
 #include "dsp/digital.hpp"
+#include "TSScopeBase.hpp"
+
+// For now, the color picker is disabled in Apple because it will crash Rack & Eat your soul...
+// Linux & Windows seem fine though
+// Now it seems the scope just crashes Rack on OSX no matter what.
+#define ENABLE_BG_COLOR_PICKER			(!(__APPLE__))
 
 #define TROWA_SCOPE_NUM_WAVEFORMS	3
-
 
 // Laying out controls
 #define TROWA_SCOPE_CONTROL_START_X			47  // 47
@@ -20,116 +26,6 @@
 
 // Labels for each waveform / shape
 #define TROWA_SCOPE_SHAPE_FORMAT_STRING		"Shp %d"
-
-#define BUFFER_SIZE 					512
-#define TROWA_SCOPE_USE_COLOR_LIGHTS	  0
-
-// X and Y Knobs:
-#define TROWA_SCOPE_POS_KNOB_MIN	-30.0
-#define TROWA_SCOPE_POS_KNOB_MAX	 30.0
-#define TROWA_SCOPE_POS_X_KNOB_DEF	  0.0 // -10
-#define TROWA_SCOPE_POS_Y_KNOB_DEF	  0.0 // 10
-#define TROWA_SCOPE_SCALE_KNOB_MIN	-10.0
-#define TROWA_SCOPE_SCALE_KNOB_MAX	 10.0
-
-// Time Knob:
-#define TROWA_SCOPE_TIME_KNOB_MIN	 -6.0
-#define TROWA_SCOPE_TIME_KNOB_MAX	-16.0
-#define TROWA_SCOPE_TIME_KNOB_DEF	-14.0	// Default value
-// Hue Knob:
-#define TROWA_SCOPE_HUE_KNOB_MIN	-10
-#define TROWA_SCOPE_HUE_KNOB_MAX	 10
-#define TROWA_SCOPE_HUE_INPUT_MIN_V	  0
-#define TROWA_SCOPE_HUE_INPUT_MAX_V	  5
-#define TROWA_SCOPE_COLOR_KNOB_Y_OFFSET	6
-
-// Opacity:
-#define TROWA_SCOPE_MIN_OPACITY		0.0
-#define TROWA_SCOPE_MAX_OPACITY		1.0
-#define TROWA_SCOPE_OPACITY_INPUT_MIN	 0.0 // Min Voltage in
-#define TROWA_SCOPE_OPACITY_INPUT_MAX	 5.0 // Max Voltage in
-
-// Rotation Knob:
-#define TROWA_SCOPE_ROT_KNOB_MIN	-10
-#define TROWA_SCOPE_ROT_KNOB_MAX	 10
-#define TROWA_SCOPE_ROUND_FORMAT	"%.2f"	// Output string format
-#define TROWA_SCOPE_ROUND_VALUE		100		// Rounding
-#define TROWA_SCOPE_ABS_ROT_ON_COLOR			COLOR_TS_BLUE	// Color to signal Absolution Rotation mode is on.
-#define TROWA_SCOPE_LINK_XY_SCALE_ON_COLOR		COLOR_MAGENTA
-#define TROWA_SCOPE_INFO_DISPLAY_ON_COLOR		COLOR_TS_ORANGE
-#define TROWA_SCOPE_LISSAJOUS_ON_COLOR			COLOR_YELLOW
-
-
-
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// TSWaveform
-// Store data about a waveform.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-struct TSWaveform
-{
-	float bufferX[BUFFER_SIZE] = {};
-	float bufferY[BUFFER_SIZE] = {};
-	bool bufferPenOn[BUFFER_SIZE] = {};
-
-	int bufferIndex;
-	float frameIndex;
-
-	bool lissajous = true;
-	SchmittTrigger lissajousTrigger;
-
-	// Link X and Y scale ::::::::::::::::::::::::::::::::::::::::::::::
-	bool linkXYScales; // Just forces scaleX = scaleY (only 1:1 aspect ratio).
-	SchmittTrigger linkXYScalesTrigger;
-	float lastXYScaleValue; // Last value when they are synched
-
-	// Rotation ::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-	SchmittTrigger rotModeTrigger;
-	// True for absolute angular position, false if constant angular change
-	bool rotMode;
-	float rotKnobValue; // Value from rotation knob
-	float rotAbsValue;  // Translated to ABS position [radians]
-	float rotDiffValue; // Translated to differential position [radians] (rate)
-
-	// Colors ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-	NVGcolor waveColor;
-	float waveHue;
-#if TROWA_SCOPE_USE_COLOR_LIGHTS
-	// References to our lights (typed)
-	ColorValueLight* waveLight;
-#endif
-	bool colorChanged;
-	float waveOpacity;
-
-	TSWaveform()
-	{
-		bufferIndex = 0;
-		frameIndex = 0;
-		memset(bufferPenOn, true, BUFFER_SIZE);
-		colorChanged = true;
-		rotMode = false;
-		rotKnobValue = 0;
-		rotAbsValue = 0;
-		rotDiffValue = 0;
-		linkXYScales = false;
-		waveOpacity = TROWA_SCOPE_MAX_OPACITY;
-#if TROWA_SCOPE_USE_COLOR_LIGHTS
-		waveLight = NULL;
-#endif
-		return;
-	}
-
-	void setHue(float hue)
-	{
-		waveHue = hue;
-		waveColor = HueToColor(waveHue);
-	}
-
-	void setHueFromKnob(float hueKnobValue)
-	{
-		setHue(rescalef(hueKnobValue, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, 0.0, 1.0));
-		return;
-	}
-};
 
 //===============================================================================
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -153,9 +49,18 @@ struct multiScope : Module {
 		Y_SCALE_PARAM = Y_POS_PARAM + TROWA_SCOPE_NUM_WAVEFORMS,
 		LINK_XY_SCALE_PARAM = Y_SCALE_PARAM + TROWA_SCOPE_NUM_WAVEFORMS,	   // Force Scale X = Scale Y.
 		OPACITY_PARAM = LINK_XY_SCALE_PARAM + TROWA_SCOPE_NUM_WAVEFORMS,	   // Alpha channel
-		LISSAJOUS_PARAM = OPACITY_PARAM + TROWA_SCOPE_NUM_WAVEFORMS,		   // For now always true
-		INFO_DISPLAY_TOGGLE_PARAM = LISSAJOUS_PARAM + TROWA_SCOPE_NUM_WAVEFORMS,
-		NUM_PARAMS = INFO_DISPLAY_TOGGLE_PARAM + 1
+		LISSAJOUS_PARAM = OPACITY_PARAM + TROWA_SCOPE_NUM_WAVEFORMS,		  
+		THICKNESS_PARAM = LISSAJOUS_PARAM + TROWA_SCOPE_NUM_WAVEFORMS,
+		FILL_ON_PARAM = THICKNESS_PARAM + TROWA_SCOPE_NUM_WAVEFORMS,
+		FILL_COLOR_PARAM = FILL_ON_PARAM + TROWA_SCOPE_NUM_WAVEFORMS,
+		FILL_OPACITY_PARAM = FILL_COLOR_PARAM + TROWA_SCOPE_NUM_WAVEFORMS,
+		EFFECT_PARAM = FILL_OPACITY_PARAM + TROWA_SCOPE_NUM_WAVEFORMS,
+		// Single Inputs:
+		// Info display
+		INFO_DISPLAY_TOGGLE_PARAM = EFFECT_PARAM + TROWA_SCOPE_NUM_WAVEFORMS,
+		// BG Color Display
+		BGCOLOR_DISPLAY_PARAM = INFO_DISPLAY_TOGGLE_PARAM + 1,
+		NUM_PARAMS = BGCOLOR_DISPLAY_PARAM + 1
 	};
 	enum InputIds {
 		COLOR_INPUT,
@@ -165,16 +70,22 @@ struct multiScope : Module {
 		Y_INPUT = X_INPUT+TROWA_SCOPE_NUM_WAVEFORMS,
 		OPACITY_INPUT = Y_INPUT + TROWA_SCOPE_NUM_WAVEFORMS, // Opacity/Alpha channel
 		PEN_ON_INPUT = OPACITY_INPUT + TROWA_SCOPE_NUM_WAVEFORMS, // Turn on/off drawing lines in between points.
-		NUM_INPUTS = PEN_ON_INPUT + TROWA_SCOPE_NUM_WAVEFORMS
+		THICKNESS_INPUT = PEN_ON_INPUT + TROWA_SCOPE_NUM_WAVEFORMS,
+		FILL_COLOR_INPUT = THICKNESS_INPUT + TROWA_SCOPE_NUM_WAVEFORMS,
+		FILL_OPACITY_INPUT = FILL_COLOR_INPUT + TROWA_SCOPE_NUM_WAVEFORMS,
+		NUM_INPUTS = FILL_OPACITY_INPUT + TROWA_SCOPE_NUM_WAVEFORMS
 	};
 
 	enum LightIds {
 		COLOR_LED,
 		ROT_LED = COLOR_LED+TROWA_SCOPE_NUM_WAVEFORMS,
 		LINK_XY_SCALE_LED = ROT_LED + TROWA_SCOPE_NUM_WAVEFORMS,
-		LISSAJOUS_LED = LINK_XY_SCALE_LED + TROWA_SCOPE_NUM_WAVEFORMS,			// For now always true
-		INFO_DISPLAY_TOGGLE_LED = LISSAJOUS_LED + TROWA_SCOPE_NUM_WAVEFORMS,
-		NUM_LIGHTS = INFO_DISPLAY_TOGGLE_LED + 1
+		LISSAJOUS_LED = LINK_XY_SCALE_LED + TROWA_SCOPE_NUM_WAVEFORMS,
+		HIGHLIGHT_LED = LISSAJOUS_LED + TROWA_SCOPE_NUM_WAVEFORMS,
+		FILL_ON_LED = HIGHLIGHT_LED + TROWA_SCOPE_NUM_WAVEFORMS,
+		INFO_DISPLAY_TOGGLE_LED = FILL_ON_LED + TROWA_SCOPE_NUM_WAVEFORMS,
+		BGCOLOR_DISPLAY_LED = INFO_DISPLAY_TOGGLE_LED + 1,
+		NUM_LEDS = BGCOLOR_DISPLAY_LED + 1
 	};
 
 	enum OutputIds {
@@ -185,9 +96,18 @@ struct multiScope : Module {
 	bool firstLoad = true;
 
 	SchmittTrigger infoDisplayOnTrigger;
+	bool negativeImage = false;
+	// Background color for our scope/plotting area
+	NVGcolor plotBackgroundColor;
+	SchmittTrigger plotBackgroundDisplayOnTrigger;
+	bool showColorPicker = false;
+	// Current Color Picker Color (ptr to which color we are editing)
+	NVGcolor* editColorPointer;
 
 	// Information about what we are plotting. In future may become dynamically allocated.
 	TSWaveform* waveForms[TROWA_SCOPE_NUM_WAVEFORMS];
+
+
 
 	multiScope();
 	~multiScope();
@@ -197,15 +117,26 @@ struct multiScope : Module {
 	// Save to json.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	json_t *toJson() override {
+		// Really should just serialize the TSWaveForm object.
 		json_t *rootJ = json_object();
 		json_t *huesJ = json_array();
+		json_t *fillHuesJ = json_array();
+		json_t *fillOnJ = json_array();
 		json_t *linkXYScalesJ = json_array();
 		json_t* lissajousJ = json_array();
 		json_t *rotModeJ = json_array();
+		json_t* gEffectsIxJ = json_array();
+		json_t* waveColorJ = json_array();
+		json_t* waveFillColorJ = json_array();
+		json_t* waveDoFillJ = json_array();
 		for (int wIx = 0; wIx < TROWA_SCOPE_NUM_WAVEFORMS; wIx++)
 		{
 			json_t* itemJ = json_real(waveForms[wIx]->waveHue);
 			json_array_append_new(huesJ, itemJ);
+			itemJ = json_real(waveForms[wIx]->fillHue);
+			json_array_append_new(fillHuesJ, itemJ);
+			itemJ = json_integer(waveForms[wIx]->doFill);
+			json_array_append_new(fillOnJ, itemJ);
 
 			itemJ = json_integer((int)waveForms[wIx]->linkXYScales);
 			json_array_append_new(linkXYScalesJ, itemJ);
@@ -215,11 +146,46 @@ struct multiScope : Module {
 
 			itemJ = json_integer(waveForms[wIx]->rotMode);
 			json_array_append_new(rotModeJ, itemJ);
+
+			itemJ = json_integer((int)waveForms[wIx]->gEffectIx);
+			json_array_append_new(gEffectsIxJ, itemJ);
+
+			itemJ = json_integer((int)waveForms[wIx]->doFill);
+			json_array_append_new(waveDoFillJ, itemJ);
+
+			json_t* colorArr = json_array();
+			json_t* fillColorArr = json_array();
+			for (int i = 0; i < 3; i++)
+			{
+				itemJ = json_real(waveForms[wIx]->waveColor.rgba[i]);
+				json_array_append(colorArr, itemJ);
+
+				itemJ = json_real(waveForms[wIx]->fillColor.rgba[i]);
+				json_array_append(fillColorArr, itemJ);
+			}
+			json_array_append(waveColorJ, colorArr);
+			json_array_append(waveFillColorJ, fillColorArr);
 		}
 		json_object_set_new(rootJ, "hues", huesJ);
+		json_object_set_new(rootJ, "fillHues", fillHuesJ);
+		json_object_set_new(rootJ, "fillOn", huesJ);
 		json_object_set_new(rootJ, "linkXYScales", linkXYScalesJ);
 		json_object_set_new(rootJ, "lissajous", lissajousJ);
 		json_object_set_new(rootJ, "rotMode", rotModeJ);
+		json_object_set_new(rootJ, "gEffectsIx", gEffectsIxJ);
+		json_object_set_new(rootJ, "waveColor", waveColorJ);
+		json_object_set_new(rootJ, "waveFillColor", waveFillColorJ);
+		json_object_set_new(rootJ, "waveDoFill", waveDoFillJ);
+
+		// Background color:
+		json_t* bgColorJ = json_array();
+		for (int i = 0; i < 3; i++)
+		{
+			json_t* itemJ = json_real(plotBackgroundColor.rgba[i]);
+			json_array_append_new(bgColorJ, itemJ);
+		}
+		json_object_set_new(rootJ, "bgColor", bgColorJ);
+		//debug("background color saved to json (rgb): %0.2f, %0.2f, %0.2f", plotBackgroundColor.r, plotBackgroundColor.g, plotBackgroundColor.b);
 		return rootJ;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -231,12 +197,28 @@ struct multiScope : Module {
 		json_t *rotModeJ = json_object_get(rootJ, "rotMode");
 		json_t *linkXYScalesJ = json_object_get(rootJ, "linkXYScales");
 		json_t* lissajousJ = json_object_get(rootJ, "lissajous");
+		json_t* gEffectsIxJ = json_object_get(rootJ, "gEffectsIx");
+		json_t* fillHuesJ = json_object_get(rootJ, "fillHues");
+		json_t* fillOnJ = json_object_get(rootJ, "fillOn");
+		json_t* waveColorJ = json_object_get(rootJ, "waveColor");
+		json_t* waveFillColorJ = json_object_get(rootJ, "waveFillColor");
+		json_t* waveDoFillJ = json_object_get(rootJ, "waveDoFill");
+
 		for (int wIx = 0; wIx < TROWA_SCOPE_NUM_WAVEFORMS; wIx++)
 		{
 			json_t* itemJ = json_array_get(huesJ, wIx);
 			if (itemJ)
 				waveForms[wIx]->setHue((float)json_real_value(itemJ));
 			itemJ = NULL;
+			itemJ = json_array_get(fillHuesJ, wIx);
+			if (itemJ)
+				waveForms[wIx]->setFillHue((float)json_real_value(itemJ));
+			itemJ = NULL;
+			itemJ = json_array_get(fillOnJ, wIx);
+			if (itemJ)
+				waveForms[wIx]->doFill = (bool)json_integer_value(itemJ);
+			itemJ = NULL;
+
 			itemJ = json_array_get(rotModeJ, wIx);
 			if (itemJ)
 				waveForms[wIx]->rotMode = json_integer_value(itemJ);
@@ -250,9 +232,45 @@ struct multiScope : Module {
 				waveForms[wIx]->lissajous = (bool)json_integer_value(itemJ);
 			else
 				waveForms[wIx]->lissajous = true;
-
 			itemJ = NULL;
+			itemJ = json_array_get(gEffectsIxJ, wIx);
+			if (itemJ)
+				waveForms[wIx]->gEffectIx = clampi((int)json_integer_value(itemJ), 0, TROWA_SCOPE_NUM_EFFECTS - 1);
+			itemJ = NULL;
+
+			itemJ = json_array_get(waveDoFillJ, wIx);
+			if (itemJ)
+				waveForms[wIx]->doFill = (bool)json_integer_value(itemJ);
+			itemJ = NULL;
+
+			json_t* colorArrJ = json_array_get(waveColorJ, wIx);
+			json_t* fillColorArrJ = json_array_get(waveFillColorJ, wIx);
+			for (int i = 0; i < 3; i++)
+			{
+				itemJ = json_array_get(colorArrJ, i);
+				if (itemJ)
+					waveForms[wIx]->waveColor.rgba[i] = (float)json_real_value(itemJ);
+				itemJ = NULL;
+
+				itemJ = json_array_get(fillColorArrJ, i);
+				if (itemJ)
+					waveForms[wIx]->fillColor.rgba[i] = (float)json_real_value(itemJ);
+				itemJ = NULL;
+			}
+			waveForms[wIx]->waveColor.a = 1.0;
+			waveForms[wIx]->fillColor.a = 1.0;
 		}
+
+		// Background color:
+		json_t* bgColorJ = json_object_get(rootJ, "bgColor");
+		for (int i = 0; i < 3; i++)
+		{
+			json_t* itemJ = json_array_get(bgColorJ, i);
+			if (itemJ)
+				plotBackgroundColor.rgba[i] = (float)(json_real_value(itemJ));
+		}
+		info("BG COLOR loaded from json (rgb): %0.2f, %0.2f, %0.2f", plotBackgroundColor.r, plotBackgroundColor.g, plotBackgroundColor.b);
+		plotBackgroundColor.a = 1.0f;
 		firstLoad = true;
 		return;
 	}
@@ -260,10 +278,14 @@ struct multiScope : Module {
 	void reset()  override {
 		for (int wIx = 0; wIx < TROWA_SCOPE_NUM_WAVEFORMS; wIx++)
 		{
+			waveForms[wIx]->doFill = false;
+			waveForms[wIx]->linkXYScales = false; // Added
+			waveForms[wIx]->rotMode = false; // Added
 			waveForms[wIx]->lissajous = true;
 		}
 	}
 };
+
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // TSScopeDisplay
@@ -317,7 +339,8 @@ struct TSScopeDisplay : TransparentWidget {
 		////////////// Labels /////////////////
 		const int yStart = 10;
 		int xStart = 10;
-		const int dxRotation = 6; // 10
+		const int dxRotation = 3; // 10
+		const int dxEffect = 12;
 		int y = yStart;
 		int x = xStart;
 		int dx = 59; //41 // 37; // 35
@@ -349,31 +372,31 @@ struct TSScopeDisplay : TransparentWidget {
 		nvgText(vg, x, y, "X Offset", NULL);
 
 		x += dx;
-		nvgFontFaceId(vg, labelFont->handle);
 		nvgText(vg, x, y, "X Scale", NULL);
 
 		x += dx;
-		nvgFontFaceId(vg, labelFont->handle);
 		nvgText(vg, x, y, "Y Offset", NULL);
 
 		x += dx;
-		nvgFontFaceId(vg, labelFont->handle);
 		nvgText(vg, x, y, "Y Scale", NULL);
 
 		// Rotation (wider)
 		x += dx + dxRotation;
-		nvgFontFaceId(vg, labelFont->handle);
 		nvgText(vg, x, y, "Rotate", NULL);
+
+		// Effect (wider)
+		x += (dx + dxEffect)/2.0;
+		nvgTextAlign(vg, NVG_ALIGN_CENTER);
+		nvgText(vg, x, y, "Effect", NULL);
 
 		// Values:
 		y = yStart + 5;
-		nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
 		NVGcolor absRotColor = TROWA_SCOPE_ABS_ROT_ON_COLOR;
 		absRotColor.a = 0.50;
 		for (int wIx = 0; wIx < TROWA_SCOPE_NUM_WAVEFORMS; wIx++)
 		{
 			// NVGcolor currColor = module->waveForms[wIx]->waveColor;
-			nvgFillColor(vg, textColor);
+			nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
 
 			// X Offset
 			x = xStart + dx / 2.0;
@@ -404,7 +427,7 @@ struct TSScopeDisplay : TransparentWidget {
 				v = module->waveForms[wIx]->rotAbsValue;
 				// Background:
 				nvgBeginPath(vg);
-				nvgRoundedRect(vg, x - dx - 3, y - 2, dx + 5, fontSize + 2, 2);
+				nvgRoundedRect(vg, x - dx + 2, y - 2, dx + dxRotation - 2, fontSize + 2, 2);
 				nvgFillColor(vg, absRotColor);
 				nvgFill(vg);
 
@@ -420,6 +443,12 @@ struct TSScopeDisplay : TransparentWidget {
 			}
 			nvgText(vg, x, y, messageStr, NULL);
 
+			// Effect
+			x += (dx + dxEffect)/2.0;
+			nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+			nvgFillColor(vg, textColor);
+			nvgText(vg, x, y, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->label, NULL);
+
 			// Advance y to next 
 			y += dy;
 		} // end loop through wave forms
@@ -429,6 +458,7 @@ struct TSScopeDisplay : TransparentWidget {
 		return;
 	}
 }; // end TSScopeDisplay
+
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // multiScopeDisplay
@@ -451,78 +481,16 @@ struct multiScopeDisplay : TransparentWidget {
 	// @valX: (IN) Pointer to x values.
 	// @valY: (IN) Pointer to y values.
 	// @rotRate: (IN) Rotation rate in radians
+	// @lineThickness: (IN) Line thickness
+	// @compositeOp: (IN) Some global effect if any
 	// @flipX: (IN) Flip along x (at x=0)
 	// @flipY: (IN) Flip along y
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void drawWaveform(NVGcontext *vg, float *valX, float *valY, bool* penOn, float rotRate, bool flipX, bool flipY) {
-		if (!valX)
-			return;
-		nvgSave(vg);
-		Rect b = Rect(Vec(0, 0), box.size);
-		nvgScissor(vg, b.pos.x, b.pos.y, b.size.x, b.size.y);
-		nvgTranslate(vg, box.size.x / 2.0, box.size.y / 2.0);
-		nvgRotate(vg, rot += rotRate);
-		if (flipX || flipY)
-		{			
-			// Sets the transform to scale matrix.
-			// void nvgTransformScale(float* dst, float sx, float sy);
-			nvgScale(vg, ((flipX) ? -1 : 1), (flipY) ? -1 : 1); // flip
-		}
+	void drawWaveform(NVGcontext *vg, float *valX, float *valY, bool* penOn,
+		float rotRate, float lineThickness, NVGcolor lineColor,
+		bool doFill, NVGcolor fillColor,
+		NVGcompositeOperation compositeOp, bool flipX, bool flipY);
 
-		// Draw maximum display left to right
-		nvgBeginPath(vg);
-		nvgLineCap(vg, NVG_ROUND);
-		nvgMiterLimit(vg, 2.0);
-		nvgStrokeWidth(vg, 3.0);
-		bool lastPointStarted = false;
-		float xOffset = -box.size.x / 2.0; // Fill our screen
-		float yOffset = -box.size.y / 2.0; 
-		for (int i = 0; i < BUFFER_SIZE; i++) {
-			if (penOn[i])
-			{
-				float x, y;
-				if (valY) {
-					x = valX[i] / 2.0 + 0.5;
-					y = valY[i] / 2.0 + 0.5;
-				}
-				else {
-					x = (float)i / (BUFFER_SIZE - 1);
-					y = valX[i] / 2.0 + 0.5;
-				}
-
-				Vec p;
-				p.x = b.pos.x + xOffset + b.size.x * x;
-				p.y = b.pos.y + yOffset + b.size.y * (1.0 - y);
-
-				if (!lastPointStarted)
-				{
-					nvgMoveTo(vg, p.x, p.y);
-				}
-				else
-				{
-					nvgLineTo(vg, p.x, p.y);
-				}
-				lastPointStarted = true;
-				//if (firstIx < 0 || (i > 0 && !penOn[i - 1]))
-				//	firstIx = i;
-				//if (i == firstIx)
-				//	nvgMoveTo(vg, p.x, p.y);
-				//else
-				//	nvgLineTo(vg, p.x, p.y);
-			}
-			else
-			{
-				lastPointStarted = false;
-			}
-		} // end loop through buffer
-		nvgLineCap(vg, NVG_ROUND);
-		nvgMiterLimit(vg, 2.0);
-		nvgStrokeWidth(vg, 3.0);
-		//nvgGlobalCompositeOperation(vg, NVG_LIGHTER);
-		nvgStroke(vg);
-		nvgResetScissor(vg);
-		nvgRestore(vg);
-	} // end drawWaveform()
 
 	void draw(NVGcontext *vg) override {
 		if (!module->initialized)
@@ -549,10 +517,21 @@ struct multiScopeDisplay : TransparentWidget {
 		}
 
 		// Draw waveforms
+		// 1. Line Color:
 		NVGcolor waveColor = waveForm->waveColor;
-		float rotRate = 0;
 		waveColor.a = waveForm->waveOpacity;
+		if (waveForm->negativeImage)
+			waveColor = ColorInvertToNegative(waveColor);
 		nvgStrokeColor(vg, waveColor); // Color has already been calculated by main module
+		// 2. Fill color:
+		NVGcolor fillColor = waveForm->fillColor;
+		if (waveForm->doFill)
+		{
+			fillColor.a = waveForm->fillOpacity;
+			nvgFillColor(vg, fillColor);
+		}
+		// 3. Rotation
+		float rotRate = 0;
 		if (waveForm->rotMode)
 		{
 			// Absolute position:
@@ -566,22 +545,17 @@ struct multiScopeDisplay : TransparentWidget {
 		if (waveForm->lissajous) {
 			// X x Y
 			if (module->inputs[multiScope::X_INPUT + wIx].active || module->inputs[multiScope::Y_INPUT + wIx].active) {
-				module->lights[multiScope::COLOR_LED + wIx].value = 1.0; // Actively drawing
-				drawWaveform(vg, valuesX, valuesY, penOn, rotRate, false, false);// module->mirrorX[wIx], module->mirrorY[wIx]);
-			}
-			else
-			{
-				module->lights[multiScope::COLOR_LED + wIx].value = 0.7; // Not really drawing anything, dim the light
+				drawWaveform(vg, valuesX, valuesY, penOn, rotRate, waveForm->lineThickness, waveColor, waveForm->doFill, fillColor, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->compositeOperation, false, false);
 			}
 		}
 		else {
 			// Y
 			if (module->inputs[multiScope::Y_INPUT + wIx].active) {
-				drawWaveform(vg, valuesY, NULL, penOn, rotRate, false, false);
+				drawWaveform(vg, valuesY, NULL, penOn, rotRate, waveForm->lineThickness, waveColor, waveForm->doFill, fillColor, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->compositeOperation, false, false);
 			}
 			// X
 			if (module->inputs[multiScope::X_INPUT + wIx].active) {
-				drawWaveform(vg, valuesX, NULL, penOn, rotRate, false, false);
+				drawWaveform(vg, valuesX, NULL, penOn, rotRate, waveForm->lineThickness, waveColor, waveForm->doFill, fillColor, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->compositeOperation, false, false);
 			}
 		}
 		return;
@@ -714,7 +688,7 @@ struct TSScopeLabelArea : TransparentWidget {
 			nvgBeginPath(vg);
 			nvgRect(vg, x - 3, y - 2, TROWA_SCOPE_CONTROL_START_X - x + 3, fontSize + 3);
 			nvgMoveTo(vg, /*x*/ x - 3, /*y*/ y - 2);
-			nvgLineTo(vg, /*x*/ x - 3, /*y*/ y + shapeDy - 10); // Go Left (to right of the text "Edit")		
+			nvgLineTo(vg, /*x*/ x - 3, /*y*/ y + shapeDy - 10);
 			nvgStrokeWidth(vg, 1.0);
 			nvgStrokeColor(vg, textColor);
 			nvgStroke(vg);
@@ -729,11 +703,11 @@ struct TSScopeLabelArea : TransparentWidget {
 			y += dy;
 			nvgText(vg, x, y, "SCL", NULL);
 
-			const char* colLabels[] = { "X", "Y", "C", "A", "R", "T" };
+			const char* colLabels[] = { "X", "Y", "C", "A", "FC", "FA", "R", "T", "TH" };
 			nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
 			x = TROWA_SCOPE_CONTROL_START_X + 15;
 			y = waveY;
-			for (int i = 0; i < 6; i++)
+			for (int i = 0; i < 9; i++)
 			{
 				nvgText(vg, x, y, colLabels[i], NULL);
 				x += dx;
@@ -745,27 +719,48 @@ struct TSScopeLabelArea : TransparentWidget {
 			nvgText(vg, x1, y1, "LNK", NULL);
 
 			x1 += 2*dx;
-			int y2 = y1 + 6;
+			int y2 = y1 + 9;
 			nvgText(vg, x1 - 8, y2, "BLANK", NULL);
 			y2 += fontSize * 0.8 + 0.5;
 			nvgFontSize(vg, fontSize*1.05);
 			nvgText(vg, x1 - 8, y2, "<= 0", NULL);
+			// Line to port
+			nvgBeginPath(vg);
+			nvgMoveTo(vg, /*x*/ x1 + 4, /*y*/ y2 + 4); // Near Text
+			nvgLineTo(vg, /*x*/ TROWA_SCOPE_CONTROL_START_X + 15 + 3*dx, /*y*/ y2 - 5); // Near port
+			nvgStrokeWidth(vg, 1.0);
+			nvgStrokeColor(vg, textColor);
+			nvgStroke(vg);			
 
 			nvgFontSize(vg, fontSize*0.8);
-			x1 += 1.5*dx;
+			x1 += 1.5*dx; // Fill Color
+			nvgText(vg, x1+1, y1+10, "FILL", NULL);
+			nvgText(vg, x1 + 1, y1 + 10 + fontSize * 0.8, "ON", NULL);
+
+			x1 += 2*dx;
 			nvgText(vg, x1, y1, "ABS", NULL);
 
 			x1 += dx;
 			nvgText(vg, x1, y1, "X*Y", NULL);
 
+			x1 += dx / 3.0 + 2;
+			nvgText(vg, x1, y1 + 20, "EFFECT", NULL);
+
+
 			// Color Knob gradient:
-			//x += dx * 2;
-			//y += 30;
 			drawColorGradientArc(vg, 
 				/*cx*/ TROWA_SCOPE_CONTROL_START_X + 15 + 2*dx,
 				/*cy*/ y + dy + 23 + TROWA_SCOPE_COLOR_KNOB_Y_OFFSET, 
 				/*radius*/ 14, 
 				/*thickness*/ 4.0);
+
+			// Fill Color Knob gradient:
+			drawColorGradientArc(vg,
+				/*cx*/ TROWA_SCOPE_CONTROL_START_X + 15 + 4 * dx,
+				/*cy*/ y + dy + 23 + TROWA_SCOPE_COLOR_KNOB_Y_OFFSET,
+				/*radius*/ 14,
+				/*thickness*/ 4.0);
+
 
 			y += shapeDy - 3;
 		} // end loop through shapes/waveforms
@@ -781,12 +776,9 @@ struct TSScopeSideBarLabelArea : TransparentWidget {
 	//multiScope *module;
 	std::shared_ptr<Font> font;
 	int fontSize;
-	//char messageStr[TROWA_DISP_MSG_SIZE];
 	TSScopeSideBarLabelArea() {
 		font = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
 		fontSize = 10;
-		//for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
-		//	messageStr[i] = '\0';
 	}
 	TSScopeSideBarLabelArea(Vec bsize) : TSScopeSideBarLabelArea() {
 		this->box.size = bsize;
@@ -814,6 +806,11 @@ struct TSScopeSideBarLabelArea : TransparentWidget {
 		x = 34;// box.size.x / 2.0;
 		y = -box.size.x / 2.0; // 0;// 32;
 		nvgText(vg, x, y, "INFO", NULL); // Info display btn toggle
+
+#if ENABLE_BG_COLOR_PICKER
+		x += 45;
+		nvgText(vg, x, y, "BG COLOR", NULL); // Info display btn toggle
+#endif
 
 		nvgRestore(vg);
 		return;

@@ -4,13 +4,17 @@
 #include "rack.hpp"
 using namespace rack;
 
+#include <string.h>
+#include <vector>
+#include <sstream> // std::istringstream
+
 #include "math.hpp"
 
 #define TROWA_DEBUG_LVL_HIGH		100
 #define TROWA_DEBUG_LVL_MED			 50
 #define TROWA_DEBUG_LVL_LOW			  1
 #define TROWA_DEBUG_LVL_OFF			  0
-#define TROWA_DEBUG_MSGS		TROWA_DEBUG_LVL_OFF		
+#define TROWA_DEBUG_MSGS		TROWA_DEBUG_LVL_MED
 
 
 // Index not defined value.
@@ -20,7 +24,8 @@ using namespace rack;
 #define TROWA_SEQ_PATTERN_MIN_V		-10 // Min voltage input / output for controlling pattern index and BPM
 #define TROWA_SEQ_PATTERN_MAX_V	 	 10 // Max voltage input / output for controlling pattern index and BPM
 #define TROWA_SEQ_NUM_NOTES			12 // Num notes per octave (1 V per octave)
-#define TROWA_SEQ_ZERO_OCTAVE		5  // Octave for voltage 0
+#define TROWA_SEQ_ZERO_OCTAVE		4  // Octave for voltage 0 -- Was 5, now 4
+#define TROWA_SEQ_NUM_OCTAVES	   10  // Number of total octaves
 
 #define TROWA_NUM_GLOBAL_EFFECTS	11
 
@@ -77,6 +82,9 @@ NVGcolor inline ColorInvertToNegative(NVGcolor color)
 { // Keep alpha the same.
 	return nvgRGBAf(1.0 - color.r, 1.0 - color.g, 1.0 - color.b, color.a);
 }
+
+// Split a string
+std::vector<std::string> str_split(const std::string& s, char delimiter);
 
 struct TSColorHSL {
 	union {
@@ -171,6 +179,7 @@ struct ValueSequencerMode
 		needsTranslationOutput = outputVoltageMin != voltageMin || outputVoltageMax != voltageMax;
 		return;
 	}
+
 	
 	virtual void GetDisplayString(/*in*/ float val, /*out*/ char* buffer)
 	{
@@ -186,6 +195,7 @@ struct ValueSequencerMode
 		sprintf(buffer, displayFormatString, dVal);	
 		return;
 	}
+
 	
 	virtual float GetOutputValue(float val)
 	{
@@ -215,20 +225,24 @@ struct NoteValueSequencerMode : ValueSequencerMode
 		//this->minDisplayValue = minDisplayValue; // I.e. 0
 		//this->maxDisplayValue = maxDisplayValue; // I.e. 15 
 		
-		this->minDisplayValue = -TROWA_SEQ_ZERO_OCTAVE;
-		this->maxDisplayValue = TROWA_SEQ_ZERO_OCTAVE;	
+		this->minDisplayValue = -TROWA_SEQ_ZERO_OCTAVE; // -4
+		this->maxDisplayValue = TROWA_SEQ_NUM_OCTAVES - TROWA_SEQ_ZERO_OCTAVE; // 10-4 = 6
 	
 		this->voltageMin = min_V;  // I.e. -10 Volts
 		this->voltageMax = max_V;  // I.e. +10 Volts
 		
 		this->outputVoltageMin = -TROWA_SEQ_ZERO_OCTAVE;
-		this->outputVoltageMax = TROWA_SEQ_ZERO_OCTAVE;
+		this->outputVoltageMax = TROWA_SEQ_NUM_OCTAVES - TROWA_SEQ_ZERO_OCTAVE; // 10-4 = 6
 		
 		this->wholeNumbersOnly = false; // Force whole numbers
-		this->zeroPointAngle_radians = 1.5*NVG_PI; // Straight up
+		// Zero is no longer straight up now that we are going -4 to +6
+		// Knob goes from 0.67*NVG_PI to 2.33*NVG_PI (1 and 2/3 Pi)
+		//this->zeroPointAngle_radians = 1.5*NVG_PI; // Straight up
+		//this->zeroValue = (max_V + min_V) / 2.0;
+		this->zeroPointAngle_radians = 0.67*NVG_PI + TROWA_SEQ_ZERO_OCTAVE *1.67*NVG_PI / TROWA_SEQ_NUM_OCTAVES;
+		this->zeroValue = rescalef(0, this->minDisplayValue, this->maxDisplayValue, min_V, max_V);
 		this->roundNearestDisplay = 1.0/TROWA_SEQ_NUM_NOTES;
 		this->roundNearestOutput = 1.0/TROWA_SEQ_NUM_NOTES;
-		this->zeroValue = (max_V+min_V) /2.0;
 		
 		needsTranslationDisplay = minDisplayValue != voltageMin || maxDisplayValue != voltageMax;
 		needsTranslationOutput = outputVoltageMin != voltageMin || outputVoltageMax != voltageMax;

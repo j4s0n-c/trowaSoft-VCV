@@ -1,5 +1,8 @@
 SHELL:=/bin/bash -O extglob
 
+SLUG = trowaSoft
+VERSION = 0.5.5.2
+
 # FLAGS will be passed to both C and C++ compiler
 #	-Werror=implicit-function-declaration \
 FLAGS = \
@@ -9,33 +12,27 @@ FLAGS = \
 	-Ilib/oscpack \
 	-Ilib/oscpack/ip \
 	-Ilib/oscpack/osc \
-	-I../../dep 
-
-#FLAGS = \
-#	-w \
-#	-Isrc \
-#	-Isrc/include \
-#	-Ilib/oscpack/ip \
-#	-Ilib/oscpack/osc \
-#	-I../../dep 
-#	-I..\..\dep\bin
+	-I../../dep \
+	-I../../dep/include 
 
 CFLAGS += 
 CXXFLAGS +=
+#LDFLAGS += -lrtmidi
 
 # Careful about linking to libraries, since you can't assume much about the user's environment and library search path.
 # Static libraries are fine.
 include ../../arch.mk
 
-ifeq ($(ARCH), lin)
-	LDFLAGS += -L../../dep/lib -lGLEW -lglfw
-endif
+#ifeq ($(ARCH), lin)
+#	LDFLAGS += -L../../dep/lib -lGLEW -lglfw
+#endif
 
-ifeq ($(ARCH), mac)
-	LDFLAGS += -L../../dep/lib -lGLEW -lglfw
-endif
+#ifeq ($(ARCH), mac)
+#	LDFLAGS += -L../../dep/lib -lGLEW -lglfw  
+#endif
 
 ifeq ($(ARCH), win)	
+	# TODO: Figure out how to get this to compile in Win without this
 	LDFLAGS += -L../../dep/lib -lglew32 -lglfw3dll
 endif
 
