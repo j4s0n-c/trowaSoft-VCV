@@ -60,7 +60,7 @@
 // To copy all gates/triggers in the selected target Pattern
 #define TROWA_SEQ_COPY_CHANNELIX_ALL		TROWA_INDEX_UNDEFINED 
 
-#define TROWA_SEQ_NUM_RANDOM_PATTERNS		11
+#define TROWA_SEQ_NUM_RANDOM_PATTERNS		27
 // Random Structure
 // From feature request: https ://github.com/j4s0n-c/trowaSoft-VCV/issues/10
 struct RandStructure {
