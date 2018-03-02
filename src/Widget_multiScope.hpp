@@ -130,8 +130,13 @@ struct multiScopeWidget : ModuleWidget {
 	// Keep references to our scale knobs [0: x, 1: y]
 	TS_TinyBlackKnob* scaleKnobs[TROWA_SCOPE_NUM_WAVEFORMS][2];
 	ColorValueLight* fillColorLEDs[TROWA_SCOPE_NUM_WAVEFORMS];
-	
-	multiScopeWidget();
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// multiScopeWidget()
+	// Instantiate a multiScope widget. v0.60 must have module as param.
+	// @scopeModule : (IN) Pointer to the multiScope module.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	multiScopeWidget(multiScope* scopeModule);
 	void step() override;
 	json_t *toJson() override;
 	void fromJson(json_t *rootJ) override;

@@ -26,8 +26,8 @@ void voltSeq::randomize()
 	int r, c;
 	for (int s = 0; s < maxSteps; s++) 
 	{
-		// randomf() - [0.0, 1.0)
-		triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = voltSeq_STEP_KNOB_MIN + randomf()*(voltSeq_STEP_KNOB_MAX - voltSeq_STEP_KNOB_MIN);		
+		// randomUniform() - [0.0, 1.0)
+		triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = voltSeq_STEP_KNOB_MIN + randomUniform()*(voltSeq_STEP_KNOB_MAX - voltSeq_STEP_KNOB_MIN);		
 		r = s / this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
 		c = s % this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
 		this->params[CHANNEL_PARAM + s].value = this->triggerState[currentPatternEditingIx][currentChannelEditingIx][s];
@@ -176,7 +176,7 @@ void voltSeq::shiftValues(/*in*/ int patternIx, /*in*/ int channelIx, /*in*/ flo
 		{
 			for (int s = 0; s < maxSteps; s++)
 			{
-				float tmp = clampf(triggerState[patternIx][channelIx][s] + add, /*min*/ voltSeq_STEP_KNOB_MIN,  /*max*/ voltSeq_STEP_KNOB_MAX);
+				float tmp = clamp(triggerState[patternIx][channelIx][s] + add, /*min*/ voltSeq_STEP_KNOB_MIN,  /*max*/ voltSeq_STEP_KNOB_MAX);
 				triggerState[patternIx][channelIx][s] = tmp;
 				if (patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx)
 				{
@@ -195,7 +195,7 @@ void voltSeq::shiftValues(/*in*/ int patternIx, /*in*/ int channelIx, /*in*/ flo
 		debug("shiftValues(%d, %d, %f) - Add %f", patternIx, channelIx, volts, add);
 		for (int s = 0; s < maxSteps; s++)
 		{
-			float tmp = clampf(triggerState[patternIx][channelIx][s] + add, /*min*/ voltSeq_STEP_KNOB_MIN,  /*max*/ voltSeq_STEP_KNOB_MAX);
+			float tmp = clamp(triggerState[patternIx][channelIx][s] + add, /*min*/ voltSeq_STEP_KNOB_MIN,  /*max*/ voltSeq_STEP_KNOB_MAX);
 			debug(" %d = %f + %fV (add %f) = %f", s, triggerState[patternIx][channelIx][s], volts, add, tmp);
 			triggerState[patternIx][channelIx][s] = tmp;
 			if (patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx)
@@ -242,6 +242,7 @@ void voltSeq::step()
 			{
 				dynamic_cast<TS_LightArc*>(padLightPtrs[r][c])->zeroAnglePoint = currOutputValueMode->zeroPointAngle_radians;
 				dynamic_cast<TS_LightArc*>(padLightPtrs[r][c])->valueMode = currOutputValueMode;
+				knobStepMatrix[r][c]->defaultValue = currOutputValueMode->zeroValue;
 			}
 		}
 	}
@@ -413,13 +414,15 @@ void voltSeq::step()
 
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// voltSeqWidget
-// Widget for the trowaSoft knob / voltage sequencer.
+// voltSeqWidget()
+// Widget for the trowaSoft 16-step voltage/knobby sequencer.
+// @seqModule : (IN) Pointer to the sequencer module.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-voltSeqWidget::voltSeqWidget() : TSSequencerWidgetBase()
+voltSeqWidget::voltSeqWidget(voltSeq* seqModule) : TSSequencerWidgetBase(seqModule)
 {		
-	voltSeq *module = new voltSeq();
-	setModule(module);
+	bool isPreview = seqModule == NULL; 
+	//voltSeq *module = new voltSeq();
+	//setModule(module);
 
 	//////////////////////////////////////////////
 	// Background
@@ -440,31 +443,34 @@ voltSeqWidget::voltSeqWidget() : TSSequencerWidgetBase()
 	//int lightSize = 50 - 2*dx;
 	Vec lSize = Vec(50, 50);
 	int v = 0;
-	ValueSequencerMode* currValueMode = module->ValueModes[module->selectedOutputValueMode];
-	module->modeString = currValueMode->displayName;
-	for (int r = 0; r < module->numRows; r++) //---------THE KNOBS
+	ValueSequencerMode* currValueMode = seqModule->ValueModes[seqModule->selectedOutputValueMode];
+	seqModule->modeString = currValueMode->displayName;
+	for (int r = 0; r < seqModule->numRows; r++) //---------THE KNOBS
 	{
-		for (int c = 0; c < module->numCols; c++)
+		for (int c = 0; c < seqModule->numCols; c++)
 		{						
 			// Pad Knob:
-			TS_LightedKnob* knobPtr = dynamic_cast<TS_LightedKnob*>(createParam<TS_LightedKnob>(Vec(x, y), module, 
-				TSSequencerModuleBase::CHANNEL_PARAM + r*module->numCols + c, 
+			TS_LightedKnob* knobPtr = dynamic_cast<TS_LightedKnob*>(ParamWidget::create<TS_LightedKnob>(Vec(x, y), seqModule, 
+				TSSequencerModuleBase::CHANNEL_PARAM + r*seqModule->numCols + c, 
 				/*min*/ voltSeq_STEP_KNOB_MIN,  /*max*/ voltSeq_STEP_KNOB_MAX, /*default*/ voltSeq_STEP_KNOB_MIN));
-			module->knobStepMatrix[r][c] = knobPtr;
-			knobPtr->value = voltSeq_STEP_KNOB_MIN;
+			if (!isPreview)
+				seqModule->knobStepMatrix[r][c] = knobPtr;
+			knobPtr->value = 0.0;// voltSeq_STEP_KNOB_MIN;
+			knobPtr->defaultValue = 0.0; // For now, assume always that Voltage is first
 			
 			// Keep a reference to our pad lights so we can change the colors			
 			TS_LightArc* lightPtr = dynamic_cast<TS_LightArc*>(TS_createColorValueLight<TS_LightArc>(/*pos */ Vec(x+dx, y+dx), 
-				/*module*/ module,
-				/*lightId*/ TSSequencerModuleBase::PAD_LIGHTS + r*module->numCols + c,								
-				/* size */ lSize, /* color */ module->voiceColors[module->currentChannelEditingIx]));			
+				/*seqModule*/ seqModule,
+				/*lightId*/ TSSequencerModuleBase::PAD_LIGHTS + r*seqModule->numCols + c,								
+				/* size */ lSize, /* color */ seqModule->voiceColors[seqModule->currentChannelEditingIx]));			
 			lightPtr->numericValue = &(knobPtr->value);
 			lightPtr->currentAngle_radians = &(knobPtr->currentAngle);
 			lightPtr->zeroAnglePoint = currValueMode->zeroPointAngle_radians;
 			lightPtr->valueMode = currValueMode;			
-			
-			module->padLightPtrs[r][c] = lightPtr;			
-			addChild( module->padLightPtrs[r][c] );
+
+			if (!isPreview)
+				seqModule->padLightPtrs[r][c] = lightPtr;			
+			addChild( lightPtr );
 			
 			addParam(knobPtr);
 			knobPtr->dirty = true;
@@ -475,7 +481,7 @@ voltSeqWidget::voltSeqWidget() : TSSequencerWidgetBase()
 		y += 59; // Next row
 		x = 79;
 	} // end loop through 4x4 grid
-	module->initialized = true;
+	seqModule->initialized = true;
 	return;
 }
 

@@ -1,13 +1,14 @@
 #include <string.h>
 #include <stdio.h>
+#include "TSSequencerModuleBase.hpp"
 #include "trowaSoft.hpp"
 #include "dsp/digital.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
-#include "TSSequencerModuleBase.hpp"
 #include "Module_trigSeq.hpp"
 #include "TSOSCSequencerOutputMessages.hpp"
 #include "TSOSCCommon.hpp"
+#include "TSSequencerWidgetBase.hpp"
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // trigSeq::randomize()
@@ -17,7 +18,7 @@ void trigSeq::randomize()
 {
 	for (int s = 0; s < maxSteps; s++) 
 	{
-		triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = (randomf() > 0.5);		
+		triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = (randomUniform() > 0.5);		
 	}
 	reloadEditMatrix = true;
 	return;
@@ -252,13 +253,16 @@ void trigSeq::step() {
 
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// trigSeqWidget
-// Widget for the trowaSoft pad / trigger sequencer.
+// trigSeqWidget()
+// Widget for the trowaSoft 16-step pad / trigger sequencer.
+// @seqModule : (IN) Pointer to the sequencer module.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-trigSeqWidget::trigSeqWidget() : TSSequencerWidgetBase()
+trigSeqWidget::trigSeqWidget(trigSeq* seqModule) : TSSequencerWidgetBase(seqModule)
 {
-	trigSeq *module = new trigSeq();
-	setModule(module);
+	// [02/24/2018] Adjusted for 0.60 differences. Main issue is possiblity of NULL module...
+	bool isPreview = seqModule == NULL; // If this is null, then this isn't a real module instance but a 'Preview'?
+	//trigSeq *module = new trigSeq();
+	//setModule(module);
 	
 	//////////////////////////////////////////////
 	// Background
@@ -277,27 +281,50 @@ trigSeqWidget::trigSeqWidget() : TSSequencerWidgetBase()
 	int x = 79;
 	int dx = 3;
 	Vec lSize = Vec(50 - 2*dx, 50 - 2*dx);
-	for (int r = 0; r < module->numRows; r++) //---------THE PADS
+	NVGcolor lightColor = COLOR_TS_RED; 
+	int numCols = TROWA_SEQ_STEP_NUM_COLS;
+	int numRows = TROWA_SEQ_STEP_NUM_ROWS;
+	int groupId = 0;
+	if (!isPreview)
 	{
-		for (int c = 0; c < module->numCols; c++)
+		numCols = seqModule->numCols;
+		numRows = seqModule->numRows;
+		lightColor = seqModule->voiceColors[seqModule->currentChannelEditingIx];
+		groupId = seqModule->oscId; // Use this id for now since this is unique to each module instance.
+	}
+	int id = 0;
+	for (int r = 0; r < numRows; r++) //---------THE PADS
+	{
+		for (int c = 0; c < numCols; c++)
 		{			
 			// Pad buttons:
-			TS_PadSquare* padBtn = dynamic_cast<TS_PadSquare*>(createParam<TS_PadSquare>(Vec(x, y), module, TSSequencerModuleBase::CHANNEL_PARAM + r * module->numCols + c, 0.0, 1.0, 0.0));
-			padBtn->groupId = module->oscId; // For now this is unique.
+			TS_PadSquare* padBtn = dynamic_cast<TS_PadSquare*>(ParamWidget::create<TS_PadSquare>(Vec(x, y), seqModule, TSSequencerModuleBase::CHANNEL_PARAM + id, 0.0, 1.0, 0.0));
+			padBtn->groupId = groupId;
+			padBtn->btnId = id;
 			addParam(padBtn);
-			// Keep a reference to our pad lights so we can change the colors
-			module->padLightPtrs[r][c] = dynamic_cast<TS_LightSquare*>(TS_createColorValueLight<TS_LightSquare>(/*pos */ Vec(x+dx, y+dx), 
-				/*module*/ module, 
-				/*lightId*/ TSSequencerModuleBase::PAD_LIGHTS + r*module->numCols + c,
-				/* size */ lSize, /* color */ module->voiceColors[module->currentChannelEditingIx]));
-			addChild( module->padLightPtrs[r][c] );
+
+			// Lights:
+			TS_LightSquare* padLight = dynamic_cast<TS_LightSquare*>(TS_createColorValueLight<TS_LightSquare>(/*pos */ Vec(x + dx, y + dx),
+				/*seqModule*/ seqModule,
+				/*lightId*/ TSSequencerModuleBase::PAD_LIGHTS + id, // r * numCols + c
+				/* size */ lSize, /* color */ lightColor));
+			addChild(padLight);
+			if (seqModule != NULL)
+			{
+				// Keep a reference to our pad lights so we can change the colors
+				seqModule->padLightPtrs[r][c] = padLight;
+			}
 			x+= 59;
+			id++;
 		}		
 		y += 59; // Next row
 		x = 79;
 	} // end loop through MxN grid	
-	module->modeString = module->modeStrings[module->selectedOutputValueMode];
-	module->initialized = true;
+	if (seqModule != NULL)
+	{
+		seqModule->modeString = seqModule->modeStrings[seqModule->selectedOutputValueMode];
+		seqModule->initialized = true;
+	}
 	return;
 } // end trigSeqWidget()
 

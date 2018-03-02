@@ -1,7 +1,8 @@
 #include "TSTextField.hpp"
 #include "widgets.hpp"
+#include "ui.hpp"
 // for gVg
-#include "gui.hpp"
+#include "window.hpp"
 // for key codes
 #include <GLFW/glfw3.h>
 using namespace rack;
@@ -61,8 +62,8 @@ void TSTextField::insertText(std::string newText) {
 // When the text changes.
 void TSTextField::onTextChange() {
 	text = cleanseString(text);
-	begin = mini(maxi(begin, 0), text.size());
-	end = mini(maxi(end, 0), text.size());
+	begin = min(max(begin, 0), text.size());
+	end = min(max(end, 0), text.size());
 	return;
 } // end onTextChanged()
 // On key press.
@@ -135,7 +136,7 @@ void TSTextField::onKey(EventKey &e) {
 		break;
 	case GLFW_KEY_TAB:
 		// If we have an event to fire, then do it
-		if (guiIsShiftPressed()) 
+		if (windowIsShiftPressed())//(guiIsShiftPressed())
 		{
 			if (onShiftTabCallback != NULL)
 				onShiftTabCallback(id);
@@ -152,7 +153,7 @@ void TSTextField::onKey(EventKey &e) {
 		}
 		break;
 	case GLFW_KEY_V:
-		if (guiIsModPressed()) {
+		if (windowIsModPressed()) { //guiIsModPressed()
 			// Paste (do not check character)
 			checkKey = false;
 			const char *newText = glfwGetClipboardString(gWindow);
@@ -161,7 +162,7 @@ void TSTextField::onKey(EventKey &e) {
 		}	
 		break;
 	case GLFW_KEY_C:
-		if (guiIsModPressed()) {
+		if (windowIsModPressed()) { //guiIsModPressed()
 			// Copy (do not check character)
 			checkKey = false;
 			if (begin < end) {
@@ -177,8 +178,8 @@ void TSTextField::onKey(EventKey &e) {
 	}
 	else
 	{
-		begin = mini(maxi(begin, 0), text.size());
-		end = mini(maxi(end, 0), text.size());
+		begin = min(max(begin, 0), text.size());
+		end = min(max(end, 0), text.size());
 	}
 	e.consumed = true;
 	return;

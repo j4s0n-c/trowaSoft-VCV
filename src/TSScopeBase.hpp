@@ -5,7 +5,7 @@
 #include "trowaSoft.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
-#include "math.hpp"
+#include "util/math.hpp"
 #include "dsp/digital.hpp"
 
 #define BUFFER_SIZE 					512
@@ -69,11 +69,11 @@
 #define TROWA_SCOPE_FILL_ON_COLOR				nvgRGB(0xDD,0xDD,0xDD) // COLOR_WHITE -- Very bright
 
 // Line Thickness
-#define TROWA_SCOPE_THICKNESS_MIN		  1
-#define TROWA_SCOPE_THICKNESS_MAX		 10
-#define TROWA_SCOPE_THICKNESS_DEF		  3
-#define TROWA_SCOPE_THICKNESS_INPUT_MIN	 -5
-#define TROWA_SCOPE_THICKNESS_INPUT_MAX	  5
+#define TROWA_SCOPE_THICKNESS_MIN		  1.0
+#define TROWA_SCOPE_THICKNESS_MAX		 10.0
+#define TROWA_SCOPE_THICKNESS_DEF		  3.0
+#define TROWA_SCOPE_THICKNESS_INPUT_MIN	 -5.0
+#define TROWA_SCOPE_THICKNESS_INPUT_MAX	  5.0
 
 #define POINT_POS_INSIDE	0 // Point is within bounds
 #define POINT_POS_LEFT		0b0001 // Point is below min X
@@ -234,7 +234,7 @@ struct TSWaveform
 	}
 	void setHueFromKnob(float hueKnobValue)
 	{
-		setHue(rescalef(hueKnobValue, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, 0.0, 1.0));
+		setHue(rescale(hueKnobValue, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, 0.0, 1.0));
 		return;
 	}
 	void setFillHue(float hue)
@@ -244,7 +244,7 @@ struct TSWaveform
 	}
 	void setFillHueFromKnob(float hueKnobValue)
 	{
-		setFillHue(rescalef(hueKnobValue, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, 0.0, 1.0));
+		setFillHue(rescale(hueKnobValue, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, 0.0, 1.0));
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

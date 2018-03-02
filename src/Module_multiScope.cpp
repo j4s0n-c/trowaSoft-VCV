@@ -68,7 +68,7 @@ void multiScope::step() {
 		//waveForm = waveForms[wIx]; // tmp pointer
 
 		// Effect:
-		waveForms[wIx]->gEffectIx = clampi(roundf(params[multiScope::EFFECT_PARAM+wIx].value), 0, TROWA_SCOPE_NUM_EFFECTS - 1);
+		waveForms[wIx]->gEffectIx = (int)clamp(static_cast<int>(roundf(params[multiScope::EFFECT_PARAM+wIx].value)), 0, TROWA_SCOPE_NUM_EFFECTS - 1);
 
 		// Lissajous:
 		if (waveForms[wIx]->lissajousTrigger.process(params[multiScope::LISSAJOUS_PARAM + wIx].value))
@@ -80,9 +80,9 @@ void multiScope::step() {
 		// Compute Color:
 		float hue = 0;
 		if(inputs[multiScope::COLOR_INPUT+wIx].active){
-			hue = clampf(rescalef(inputs[multiScope::COLOR_INPUT+wIx].value, TROWA_SCOPE_HUE_INPUT_MIN_V, TROWA_SCOPE_HUE_INPUT_MAX_V, 0.0, 1.0), 0.0, 1.0);
+			hue = clamp(rescale(inputs[multiScope::COLOR_INPUT+wIx].value, TROWA_SCOPE_HUE_INPUT_MIN_V, TROWA_SCOPE_HUE_INPUT_MAX_V, 0.0, 1.0), 0.0, 1.0);
 		} else {
-			hue = rescalef(params[multiScope::COLOR_PARAM+wIx].value, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, 0.0, 1.0);					
+			hue = rescale(params[multiScope::COLOR_PARAM+wIx].value, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, 0.0, 1.0);					
 		}
 		waveForms[wIx]->colorChanged = hue != waveForms[wIx]->waveHue || firstLoad; 
 		if (waveForms[wIx]->colorChanged)
@@ -105,7 +105,7 @@ void multiScope::step() {
 		// Opacity:
 		if (inputs[multiScope::OPACITY_INPUT + wIx].active)
 		{
-			waveForms[wIx]->waveOpacity = clampf(rescalef(inputs[multiScope::OPACITY_INPUT + wIx].value, TROWA_SCOPE_OPACITY_INPUT_MIN, TROWA_SCOPE_OPACITY_INPUT_MAX, TROWA_SCOPE_MIN_OPACITY, TROWA_SCOPE_MAX_OPACITY),
+			waveForms[wIx]->waveOpacity = clamp(rescale(inputs[multiScope::OPACITY_INPUT + wIx].value, TROWA_SCOPE_OPACITY_INPUT_MIN, TROWA_SCOPE_OPACITY_INPUT_MAX, TROWA_SCOPE_MIN_OPACITY, TROWA_SCOPE_MAX_OPACITY),
 									 TROWA_SCOPE_MIN_OPACITY, TROWA_SCOPE_MAX_OPACITY);
 		}
 		else
@@ -115,7 +115,7 @@ void multiScope::step() {
 		// Line Thickness
 		if (inputs[multiScope::THICKNESS_INPUT + wIx].active)
 		{
-			waveForms[wIx]->lineThickness = clampf(rescalef(inputs[multiScope::THICKNESS_INPUT + wIx].value, TROWA_SCOPE_THICKNESS_INPUT_MIN, TROWA_SCOPE_THICKNESS_INPUT_MAX, TROWA_SCOPE_THICKNESS_MIN, TROWA_SCOPE_THICKNESS_MAX),
+			waveForms[wIx]->lineThickness = clamp(rescale(inputs[multiScope::THICKNESS_INPUT + wIx].value, TROWA_SCOPE_THICKNESS_INPUT_MIN, TROWA_SCOPE_THICKNESS_INPUT_MAX, TROWA_SCOPE_THICKNESS_MIN, TROWA_SCOPE_THICKNESS_MAX),
 				TROWA_SCOPE_THICKNESS_MIN, TROWA_SCOPE_THICKNESS_MAX);
 		}
 		else
@@ -132,10 +132,10 @@ void multiScope::step() {
 		lights[multiScope::FILL_ON_LED + wIx].value = waveForms[wIx]->doFill;
 		hue = 0;
 		if (inputs[multiScope::FILL_COLOR_INPUT + wIx].active) {
-			hue = clampf(rescalef(inputs[multiScope::FILL_COLOR_INPUT + wIx].value, TROWA_SCOPE_HUE_INPUT_MIN_V, TROWA_SCOPE_HUE_INPUT_MAX_V, 0.0, 1.0), 0.0, 1.0);
+			hue = clamp(rescale(inputs[multiScope::FILL_COLOR_INPUT + wIx].value, TROWA_SCOPE_HUE_INPUT_MIN_V, TROWA_SCOPE_HUE_INPUT_MAX_V, 0.0, 1.0), 0.0, 1.0);
 		}
 		else {
-			hue = rescalef(params[multiScope::FILL_COLOR_PARAM + wIx].value, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, 0.0, 1.0);
+			hue = rescale(params[multiScope::FILL_COLOR_PARAM + wIx].value, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, 0.0, 1.0);
 		}
 		if (hue != waveForms[wIx]->fillHue || firstLoad)
 		{
@@ -153,7 +153,7 @@ void multiScope::step() {
 		// Opacity:
 		if (inputs[multiScope::FILL_OPACITY_INPUT + wIx].active)
 		{
-			waveForms[wIx]->fillOpacity = clampf(rescalef(inputs[multiScope::FILL_OPACITY_INPUT + wIx].value, TROWA_SCOPE_OPACITY_INPUT_MIN, TROWA_SCOPE_OPACITY_INPUT_MAX, TROWA_SCOPE_MIN_OPACITY, TROWA_SCOPE_MAX_OPACITY),
+			waveForms[wIx]->fillOpacity = clamp(rescale(inputs[multiScope::FILL_OPACITY_INPUT + wIx].value, TROWA_SCOPE_OPACITY_INPUT_MIN, TROWA_SCOPE_OPACITY_INPUT_MAX, TROWA_SCOPE_MIN_OPACITY, TROWA_SCOPE_MAX_OPACITY),
 				TROWA_SCOPE_MIN_OPACITY, TROWA_SCOPE_MAX_OPACITY);
 		}
 		else
@@ -175,12 +175,12 @@ void multiScope::step() {
 		if (waveForms[wIx]->rotMode)
 		{
 			// Absolute position:
-			rot = rescalef(params[multiScope::ROTATION_PARAM+wIx].value + inputs[multiScope::ROTATION_INPUT+wIx].value, 0, 10, 0, NVG_PI);
+			rot = rescale(params[multiScope::ROTATION_PARAM+wIx].value + inputs[multiScope::ROTATION_INPUT+wIx].value, 0, 10, 0, NVG_PI);
 		}
 		else
 		{
 			// Differential rotation
-			rotRate = rescalef(params[multiScope::ROTATION_PARAM+wIx].value + inputs[multiScope::ROTATION_INPUT+wIx].value, 0, 10, 0, 0.5);
+			rotRate = rescale(params[multiScope::ROTATION_PARAM+wIx].value + inputs[multiScope::ROTATION_INPUT+wIx].value, 0, 10, 0, 0.5);
 		}
 		waveForms[wIx]->rotAbsValue = rot;
 		waveForms[wIx]->rotDiffValue = rotRate;

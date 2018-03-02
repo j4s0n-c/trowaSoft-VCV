@@ -2,7 +2,7 @@
 #define MODULE_VOLTSEQ_HPP
 #include <string.h>
 #include <stdio.h>
-#include "trowaSoft.hpp"
+//#include "trowaSoft.hpp"
 #include "dsp/digital.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
@@ -53,14 +53,15 @@ struct voltSeq : TSSequencerModuleBase
 			/*roundDisplay*/ 0, /*roundOutput*/ 0,
 			/*zeroValue*/ voltSeq_STEP_KNOB_MIN)			
 	};
-	voltSeq(int numSteps, int numRows, int numCols) : TSSequencerModuleBase(numSteps, numRows, numCols, voltSeq_STEP_KNOB_MIN)
+	voltSeq(int numSteps, int numRows, int numCols) : TSSequencerModuleBase(numSteps, numRows, numCols, /*default val*/ 0.0) // Now default to 0 instead of -10
 	{
 		selectedOutputValueMode = VALUE_VOLT;
 		lastOutputValueMode = selectedOutputValueMode;
 		modeStrings[0] = "VOLT";
 		modeStrings[1] = "NOTE";
 		modeStrings[2] = "PATT";
-		
+		numStructuredRandomPatterns = TROWA_SEQ_NUM_RANDOM_PATTERNS; // voltSeq can use the full range of random patterns.
+
 		knobStepMatrix = new TS_LightedKnob**[numRows];
 		for (int r = 0; r < numRows; r++)
 		{
@@ -124,7 +125,7 @@ struct voltSeq : TSSequencerModuleBase
 	// Get a random value for a step in this sequencer.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	float getRandomValue() override {
-		return voltSeq_STEP_KNOB_MIN + randomf()*(voltSeq_STEP_KNOB_MAX - voltSeq_STEP_KNOB_MIN);
+		return voltSeq_STEP_KNOB_MIN + randomUniform()*(voltSeq_STEP_KNOB_MAX - voltSeq_STEP_KNOB_MIN);
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// onShownStepChange()

@@ -10,8 +10,14 @@ using namespace rack;
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct TSSModuleWidgetBase : ModuleWidget {
 	bool randomizeParameters = false;
-	TSSModuleWidgetBase() { return; }
-	TSSModuleWidgetBase(bool randomizeParams) { randomizeParameters = randomizeParams; return; }
+	TSSModuleWidgetBase(Module* tsModule) : ModuleWidget(tsModule) { 
+		return; 
+	}
+	TSSModuleWidgetBase(Module* tsModule, bool randomizeParams) : TSSModuleWidgetBase(tsModule)
+	{ 
+		randomizeParameters = randomizeParams; 
+		return; 
+	}
 	void randomize() override
 	{
 		if (randomizeParameters)

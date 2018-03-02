@@ -13,33 +13,33 @@
 
 // Static Variables:
 RandStructure TSSequencerModuleBase::RandomPatterns[TROWA_SEQ_NUM_RANDOM_PATTERNS] = {
-    { 1, { 0 } },
-    { 2, { 0, 1 } },
-    { 2, { 0,0,0,1 } },
-    { 2, { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } },
-    { 2, { 0,0,1,1 } },
-    { 2, { 0,1,1,1 } },
-    { 2, { 0,1,1,0 } },
-    { 3, { 0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,2 } },
-    { 3, { 0,0,1,2 } },
-    { 3, { 0,0,0,0,0,0,1,2 } },
-    { 3, { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2 } },
-    { 3, { 0,1,0,2 } },
-    { 3, { 0,1,2,0 } },
-    { 3, { 0,1,1,2 } },
-    { 3, { 0,2,1,2 } },
-    { 4, { 0,1,2,3 } },
-    { 4, { 0,0,1,1,2,2,3,3 } },
-    { 4, { 0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3 } },
-    { 5, { 0,1,0,1,0,1,0,2,0,3,0,3,0,3,0,4 } },
-    { 6, { 0,1,0,2,0,1,0,3,0,1,0,4,0,1,0,5 } },
-    { 8, { 0,0,0,1,2,3,4,5,0,0,0,1,2,3,6,7 } },
-    { 9, { 0,1,0,2,0,1,0,3,0,1,0,4,5,6,7,8 } },
-    { 10, { 0,1,1,2,3,4,5,6,0,1,1,2,3,7,8,9 } },
-    { 10, { 0,1,1,2,3,4,5,6,1,1,1,2,3,7,8,9 } },
-    { 10, { 0,1,2,3,4,5,6,7,0,1,2,3,4,5,8,9 } },
-    { 10, { 0,1,2,3,4,5,6,7,0,1,8,3,4,5,6,9 } },
-    { 11, { 0,1,2,3,4,5,6,7,8,1,2,3,4,5,9,10 } }	
+	{ 1,{ 0 } },
+	{ 2,{ 0, 1 } },
+	{ 2,{ 0,0,0,1 } },
+	{ 2,{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } },
+	{ 2,{ 0,0,1,1 } },
+	{ 2,{ 0,1,1,1 } },
+	{ 2,{ 0,1,1,0 } },
+	{ 3,{ 0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,2 } },
+	{ 3,{ 0,0,1,2 } },
+	{ 3,{ 0,0,0,0,0,0,1,2 } },
+	{ 3,{ 0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,2 } },
+	{ 3,{ 0,1,0,2 } },
+	{ 3,{ 0,1,2,0 } },
+	{ 3,{ 0,1,1,2 } },
+	{ 3,{ 0,2,1,2 } },
+	{ 4,{ 0,1,2,3 } },
+	{ 4,{ 0,0,1,1,2,2,3,3 } },
+	{ 4,{ 0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3 } },
+	{ 5,{ 0,1,0,1,0,1,0,2,0,3,0,3,0,3,0,4 } },
+	{ 6,{ 0,1,0,2,0,1,0,3,0,1,0,4,0,1,0,5 } },
+	{ 8,{ 0,0,0,1,2,3,4,5,0,0,0,1,2,3,6,7 } },
+	{ 9,{ 0,1,0,2,0,1,0,3,0,1,0,4,5,6,7,8 } },
+	{ 10,{ 0,1,1,2,3,4,5,6,0,1,1,2,3,7,8,9 } },
+	{ 10,{ 0,1,1,2,3,4,5,6,1,1,1,2,3,7,8,9 } },
+	{ 10,{ 0,1,2,3,4,5,6,7,0,1,2,3,4,5,8,9 } },
+	{ 10,{ 0,1,2,3,4,5,6,7,0,1,8,3,4,5,6,9 } },
+	{ 11,{ 0,1,2,3,4,5,6,7,8,1,2,3,4,5,9,10 } }
 };
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -126,9 +126,9 @@ TSSequencerModuleBase::TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int num
 	firstLoad = true;
 	return;
 } // end TSSequencerModuleBase()
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// Delete our goodies.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  // Delete our goodies.
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 TSSequencerModuleBase::~TSSequencerModuleBase()
 {
 	initialized = false; // Stop doing stuff
@@ -179,10 +179,10 @@ TSSequencerModuleBase::~TSSequencerModuleBase()
 } // end ~TSSequencerModuleBase()
 
 
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// reset(void)
-// Reset ALL step values to default.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  // reset(void)
+  // Reset ALL step values to default.
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 void TSSequencerModuleBase::reset()
 {
 	for (int p = 0; p < TROWA_SEQ_NUM_PATTERNS; p++)
@@ -202,7 +202,7 @@ void TSSequencerModuleBase::reset()
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // randomize()
-// @patternIx : (IN) The index into our pattern matrix (0-15). Or TROWA_INDEX_UNDEFINED for all patterns.
+// @patternIx : (IN) The index into our pattern matrix (0-63). Or TROWA_INDEX_UNDEFINED for all patterns.
 // @channelIx : (IN) The index of the channel (gate/trigger/voice) if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL/TROWA_INDEX_UNDEFINED for all).
 // @useStructured: (IN) Create a random sequence/pattern of random values.
 // Random all from : https://github.com/j4s0n-c/trowaSoft-VCV/issues/8
@@ -234,7 +234,7 @@ void TSSequencerModuleBase::randomize(int patternIx, int channelIx, bool useStru
 		{
 			// Use a pattern
 			// A, AB, ABBA, ABAC
-			int rIx = rand() % TROWA_SEQ_NUM_RANDOM_PATTERNS;
+			int rIx = rand() % numStructuredRandomPatterns;// TROWA_SEQ_NUM_RANDOM_PATTERNS;
 			int n = RandomPatterns[rIx].numDiffVals;
 			float* randVals = new float[n];
 			int patternLen = RandomPatterns[rIx].pattern.size();
@@ -289,12 +289,12 @@ void TSSequencerModuleBase::setOSCNamespace(const char* oscNs)
 
 	return;
 } // end setOSCNameSpace()
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// Initialize OSC on the given ip and ports.
-// @ipAddress: (IN) The ip address.
-// @outputPort: (IN) The output port.
-// @inputPort: (IN) The input port.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  // Initialize OSC on the given ip and ports.
+  // @ipAddress: (IN) The ip address.
+  // @outputPort: (IN) The output port.
+  // @inputPort: (IN) The input port.
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSequencerModuleBase::initOSC(const char* ipAddress, int outputPort, int inputPort)
 {
 	oscMutex.lock();
@@ -359,9 +359,9 @@ void TSSequencerModuleBase::initOSC(const char* ipAddress, int outputPort, int i
 	oscMutex.unlock();
 	return;
 } // end initOSC()
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// Clean up OSC.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  // Clean up OSC.
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSequencerModuleBase::cleanupOSC()
 {
 	oscMutex.lock();
@@ -410,11 +410,11 @@ void TSSequencerModuleBase::cleanupOSC()
 	return;
 } // end cleanupOSC()
 
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// copy()
-// @patternIx : (IN) The index into our pattern matrix (0-15).
-// @channelIx : (IN) The index of the channel (gate/trigger/voice) to copy if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL for all).
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  // copy()
+  // @patternIx : (IN) The index into our pattern matrix (0-15).
+  // @channelIx : (IN) The index of the channel (gate/trigger/voice) to copy if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL for all).
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSequencerModuleBase::copy(/*in*/ int patternIx, /*in*/ int channelIx)
 {
 	copySourceChannelIx = channelIx;
@@ -428,7 +428,7 @@ void TSSequencerModuleBase::copy(/*in*/ int patternIx, /*in*/ int channelIx)
 			{
 				copyBuffer[g][s] = triggerState[copySourcePatternIx][g][s];
 			}
-		}		
+		}
 	}
 	else
 	{
@@ -436,16 +436,16 @@ void TSSequencerModuleBase::copy(/*in*/ int patternIx, /*in*/ int channelIx)
 		for (int s = 0; s < maxSteps; s++)
 		{
 			copyBuffer[copySourceChannelIx][s] = triggerState[copySourcePatternIx][copySourceChannelIx][s];
-		}		
+		}
 	}
 	return;
 } // end copy()
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// paste(void)
-// Paste our current clipboard Pattern/Gate to the currently selected Pattern/Gate.
-// @returns: True if the values were copied, false if not.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-bool TSSequencerModuleBase::paste() 
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  // paste(void)
+  // Paste our current clipboard Pattern/Gate to the currently selected Pattern/Gate.
+  // @returns: True if the values were copied, false if not.
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+bool TSSequencerModuleBase::paste()
 {
 	if (copySourcePatternIx < 0) // Nothing to copy
 		return false;
@@ -471,14 +471,14 @@ bool TSSequencerModuleBase::paste()
 	return true;
 } // end paste()
 
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// Set a single the step value
-// (i.e. this command probably comes from an external source)
-// @step : (IN) The step number to edit (0 to maxSteps).
-// @val : (IN) The step value.
-// @channel : (IN) The channel to edit (0 to TROWA_SEQ_NUM_CHNLS - 1).
-// @pattern: (IN) The pattern to edit (0 to TROWA_SEQ_NUM_PATTERNS - 1).
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  // Set a single the step value
+  // (i.e. this command probably comes from an external source)
+  // @step : (IN) The step number to edit (0 to maxSteps).
+  // @val : (IN) The step value.
+  // @channel : (IN) The channel to edit (0 to TROWA_SEQ_NUM_CHNLS - 1).
+  // @pattern: (IN) The pattern to edit (0 to TROWA_SEQ_NUM_PATTERNS - 1).
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSequencerModuleBase::setStepValue(int step, float val, int channel, int pattern)
 {
 	int r, c;
@@ -551,15 +551,15 @@ void TSSequencerModuleBase::setStepValue(int step, float val, int channel, int p
 } // end setStepValue()
 
 
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// getStepInputs()
-// Get the inputs shared between our Sequencers.
-// Now also processes our external message queue.
-// @pulse : (OUT) If gate pulse
-// @reloadMatrix: (OUT) If the edit matrix should be refreshed.
-// @valueModeChanged: (OUT) If the output value mode has changed.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* reloadMatrix, /*out*/ bool* valueModeChanged) 
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  // getStepInputs()
+  // Get the inputs shared between our Sequencers.
+  // Now also processes our external message queue.
+  // @pulse : (OUT) If gate pulse
+  // @reloadMatrix: (OUT) If the edit matrix should be refreshed.
+  // @valueModeChanged: (OUT) If the output value mode has changed.
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* reloadMatrix, /*out*/ bool* valueModeChanged)
 {
 	// Track if we have changed these
 	bool editPatternChanged = false;
@@ -600,7 +600,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	if (!firstLoad)
 		lastPatternPlayingIx = currentPatternPlayingIx;
 
-	
+
 	bool nextStep = false;
 	// Now calculate BPM even if we are paused:
 	// BPM calculation selection
@@ -616,7 +616,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	if (inputs[BPM_INPUT].active)
 	{
 		// Use whatever voltage we are getting (-10 TO 10 input)
-		input = rescalef(inputs[BPM_INPUT].value, TROWA_SEQ_PATTERN_MIN_V, TROWA_SEQ_PATTERN_MAX_V,
+		input = rescale(inputs[BPM_INPUT].value, TROWA_SEQ_PATTERN_MIN_V, TROWA_SEQ_PATTERN_MAX_V,
 			TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
 	}
 	else
@@ -625,43 +625,43 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		input = params[BPM_PARAM].value; // -2 to 6
 	}
 	clockTime = powf(2.0, input); // -2 to 6
-	// Calculate his all the time now instead of just on next step:
+								  // Calculate his all the time now instead of just on next step:
 	currentBPM = roundf(clockTime * BPMOptions[selectedBPMNoteIx]->multiplier);
 	playBPMChanged = lastBPM != currentBPM;
 
-	if (running) 
+	if (running)
 	{
-		if (inputs[EXT_CLOCK_INPUT].active) 
+		if (inputs[EXT_CLOCK_INPUT].active)
 		{
 			// External clock input
-			if (clockTrigger.process(inputs[EXT_CLOCK_INPUT].value)) 
+			if (clockTrigger.process(inputs[EXT_CLOCK_INPUT].value))
 			{
 				realPhase = 0.0;
 				nextStep = true;
 				lastStepWasExternalClock = true;
 			}
 		}
-		else 
+		else
 		{
 			// Internal clock
 			lastStepWasExternalClock = false;
 			float dt = clockTime / engineGetSampleRate(); // Real dt
 			realPhase += dt; // Real Time no matter what
-			if (realPhase >= 1.0) 
+			if (realPhase >= 1.0)
 			{
 				realPhase -= 1.0;
 				nextStep = true;
-			}			
+			}
 			//if (nextStep)
 			//{	
-				//currentBPM = roundf(clockTime * BPMOptions[selectedBPMNoteIx]->multiplier);
-				//playBPMChanged = lastBPM != currentBPM;
+			//currentBPM = roundf(clockTime * BPMOptions[selectedBPMNoteIx]->multiplier);
+			//playBPMChanged = lastBPM != currentBPM;
 			//}
 		}
 	} // end if running
-	
-	// Current Playing Pattern
-	// If we get an input, then use that:
+
+	  // Current Playing Pattern
+	  // If we get an input, then use that:
 	if (inputs[SELECTED_PATTERN_PLAY_INPUT].active)
 	{
 		currentPatternPlayingIx = VoltsToPattern(inputs[SELECTED_PATTERN_PLAY_INPUT].value) - 1;
@@ -669,39 +669,39 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	else
 	{
 		// Otherwise read our knob parameter and use that
-		currentPatternPlayingIx = clampi(roundf(params[SELECTED_PATTERN_PLAY_PARAM].value), 0, TROWA_SEQ_NUM_PATTERNS - 1);
+		currentPatternPlayingIx = (int)clamp(static_cast<int>(roundf(params[SELECTED_PATTERN_PLAY_PARAM].value)), 0, TROWA_SEQ_NUM_PATTERNS - 1);
 	}
 	if (currentPatternPlayingIx < 0)
 		currentPatternPlayingIx = 0;
-	else if(currentPatternPlayingIx > TROWA_SEQ_NUM_PATTERNS - 1)
+	else if (currentPatternPlayingIx > TROWA_SEQ_NUM_PATTERNS - 1)
 		currentPatternPlayingIx = TROWA_SEQ_NUM_PATTERNS - 1;
-	
-	
+
+
 	// Current Edit Pattern
 	int lastEditPatternIx = currentPatternEditingIx;
 	// From User Knob:
-	currentPatternEditingIx = clampi(roundf(params[SELECTED_PATTERN_EDIT_PARAM].value), 0, TROWA_SEQ_NUM_PATTERNS - 1);
+	currentPatternEditingIx = (int)clamp(static_cast<int>(roundf(params[SELECTED_PATTERN_EDIT_PARAM].value)), 0, TROWA_SEQ_NUM_PATTERNS - 1);
 	if (currentPatternEditingIx < 0)
 		currentPatternEditingIx = 0;
-	else if(currentPatternEditingIx > TROWA_SEQ_NUM_PATTERNS - 1)
+	else if (currentPatternEditingIx > TROWA_SEQ_NUM_PATTERNS - 1)
 		currentPatternEditingIx = TROWA_SEQ_NUM_PATTERNS - 1;
-	
+
 
 	// Gate inputs (which gate we are displaying & editing)
 	int lastChannelIx = currentChannelEditingIx;
-	currentChannelEditingIx = clampi(roundf(params[SELECTED_CHANNEL_PARAM].value), 0, TROWA_SEQ_NUM_CHNLS - 1);
+	currentChannelEditingIx = (int)clamp(static_cast<int>(roundf(params[SELECTED_CHANNEL_PARAM].value)), 0, TROWA_SEQ_NUM_CHNLS - 1);
 	if (currentChannelEditingIx < 0)
 		currentChannelEditingIx = 0;
 	else if (currentChannelEditingIx > TROWA_SEQ_NUM_CHNLS - 1)
 		currentChannelEditingIx = TROWA_SEQ_NUM_CHNLS - 1;
 	editChannelChanged = lastChannelIx != currentChannelEditingIx;
-	
+
 
 	int r = 0;
 	int c = 0;
 
 	// Current output value mode	
-	selectedOutputValueMode = static_cast<ValueMode>(clampi(roundf(params[SELECTED_OUTPUT_VALUE_MODE_PARAM].value), 0, TROWA_SEQ_NUM_MODES - 1));	
+	selectedOutputValueMode = static_cast<ValueMode>((int)clamp(static_cast<int>(roundf(params[SELECTED_OUTPUT_VALUE_MODE_PARAM].value)), 0, TROWA_SEQ_NUM_MODES - 1));
 
 	int lastNumberSteps = currentNumberSteps;
 	if (inputs[STEPS_INPUT].active)
@@ -709,12 +709,12 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		// Use the input if something is connected.
 		// Some seqeuencers go to 64 steps, we want the same voltage to mean the same step number no matter how many max steps this one takes.
 		// so voltage input is normalized to indicate step 1 to step 64, but we'll limit it to maxSteps.
-		currentNumberSteps = clampi(roundf(rescalef(inputs[STEPS_INPUT].value, TROWA_SEQ_STEPS_MIN_V, TROWA_SEQ_STEPS_MAX_V, 1, TROWA_SEQ_MAX_NUM_STEPS)), 1, maxSteps);
+		currentNumberSteps = (int)clamp(static_cast<int>(roundf(rescale(inputs[STEPS_INPUT].value, TROWA_SEQ_STEPS_MIN_V, TROWA_SEQ_STEPS_MAX_V, 1.0, (float)TROWA_SEQ_MAX_NUM_STEPS))), 1, maxSteps);
 	}
 	else
 	{
 		// Otherwise read our knob
-		currentNumberSteps = clampi(roundf(params[STEPS_PARAM].value), 1, maxSteps);		
+		currentNumberSteps = (int)clamp(static_cast<int>(roundf(params[STEPS_PARAM].value)), 1, maxSteps);
 	}
 
 	//------------------------------------------------------------
@@ -839,7 +839,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 			break;
 		case TSExternalControlMessage::MessageType::SetPlayOutputMode:
 			// -- Set Ouput Mode: (TRIG, RTRIG, GATE) or (VOLT, NOTE, PATT) --
-			selectedOutputValueMode = (ValueMode)( recvMsg.mode );
+			selectedOutputValueMode = (ValueMode)(recvMsg.mode);
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Set Output Mode: %d (TRIG, RTRIG, GATE) or (VOLT, NOTE, PATT).", selectedOutputValueMode);
 #endif
@@ -893,16 +893,16 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 #endif
 			}
 			break;
-		// Now BPM and Tempo are separate in OSC.
-		/// TODO: Maybe move the calcs to the listener thread? But if we have other external messages from non-OSC, then it would have to repeated somewhere...
+			// Now BPM and Tempo are separate in OSC.
+			/// TODO: Maybe move the calcs to the listener thread? But if we have other external messages from non-OSC, then it would have to repeated somewhere...
 		case TSExternalControlMessage::MessageType::SetPlayBPM: // "BPM" is relative to the note
-			//float bpm = recvMsg.mode;
-			// currentBPM = 2^knob * mult
-			// currentBPM / mult = 2 ^ knob
-			// log2(currentBPM / mult) = knob
+																//float bpm = recvMsg.mode;
+																// currentBPM = 2^knob * mult
+																// currentBPM / mult = 2 ^ knob
+																// log2(currentBPM / mult) = knob
 			if (recvMsg.mode == TROWA_INDEX_UNDEFINED)
 				recvMsg.mode = storedBPM;
-			tmp = clampf(std::log2f(recvMsg.mode / BPMOptions[selectedBPMNoteIx]->multiplier), TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
+			tmp = clamp(std::log2f(recvMsg.mode / BPMOptions[selectedBPMNoteIx]->multiplier), static_cast<float>(TROWA_SEQ_BPM_KNOB_MIN), static_cast<float>(TROWA_SEQ_BPM_KNOB_MAX));
 			controlKnobs[KnobIx::BPMKnob]->value = tmp;
 			controlKnobs[KnobIx::BPMKnob]->dirty = true;
 			params[ParamIds::BPM_PARAM].value = tmp;
@@ -917,12 +917,12 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Add BPM (%d): Knob %.2f, End is %.2f", recvMsg.mode, controlKnobs[KnobIx::BPMKnob]->value, tmp);
 #endif
-			controlKnobs[KnobIx::BPMKnob]->value = clampf(tmp, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
+			controlKnobs[KnobIx::BPMKnob]->value = clamp(tmp, static_cast<float>(TROWA_SEQ_BPM_KNOB_MIN), static_cast<float>(TROWA_SEQ_BPM_KNOB_MAX));
 			controlKnobs[KnobIx::BPMKnob]->dirty = true;
 			params[ParamIds::BPM_PARAM].value = tmp;
 			break;
 		case TSExternalControlMessage::MessageType::SetPlayTempo: // Tempo goes from 0 to 1
-			tmp = rescalef(recvMsg.val, 0.0, 1.0, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
+			tmp = rescale(recvMsg.val, 0.0, 1.0, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
 			controlKnobs[KnobIx::BPMKnob]->value = tmp;
 			controlKnobs[KnobIx::BPMKnob]->dirty = true;
 			params[ParamIds::BPM_PARAM].value = tmp;
@@ -931,8 +931,8 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 #endif
 			break;
 		case TSExternalControlMessage::MessageType::AddPlayTempo: // Tempo goes from 0 to 1
-			tmp = rescalef(recvMsg.val, 0.0, 1.0, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
-			controlKnobs[KnobIx::BPMKnob]->value = clampf(tmp + controlKnobs[KnobIx::BPMKnob]->value, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
+			tmp = rescale(recvMsg.val, 0.0, 1.0, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX);
+			controlKnobs[KnobIx::BPMKnob]->value = clamp(tmp + controlKnobs[KnobIx::BPMKnob]->value, static_cast<float>(TROWA_SEQ_BPM_KNOB_MIN), static_cast<float>(TROWA_SEQ_BPM_KNOB_MAX));
 			controlKnobs[KnobIx::BPMKnob]->dirty = true;
 			params[ParamIds::BPM_PARAM].value = tmp;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
@@ -979,7 +979,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 			debug("Paste message.");
 #endif
 			break;
-		case TSExternalControlMessage::MessageType::CopyEditPattern:	
+		case TSExternalControlMessage::MessageType::CopyEditPattern:
 		{
 			int pat = (recvMsg.pattern == CURRENT_EDIT_PATTERN_IX) ? currentPatternEditingIx : recvMsg.pattern;
 			if (copySourcePatternIx > -1 && copySourceChannelIx == TROWA_SEQ_COPY_CHANNELIX_ALL)
@@ -1003,7 +1003,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 #endif
 			}
 		}
-			break;
+		break;
 		case TSExternalControlMessage::MessageType::CopyEditChannel:
 		{
 			int pat = (recvMsg.pattern == CURRENT_EDIT_PATTERN_IX) ? currentPatternEditingIx : recvMsg.pattern;
@@ -1030,7 +1030,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 			}
 
 		}
-			break;
+		break;
 		case TSExternalControlMessage::MessageType::SetPlayRunningState:
 		case TSExternalControlMessage::MessageType::TogglePlayRunningState:
 			if (recvMsg.messageType == TSExternalControlMessage::MessageType::TogglePlayRunningState)
@@ -1073,7 +1073,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	} // end loop through message queue	
 
 
-	//-- COPY / PASTE --
+	  //-- COPY / PASTE --
 	bool pasteCompleted = false;
 	if (pasteTrigger.process(params[PASTE_PARAM].value) || doPaste)
 	{
@@ -1181,8 +1181,8 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		}
 		oscMutex.unlock();
 	} // end if next step
-	
-	// If we were just unpaused and we were reset during the pause, make sure we fire the first step.
+
+	  // If we were just unpaused and we were reset during the pause, make sure we fire the first step.
 	if (running && !lastRunning)
 	{
 		if (resetPaused)
@@ -1192,7 +1192,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		resetPaused = false;
 	} // end if
 
-	// Reset light
+	  // Reset light
 	lights[RESET_LIGHT].value -= lights[RESET_LIGHT].value / lightLambda / engineGetSampleRate();
 	// BPM Note Calc light:
 	lights[SELECTED_BPM_MULT_IX_LIGHT].value -= lights[SELECTED_BPM_MULT_IX_LIGHT].value / lightLambda / engineGetSampleRate();
@@ -1202,7 +1202,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	editPatternChanged = currentPatternEditingIx != lastEditPatternIx;
 	// See if we should reload our matrix
 	//*reloadMatrix = currentChannelEditingIx != lastChannelIx || currentPatternEditingIx != lastEditPatternIx || pasteCompleted || this->reloadEditMatrix || firstLoad;
-	*reloadMatrix = editChannelChanged|| editPatternChanged  || pasteCompleted || this->reloadEditMatrix || firstLoad || oscStarted;
+	*reloadMatrix = editChannelChanged || editPatternChanged || pasteCompleted || this->reloadEditMatrix || firstLoad || oscStarted;
 
 
 	// Send messages if needed
@@ -1428,7 +1428,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 				<< osc::EndMessage;
 		}
 #endif
-		
+
 		//--- FINISH BUNDLE ---
 		if (bundleOpened)
 		{
@@ -1443,3 +1443,133 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	return;
 } // end getStepInputs()
 
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  // toJson(void)
+  // Save our junk to json.
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+json_t *TSSequencerModuleBase::toJson() {
+	json_t *rootJ = json_object();
+
+	// version
+	json_object_set_new(rootJ, "version", json_integer(TROWA_INTERNAL_VERSION_INT));
+
+	// running
+	json_object_set_new(rootJ, "running", json_boolean(running));
+
+	// Current Items:
+	json_object_set_new(rootJ, "currentPatternEditIx", json_integer((int)currentPatternEditingIx));
+	json_object_set_new(rootJ, "currentTriggerEditIx", json_integer((int)currentChannelEditingIx));
+	// The current output / knob mode.
+	json_object_set_new(rootJ, "selectedOutputValueMode", json_integer((int)selectedOutputValueMode));
+	// Current BPM calculation note (i.e. 1/4, 1/8, 1/8T, 1/16)
+	json_object_set_new(rootJ, "selectedBPMNoteIx", json_integer((int)selectedBPMNoteIx));
+
+	// triggers
+	json_t *triggersJ = json_array();
+	for (int p = 0; p < TROWA_SEQ_NUM_PATTERNS; p++)
+	{
+		for (int t = 0; t < TROWA_SEQ_NUM_CHNLS; t++)
+		{
+			for (int s = 0; s < maxSteps; s++)
+			{
+				json_t *gateJ = json_real((float)triggerState[p][t][s]);
+				json_array_append_new(triggersJ, gateJ);
+			} // end for (steps)
+		} // end for (triggers)
+	} // end for (patterns)
+	json_object_set_new(rootJ, "triggers", triggersJ);
+
+	// gateMode
+	json_t *gateModeJ = json_integer((int)gateMode);
+	json_object_set_new(rootJ, "gateMode", gateModeJ);
+
+	// OSC Parameters
+	json_t* oscJ = json_object();
+	json_object_set_new(oscJ, "IpAddress", json_string(this->currentOSCSettings.oscTxIpAddress.c_str()));
+	json_object_set_new(oscJ, "TxPort", json_integer(this->currentOSCSettings.oscTxPort));
+	json_object_set_new(oscJ, "RxPort", json_integer(this->currentOSCSettings.oscRxPort));
+	json_object_set_new(oscJ, "Client", json_integer(this->oscCurrentClient));
+	json_object_set_new(rootJ, "osc", oscJ);
+
+	return rootJ;
+} // end toJson()
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+  // fromJson(void)
+  // Read in our junk from json.
+  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+void TSSequencerModuleBase::fromJson(json_t *rootJ) {
+	// running
+	json_t *runningJ = json_object_get(rootJ, "running");
+	if (runningJ)
+		running = json_is_true(runningJ);
+
+	// Current Items:
+	json_t *currJ = NULL;
+	currJ = json_object_get(rootJ, "currentPatternEditIx");
+	if (currJ)
+		currentPatternEditingIx = json_integer_value(currJ);
+	currJ = json_object_get(rootJ, "currentTriggerEditIx");
+	if (currJ)
+		currentChannelEditingIx = json_integer_value(currJ);
+	currJ = json_object_get(rootJ, "selectedOutputValueMode");
+	if (currJ)
+	{
+		selectedOutputValueMode = static_cast<ValueMode>(json_integer_value(currJ));
+		modeString = modeStrings[selectedOutputValueMode];
+	}
+	// Current BPM calculation note (i.e. 1/4, 1/8, 1/8T, 1/16)
+	currJ = json_object_get(rootJ, "selectedBPMNoteIx");
+	if (currJ)
+		selectedBPMNoteIx = json_integer_value(currJ);
+
+	// triggers
+	json_t *triggersJ = json_object_get(rootJ, "triggers");
+	if (triggersJ)
+	{
+		int i = 0;
+		for (int p = 0; p < TROWA_SEQ_NUM_PATTERNS; p++)
+		{
+			for (int t = 0; t < TROWA_SEQ_NUM_CHNLS; t++)
+			{
+				for (int s = 0; s < maxSteps; s++)
+				{
+					json_t *gateJ = json_array_get(triggersJ, i++);
+					if (gateJ)
+						triggerState[p][t][s] = (float)json_real_value(gateJ);
+				} // end for (steps)
+			} // end for (triggers)
+		} // end for (patterns)			
+	}
+	// gateMode
+	json_t *gateModeJ = json_object_get(rootJ, "gateMode");
+	if (gateModeJ)
+		gateMode = (GateMode)json_integer_value(gateModeJ);
+
+	json_t* oscJ = json_object_get(rootJ, "osc");
+	if (oscJ)
+	{
+		currJ = json_object_get(oscJ, "IpAddress");
+		if (currJ)
+			this->currentOSCSettings.oscTxIpAddress = json_string_value(currJ);
+		currJ = json_object_get(oscJ, "TxPort");
+		if (currJ)
+			this->currentOSCSettings.oscTxPort = (uint16_t)(json_integer_value(currJ));
+		currJ = json_object_get(oscJ, "RxPort");
+		if (currJ)
+			this->currentOSCSettings.oscRxPort = (uint16_t)(json_integer_value(currJ));
+		currJ = json_object_get(oscJ, "Client");
+		if (currJ)
+			this->oscCurrentClient = static_cast<OSCClient>((uint8_t)(json_integer_value(currJ)));
+
+	}
+
+	saveVersion = 0;
+	currJ = NULL;
+	currJ = json_object_get(rootJ, "version");
+	if (currJ)
+	{
+		saveVersion = (int)(json_integer_value(currJ));
+	}
+	firstLoad = true;
+	return;
+} // end fromJson()

@@ -3,7 +3,9 @@
 
 #include <string.h>
 #include <stdio.h>
-#include "util.hpp"
+#include "util/common.hpp"
+#include "util/math.hpp"
+
 #include "rack.hpp"
 using namespace rack;
 #include "TSExternalControlMessage.hpp"

@@ -1,7 +1,7 @@
 SHELL:=/bin/bash -O extglob
 
 SLUG = trowaSoft
-VERSION = 0.5.5.2
+VERSION = 0.6.5.2dev # Not really a full release yet
 
 # FLAGS will be passed to both C and C++ compiler
 #	-Werror=implicit-function-declaration \
@@ -17,7 +17,7 @@ FLAGS = \
 
 CFLAGS += 
 CXXFLAGS +=
-#LDFLAGS += -lrtmidi
+LDFLAGS += -lrtmidi
 
 # Careful about linking to libraries, since you can't assume much about the user's environment and library search path.
 # Static libraries are fine.

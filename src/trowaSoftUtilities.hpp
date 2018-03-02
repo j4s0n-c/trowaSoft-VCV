@@ -8,7 +8,7 @@ using namespace rack;
 #include <vector>
 #include <sstream> // std::istringstream
 
-#include "math.hpp"
+#include "util/math.hpp"
 
 #define TROWA_DEBUG_LVL_HIGH		100
 #define TROWA_DEBUG_LVL_MED			 50
@@ -17,20 +17,22 @@ using namespace rack;
 #define TROWA_DEBUG_MSGS		TROWA_DEBUG_LVL_MED
 
 
-// Index not defined value.
-#define TROWA_INDEX_UNDEFINED		-1 // Value for undefined index.
-#define TROWA_DISP_MSG_SIZE			30 // For local buffers of strings
-#define TROWA_SEQ_NUM_PATTERNS		64 // Number of patterns for sequencers.
+#define TROWA_INDEX_UNDEFINED		 -1 // Value for undefined index.
+#define TROWA_DISP_MSG_SIZE			 30 // For local buffers of strings
+#define TROWA_SEQ_NUM_PATTERNS		 64 // Number of patterns for sequencers.
 #define TROWA_SEQ_PATTERN_MIN_V		-10 // Min voltage input / output for controlling pattern index and BPM
 #define TROWA_SEQ_PATTERN_MAX_V	 	 10 // Max voltage input / output for controlling pattern index and BPM
-#define TROWA_SEQ_NUM_NOTES			12 // Num notes per octave (1 V per octave)
-#define TROWA_SEQ_ZERO_OCTAVE		4  // Octave for voltage 0 -- Was 5, now 4
-#define TROWA_SEQ_NUM_OCTAVES	   10  // Number of total octaves
+#define TROWA_SEQ_NUM_NOTES			 12 // Num notes per octave (1 V per octave)
+#define TROWA_SEQ_NOTES_MIN_V		-5 // OK, so back to -5 to +5V (from -4 to +6V), we'll just have a -1 Octave since apparently -1 Octave is a thing (MIDI 0-11)?
+#define TROWA_SEQ_NOTES_MAX_V		 5 // OK, so back to -5 to +5V (from -4 to +6V), we'll just have a -1 Octave since apparently -1 Octave is a thing (MIDI 0-11)?
+#define TROWA_SEQ_ZERO_OCTAVE		  4 // Octave for voltage 0 -- Was 5, now 4
+#define TROWA_SEQ_NUM_OCTAVES	     10 // Number of total octaves
+#define TROWA_MIDI_NOTE_MIDDLE_C	 60 // MIDI note (middle C) - should correspond to C4 (Voltage 0)
 
 #define TROWA_NUM_GLOBAL_EFFECTS	11
 
 #define TROWA_ANGLE_STRAIGHT_UP_RADIANS			(1.5*NVG_PI) // Angle for straight up (svg angles start from positive x and go clockwise)
-#define TROWA_ANGLE_STRAIGHT_DOWN_RADIANS		(0.5*NVG_PI) // Angle for straight down
+#define TROWA_ANGLE_STRAIGHT_DOWN_RADIANS		(0.5*NVG_PI) // Angle for straiclamght down
 
 // Fonts:
 #define TROWA_DIGITAL_FONT		"res/Fonts/Digital dream Fat.ttf"
@@ -41,14 +43,14 @@ extern const char * TROWA_NOTES[TROWA_SEQ_NUM_NOTES]; // Our note labels.
 // Given some input voltage, convert to our Pattern index [0-63].
 inline int VoltsToPattern(float voltsInput)
 {	
-	return clampi(roundf(rescalef(voltsInput, TROWA_SEQ_PATTERN_MIN_V, TROWA_SEQ_PATTERN_MAX_V, 1, TROWA_SEQ_NUM_PATTERNS)), 1, TROWA_SEQ_NUM_PATTERNS);
+	return (int)clamp((int)(roundf(rescale(voltsInput, (float)TROWA_SEQ_PATTERN_MIN_V, (float)TROWA_SEQ_PATTERN_MAX_V, 1.0f, (float)TROWA_SEQ_NUM_PATTERNS))), 1, TROWA_SEQ_NUM_PATTERNS);
 }
 // Pattern index [0-63] to output voltage.
 inline float PatternToVolts(int patternIx)
 {
-	return rescalef(patternIx + 1, 1, TROWA_SEQ_NUM_PATTERNS, TROWA_SEQ_PATTERN_MIN_V, TROWA_SEQ_PATTERN_MAX_V);
+	return rescale(patternIx + 1, 1, TROWA_SEQ_NUM_PATTERNS, TROWA_SEQ_PATTERN_MIN_V, TROWA_SEQ_PATTERN_MAX_V);
 }
-// Voltage [-5 to 5] to Octave 0 to 10
+// Voltage [-5 to 5] to Octave -1 to 9
 inline int VoltsToOctave(float v)
 {
 	return (int)(v + TROWA_SEQ_ZERO_OCTAVE);
@@ -186,7 +188,7 @@ struct ValueSequencerMode
 		float dVal = val;
 		if (needsTranslationDisplay)
 		{
-			dVal = rescalef(val, voltageMin, voltageMax, minDisplayValue, maxDisplayValue);
+			dVal = rescale(val, voltageMin, voltageMax, minDisplayValue, maxDisplayValue);
 		}
 		if (roundNearestDisplay > 0)
 		{
@@ -202,7 +204,7 @@ struct ValueSequencerMode
 		float oVal = val;
 		if (needsTranslationOutput)
 		{
-			oVal = rescalef(val, voltageMin, voltageMax, outputVoltageMin, outputVoltageMax);
+			oVal = rescale(val, voltageMin, voltageMax, outputVoltageMin, outputVoltageMax);
 		}
 		if (roundNearestOutput > 0)
 		{ // Round this
@@ -220,27 +222,26 @@ struct NoteValueSequencerMode : ValueSequencerMode
 	NoteValueSequencerMode(const char* displayName,
 		float min_V, float max_V)
 	{
-		this->displayName = displayName;
-		//this->displayFormatString = formatStr;
-		//this->minDisplayValue = minDisplayValue; // I.e. 0
-		//this->maxDisplayValue = maxDisplayValue; // I.e. 15 
-		
-		this->minDisplayValue = -TROWA_SEQ_ZERO_OCTAVE; // -4
-		this->maxDisplayValue = TROWA_SEQ_NUM_OCTAVES - TROWA_SEQ_ZERO_OCTAVE; // 10-4 = 6
-	
+		this->displayName = displayName;		
+		//this->minDisplayValue = -TROWA_SEQ_ZERO_OCTAVE; // -4
+		//this->maxDisplayValue = TROWA_SEQ_NUM_OCTAVES - TROWA_SEQ_ZERO_OCTAVE; // 10-4 = 6
+		this->minDisplayValue = TROWA_SEQ_NOTES_MIN_V; // Back to -5V
+		this->maxDisplayValue = TROWA_SEQ_NOTES_MAX_V; // Back to +5V
+
 		this->voltageMin = min_V;  // I.e. -10 Volts
 		this->voltageMax = max_V;  // I.e. +10 Volts
 		
-		this->outputVoltageMin = -TROWA_SEQ_ZERO_OCTAVE;
-		this->outputVoltageMax = TROWA_SEQ_NUM_OCTAVES - TROWA_SEQ_ZERO_OCTAVE; // 10-4 = 6
+		this->outputVoltageMin = TROWA_SEQ_NOTES_MIN_V; // Now back to -5V. Was -4V: -TROWA_SEQ_ZERO_OCTAVE;
+		this->outputVoltageMax = TROWA_SEQ_NOTES_MAX_V; // Now back to +5V. Was +6V: TROWA_SEQ_NUM_OCTAVES - TROWA_SEQ_ZERO_OCTAVE; // 10-4 = 6
 		
 		this->wholeNumbersOnly = false; // Force whole numbers
 		// Zero is no longer straight up now that we are going -4 to +6
 		// Knob goes from 0.67*NVG_PI to 2.33*NVG_PI (1 and 2/3 Pi)
-		//this->zeroPointAngle_radians = 1.5*NVG_PI; // Straight up
-		//this->zeroValue = (max_V + min_V) / 2.0;
-		this->zeroPointAngle_radians = 0.67*NVG_PI + TROWA_SEQ_ZERO_OCTAVE *1.67*NVG_PI / TROWA_SEQ_NUM_OCTAVES;
-		this->zeroValue = rescalef(0, this->minDisplayValue, this->maxDisplayValue, min_V, max_V);
+		//this->zeroPointAngle_radians = 0.67*NVG_PI + TROWA_SEQ_ZERO_OCTAVE *1.67*NVG_PI / TROWA_SEQ_NUM_OCTAVES;
+		//this->zeroValue = rescale(0, this->minDisplayValue, this->maxDisplayValue, min_V, max_V);
+		// C4 is now zero, but we we returning to -5 to +5V. (So starts at C-1 instead of C0 and goes to C9 instead of C10).
+		this->zeroPointAngle_radians = TROWA_ANGLE_STRAIGHT_UP_RADIANS;// 1.5*NVG_PI; // Straight up
+		this->zeroValue = rescale(0, this->minDisplayValue, this->maxDisplayValue, min_V, max_V);
 		this->roundNearestDisplay = 1.0/TROWA_SEQ_NUM_NOTES;
 		this->roundNearestOutput = 1.0/TROWA_SEQ_NUM_NOTES;
 		
@@ -251,6 +252,7 @@ struct NoteValueSequencerMode : ValueSequencerMode
 	// Overriden display string to show notes instead of output voltage values.
 	void GetDisplayString(/*in*/ float val, /*out*/ char* buffer) override
 	{
+		// Now octaves will go -1 to +9.
 		int octave = VoltsToOctave(val);
 		int noteIx = VoltsToNoteIx(val);
 		if (noteIx > TROWA_SEQ_NUM_NOTES - 1)

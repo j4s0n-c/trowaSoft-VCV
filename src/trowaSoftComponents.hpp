@@ -6,9 +6,11 @@ using namespace rack;
 
 #include <string.h>
 #include <stdio.h>
-#include "math.hpp"
+#include "window.hpp"
+#include "ui.hpp"
+#include "util/math.hpp"
 #include "dsp/digital.hpp"
-#include "components.hpp"
+#include "componentlibrary.hpp"
 #include "plugin.hpp"
 #include "trowaSoftUtilities.hpp"
 
@@ -63,6 +65,9 @@ extern Plugin* plugin;
 #ifndef COLOR_PUMPKIN_ORANGE
 	#define COLOR_PUMPKIN_ORANGE nvgRGB(0xF8, 0x72, 0x17)
 #endif 
+#ifndef COLOR_DARK_GRAY
+	#define COLOR_DARK_GRAY nvgRGB(0x33, 0x33, 0x33)
+#endif
 
 #ifndef COLOR_TS_RED
 	#define COLOR_TS_RED nvgRGB(0xFF, 0x00, 0x00)
@@ -110,6 +115,103 @@ struct ColorValueLight : ModuleLightWidget {
 	}
 };
 
+//------------------------------------------------------------------------------------------------
+// TS_Label : Label with the trowaSoft default label font.
+//------------------------------------------------------------------------------------------------
+struct TS_Label : Label {
+	// Font size. Default is 10.
+	int fontSize = 10;
+	// Font face
+	std::shared_ptr<Font> font;
+	// The font color. Default is Dark Gray.
+	NVGcolor textColor = COLOR_DARK_GRAY;
+	enum TextAlignment {
+		Left,
+		Center,
+		Right
+	};
+	// Text alignment. Default is Left.
+	TextAlignment textAlign = TextAlignment::Left;
+	enum VerticalAlignment {
+		Baseline,
+		Top,
+		Middle,
+		Bottom
+	};
+	// Vertical alignment. Default is Baseline.
+	VerticalAlignment verticalAlign = VerticalAlignment::Baseline;
+
+	TS_Label()
+	{
+		font = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+		return;
+	}
+	TS_Label(Vec size) : TS_Label()
+	{
+		box.size = size;
+		return;
+	}
+	TS_Label(std::string text, Vec size) : TS_Label(size)
+	{
+		this->text = text;
+		return;
+	}
+
+	void draw(NVGcontext *vg) override
+	{
+		if (visible)
+		{
+			nvgBeginPath(vg);
+			nvgGlobalCompositeOperation(vg, NVG_SOURCE_OVER);//Restore to default.
+			nvgFontSize(vg, fontSize);
+			float x = 0;
+			float y = 0;
+			uint8_t alignment = 0x00;
+			switch (textAlign)
+			{
+			case TextAlignment::Center:
+				x = box.size.x / 2.0;
+				alignment = NVGalign::NVG_ALIGN_CENTER;
+				break;
+			case TextAlignment::Right:
+				x = box.size.x;
+				alignment = NVGalign::NVG_ALIGN_RIGHT;
+				break;
+			case TextAlignment::Left:
+			default:
+				x = 0.0f;
+				alignment = NVGalign::NVG_ALIGN_LEFT;
+				break;
+			}
+			switch (verticalAlign)
+			{
+			case VerticalAlignment::Middle:
+				y = box.size.y / 2.0;
+				alignment |= NVGalign::NVG_ALIGN_MIDDLE;
+				break;
+			case VerticalAlignment::Bottom:
+				y = box.size.y;
+				alignment |= NVGalign::NVG_ALIGN_BOTTOM;
+				break;
+			case VerticalAlignment::Top:
+				y = 0.0f;
+				alignment |= NVGalign::NVG_ALIGN_TOP;
+				break;
+			case VerticalAlignment::Baseline:
+			default:
+				y = 0.0f;
+				alignment |= NVGalign::NVG_ALIGN_BASELINE;  // Default, align text vertically to baseline.
+				break;
+			}
+			nvgTextAlign(vg, alignment);
+			nvgFillColor(vg, textColor);
+			nvgText(vg, x, y, text.c_str(), NULL);
+		}
+		return;
+	}
+
+};
+
 //--------------------------------------------------------------
 // TS_PadSwitch
 // Empty momentary switch of given size.
@@ -129,23 +231,43 @@ struct TS_PadSwitch : MomentarySwitch {
 	// Suggestion from @LKHSogpit, Solution from @AndrewBelt.
 	// https://github.com/j4s0n-c/trowaSoft-VCV/issues/7
 	// https://github.com/VCVRack/Rack/issues/607
+	/** Called when a widget responds to `onMouseDown` for a left button press */
 	void onDragStart(EventDragStart &e) override {
-		setValue(maxValue);
+		float newVal = (value < maxValue) ? maxValue : minValue;
+		debug("onDragStart(%d) - Current Value is %.1f, setting to %.1f.", btnId, value, newVal);
+		setValue(newVal); // Toggle Value
 		return;
 	}
+	/** Called when the left button is released and this widget is being dragged */
+	// https://github.com/j4s0n-c/trowaSoft-VCV/issues/12
+	// Last button keeps pressed down.
+	void onDragEnd(EventDragEnd &e) override {
+		debug("onDragEnd(%d) - Current Value is %.1f, setting to %.1f (off).", btnId, value, minValue);
+		setValue(minValue); // Turn Off
+		return;
+	}
+	/** Called when a widget responds to `onMouseUp` for a left button release and a widget is being dragged */
 	void onDragEnter(EventDragEnter &e) override {
 		// Set these no matter what because if you drag back onto your starting square, you want to toggle it again.
 		TS_PadSwitch *origin = dynamic_cast<TS_PadSwitch*>(e.origin);
 		if (origin && origin->groupId == this->groupId) {
-			setValue(maxValue); // Momentary trigger on
+			float newVal = (value < maxValue) ? maxValue : minValue;
+			debug("onDragEnter(%d) - Current Value is %.1f, setting to %.1f.", btnId, value, newVal);
+			setValue(newVal); // Toggle Value
 		}
 	}
 	void onDragLeave(EventDragEnter &e) override {
 		TS_PadSwitch *origin = dynamic_cast<TS_PadSwitch*>(e.origin);
 		if (origin && origin->groupId == this->groupId) {
-			setValue(minValue); // Momentary trigger off
+			debug("onDragLeave(%d) - Current Value is %.1f, setting to %.1f (off).", btnId, value, minValue);
+			setValue(minValue); // Turn Off
 		}
 	}
+	void onMouseUp(EventMouseUp &e) override {
+		debug("onMouseUp(%d) - Current Value is %.1f, setting to %.1f (off).", btnId, value, minValue);
+		setValue(minValue); // Turn Off
+	};
+
 };
 
 //--------------------------------------------------------------
@@ -337,7 +459,7 @@ struct TS_LightedKnob : SVGKnob {
 	void setKnobValue(float val)
 	{
 		value = val;
-		differentialAngle = rescalef(value, minValue, maxValue, minAngle, maxAngle);
+		differentialAngle = rescale(value, minValue, maxValue, minAngle, maxAngle);
 		currentAngle = zeroAnglePoint + differentialAngle;		
 		this->dirty = true;
 		return;
@@ -345,7 +467,7 @@ struct TS_LightedKnob : SVGKnob {
 	void step() override {
 		// Re-transform TransformWidget if dirty
 		if (dirty) {
-			differentialAngle = rescalef(value, minValue, maxValue, minAngle, maxAngle);
+			differentialAngle = rescale(value, minValue, maxValue, minAngle, maxAngle);
 			currentAngle = zeroAnglePoint + differentialAngle;
 			tw->identity();
 			// Scale SVG to box
@@ -809,7 +931,7 @@ struct TS_ColorSlider : Knob {
 		{
 			// Drag slower if Mod
 			float delta = KNOB_SENSITIVITY * (maxValue - minValue) * e.mouseRel.x;
-			if (guiIsModPressed())
+			if (windowIsModPressed())
 				delta /= 16.0;
 			dragValue += delta;
 			if (snap)
@@ -872,9 +994,9 @@ struct TS_ColorSlider : Knob {
 		}
 		selectedColor = nvgHSL(selectedColorHSL.hsl[0], selectedColorHSL.hsl[1], selectedColorHSL.hsl[2]);
 		float handleHeight = box.size.y + 2 * handleMargin;
-		float handleX = rescalef(value, minValue, maxValue, 0, box.size.x) - handleWidth / 2.0;
-		float handleY = -handleMargin;// rescalef(value, minValue, maxValue, minHandlePos.y, maxHandlePos.y);
-									  // Draw handle
+		float handleX = rescale(value, minValue, maxValue, 0, box.size.x) - handleWidth / 2.0;
+		float handleY = -handleMargin;// rescale(value, minValue, maxValue, minHandlePos.y, maxHandlePos.y);
+		// Draw handle
 		nvgBeginPath(vg);
 		nvgRoundedRect(vg, handleX, handleY, handleWidth, handleHeight, 5);
 		nvgFillColor(vg, selectedColor);

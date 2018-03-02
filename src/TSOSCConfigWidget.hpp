@@ -5,7 +5,7 @@
 using namespace rack;
 
 extern Plugin *plugin;
-#include "components.hpp"
+#include "componentlibrary.hpp"
 #include "widgets.hpp"
 #include "dsp/digital.hpp"
 #include <string.h>
@@ -103,7 +103,7 @@ struct TSOSCConfigWidget : OpaqueWidget
 		tbIpAddress->visible = isVisible;
 		tbTxPort->visible = isVisible;
 		tbRxPort->visible = isVisible;
-		btnClientSelect->visible = visible;
+		btnClientSelect->visible = isVisible;
 		return;
 	}
 	// Get the selected OSC Client.

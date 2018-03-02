@@ -235,7 +235,7 @@ struct multiScope : Module {
 			itemJ = NULL;
 			itemJ = json_array_get(gEffectsIxJ, wIx);
 			if (itemJ)
-				waveForms[wIx]->gEffectIx = clampi((int)json_integer_value(itemJ), 0, TROWA_SCOPE_NUM_EFFECTS - 1);
+				waveForms[wIx]->gEffectIx = (int)clamp((int)json_integer_value(itemJ), 0, TROWA_SCOPE_NUM_EFFECTS - 1);
 			itemJ = NULL;
 
 			itemJ = json_array_get(waveDoFillJ, wIx);
@@ -312,6 +312,7 @@ struct TSScopeDisplay : TransparentWidget {
 	void draw(NVGcontext *vg) override {
 		if (!visible)
 			return; // Don't draw anything if we are not visible.
+		bool isPreview = module == NULL; // May have NULL module? Make sure we don't just eat it.
 
 		nvgSave(vg);
 		Rect b = Rect(Vec(0, 0), box.size);
@@ -354,7 +355,7 @@ struct TSScopeDisplay : TransparentWidget {
 		y = yStart + 5;
 		for (int wIx = 0; wIx < TROWA_SCOPE_NUM_WAVEFORMS; wIx++)
 		{
-			NVGcolor currColor = module->waveForms[wIx]->waveColor;
+			NVGcolor currColor = (isPreview) ? COLOR_RED : module->waveForms[wIx]->waveColor;
 			nvgFillColor(vg, currColor);
 			sprintf(messageStr, "S%d", wIx + 1);
 			nvgText(vg, 5, y, messageStr, NULL);
@@ -397,25 +398,30 @@ struct TSScopeDisplay : TransparentWidget {
 		{
 			// NVGcolor currColor = module->waveForms[wIx]->waveColor;
 			nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
+			float val = 0.0f;
 
 			// X Offset
 			x = xStart + dx / 2.0;
-			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, module->params[multiScope::X_POS_PARAM + wIx].value);
+			val = (isPreview) ? 0.0f : module->params[multiScope::X_POS_PARAM + wIx].value;
+			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, val);
 			nvgText(vg, x, y, messageStr, NULL);
 
 			// X Gain
 			x += dx;
-			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, module->params[multiScope::X_SCALE_PARAM + wIx].value);
+			val = (isPreview) ? 1.0f : module->params[multiScope::X_SCALE_PARAM + wIx].value;
+			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, val);
 			nvgText(vg, x, y, messageStr, NULL);
 
 			// Y Offset
 			x += dx;
-			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, module->params[multiScope::Y_POS_PARAM + wIx].value);
+			val = (isPreview) ? 0.0f : module->params[multiScope::Y_POS_PARAM + wIx].value;
+			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, val);
 			nvgText(vg, x, y, messageStr, NULL);
 
 			// Y Gain
 			x += dx;
-			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, module->params[multiScope::Y_SCALE_PARAM + wIx].value);
+			val = (isPreview) ? 1.0f : module->params[multiScope::Y_SCALE_PARAM + wIx].value;
+			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, val);
 			nvgText(vg, x, y, messageStr, NULL);
 
 			// Rotation
@@ -424,7 +430,7 @@ struct TSScopeDisplay : TransparentWidget {
 			if (module->waveForms[wIx]->rotMode)
 			{
 				// Absolute
-				v = module->waveForms[wIx]->rotAbsValue;
+				v = (isPreview) ? 0.0 : module->waveForms[wIx]->rotAbsValue;
 				// Background:
 				nvgBeginPath(vg);
 				nvgRoundedRect(vg, x - dx + 2, y - 2, dx + dxRotation - 2, fontSize + 2, 2);
@@ -438,7 +444,7 @@ struct TSScopeDisplay : TransparentWidget {
 			else
 			{
 				// Differential
-				v = module->waveForms[wIx]->rotDiffValue;
+				v = (isPreview) ? 0.0 : module->waveForms[wIx]->rotDiffValue;
 				sprintf(messageStr, "%+.1f", v * 180.0 / NVG_PI);
 			}
 			nvgText(vg, x, y, messageStr, NULL);
@@ -447,7 +453,8 @@ struct TSScopeDisplay : TransparentWidget {
 			x += (dx + dxEffect)/2.0;
 			nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
 			nvgFillColor(vg, textColor);
-			nvgText(vg, x, y, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->label, NULL);
+			int gIx = (isPreview) ? 0 : module->waveForms[wIx]->gEffectIx;
+			nvgText(vg, x, y, SCOPE_GLOBAL_EFFECTS[gIx]->label, NULL);
 
 			// Advance y to next 
 			y += dy;

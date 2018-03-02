@@ -5,10 +5,10 @@
 using namespace rack;
 
 #include "TSSModuleWidgetBase.hpp"
-//#include "TSSequencerModuleBase.hpp"
 #include "TSOSCConfigWidget.hpp"
 
 struct TSSeqDisplay;
+struct TSSequencerModuleBase;
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // TSSequencerWidgetBase
@@ -19,8 +19,14 @@ struct TSSequencerWidgetBase : TSSModuleWidgetBase {
 	TSSeqDisplay *display;
 	// OSC configuration widget.
 	TSOSCConfigWidget* oscConfigurationScreen;
-	// Instantiate a widget.
-	TSSequencerWidgetBase();
+	// Numer of steps this should have (for when we get a NULL module).
+	int maxSteps = 16;
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// TSSequencerWidgetBase() - Base constructor.
+	// Instantiate a trowaSoft Sequencer widget. v0.60 must have module as param.
+	// @seqModule : (IN) Pointer to the sequencer module.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	TSSequencerWidgetBase(TSSequencerModuleBase* seqModule);
 	// Step
 	void step() override;
 	// Add base controls.

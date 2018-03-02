@@ -1,7 +1,7 @@
 #include "rack.hpp"
 using namespace rack;
 #include "asset.hpp"
-#include "components.hpp"
+#include "componentlibrary.hpp"
 #include "plugin.hpp"
 #include "TSOSCConfigWidget.hpp"
 #include "trowaSoftUtilities.hpp"
@@ -10,6 +10,8 @@ using namespace rack;
 
 #define START_Y   15
 
+/// TODO: DISABLE WHEN NOT VISIBLE
+
 
 void TSOSCClientItem::onAction(EventAction &e) {
 	parentButton->selectedOSCClient = this->oscClient;
@@ -17,15 +19,19 @@ void TSOSCClientItem::onAction(EventAction &e) {
 }
 // On button click, create drop down menu.
 void TSOSCClientSelectBtn::onAction(EventAction &e) {
-	Menu *menu = gScene->createMenu();
-	menu->box.pos = getAbsoluteOffset(Vec(0, box.size.y)).round();
-	menu->box.size.x = box.size.x;
-	for (unsigned int i = 0; i < OSCClient::NUM_OSC_CLIENTS; i++) {
-		TSOSCClientItem *option = new TSOSCClientItem(this);
-		option->oscClient = static_cast<OSCClient>(i);
-		option->text = OSCClientStr[i];
-		menu->addChild(option);
+	if (visible)
+	{
+		Menu *menu = gScene->createMenu();
+		menu->box.pos = getAbsoluteOffset(Vec(0, box.size.y)).round();
+		menu->box.size.x = box.size.x;
+		for (unsigned int i = 0; i < OSCClient::NUM_OSC_CLIENTS; i++) {
+			TSOSCClientItem *option = new TSOSCClientItem(this);
+			option->oscClient = static_cast<OSCClient>(i);
+			option->text = OSCClientStr[i];
+			menu->addChild(option);
+		}
 	}
+	return;
 }
 
 void TSOSCClientSelectBtn::step() {
@@ -159,7 +165,10 @@ void TSOSCConfigWidget::onShiftTabField(int id)
 
 void TSOSCConfigWidget::draw(NVGcontext *vg) {
 	if (!visible)
+	{
+
 		return;
+	}
 	nvgFontSize(vg, fontSize);
 	nvgFontFaceId(vg, font->handle);
 	

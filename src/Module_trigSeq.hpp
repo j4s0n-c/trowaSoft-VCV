@@ -3,7 +3,7 @@
 
 #include <string.h>
 #include <stdio.h>
-#include "trowaSoft.hpp"
+//#include "trowaSoft.hpp"
 #include "dsp/digital.hpp"
 #include "TSSequencerWidgetBase.hpp"
 #include "trowaSoftComponents.hpp"
@@ -54,4 +54,12 @@ struct trigSeq : TSSequencerModuleBase
 	float getPlayingStepValue(int step, int pattern) override;
 };
 
+
+struct trigSeq64 : trigSeq {
+	trigSeq64() : trigSeq(N64_NUM_STEPS, N64_NUM_ROWS, N64_NUM_COLS)
+	{
+		return;
+	}
+}
+;
 #endif

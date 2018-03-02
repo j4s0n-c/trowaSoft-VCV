@@ -2,7 +2,8 @@
 #include <vector>
 #include <stdio.h>
 #include <exception>
-#include "util.hpp"
+#include "util/common.hpp"
+#include "util/math.hpp" //util.hpp"
 #include "TSOSCSequencerListener.hpp"
 #include "TSSequencerModuleBase.hpp"
 #include "trowaSoftUtilities.hpp" // For debug
@@ -143,7 +144,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			// Convert to our step #.
 			// ASSUMPTION: We assume that the touchOSC multi control has the same # of cols and # rows as the module.
 			step = touchOSC::mcRowCol_to_stepIndex(row, col, sequencerModule->numRows, sequencerModule->numCols);
-			step = clampi(step, 0, sequencerModule->maxSteps - 1);
+			step = (int)clamp(step, 0, sequencerModule->maxSteps - 1);
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - Row %d, Col %d => Ix %d. Value is %0.2f.", path, row, col, step, stepVal);
 #endif
@@ -205,11 +206,11 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			if (step > -1)
 			{
 				// If we at least have a step.
-				step = clampi(step, 1, sequencerModule->maxSteps) - 1;
+				step = (int)clamp(step, 1, sequencerModule->maxSteps) - 1;
 				if (pattern != CURRENT_EDIT_PATTERN_IX)
-					pattern = clampi(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
+					pattern = (int)clamp(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
 				if (channel != CURRENT_EDIT_CHANNEL_IX)
-					channel = clampi(channel, 1, TROWA_SEQ_NUM_CHNLS) - 1;
+					channel = (int)clamp(channel, 1, TROWA_SEQ_NUM_CHNLS) - 1;
 				// Queue up this message.
 				sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(messageType, pattern, channel, step, stepVal));
 			}
@@ -235,7 +236,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - Pattern %d.", path, pattern);
 #endif
-			pattern = clampi(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
+			pattern = (int)clamp(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::StorePlayPattern, pattern, channel, step, stepVal));
 		}
 		else if (std::strcmp(path, OSC_SET_PLAY_PATTERN) == 0)
@@ -261,7 +262,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 #endif
 			if (pattern != CURRENT_EDIT_PATTERN_IX)
 			{
-				pattern = clampi(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
+				pattern = (int)clamp(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
 			}
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetPlayPattern, pattern, channel, step, stepVal));
 		}
@@ -274,7 +275,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - Step %d.", path, step);
 #endif
-			step = clampi(step, 1, sequencerModule->maxSteps) - 1;
+			step = (int)clamp(step, 1, sequencerModule->maxSteps) - 1;
 			/// TODO: Should we purge the queue so this guaranteed to happen immediately?
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetPlayCurrentStep, pattern, channel, step, stepVal));
 		}
@@ -287,7 +288,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - Pattern %d.", path, pattern);
 #endif
-			pattern = clampi(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
+			pattern = (int)clamp(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetEditPattern, pattern, channel, step, stepVal));
 		}
 		else if (std::strcmp(path, OSC_SET_EDIT_CHANNEL) == 0)
@@ -299,7 +300,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - Channel %d.", path, channel);
 #endif
-			channel = clampi(channel, 1, TROWA_SEQ_NUM_CHNLS) - 1;
+			channel = (int)clamp(channel, 1, TROWA_SEQ_NUM_CHNLS) - 1;
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetEditChannel, pattern, channel, step, stepVal));
 		}
 		else if (std::strcmp(path, OSC_SET_PLAY_OUTPUTMODE) == 0)
@@ -310,7 +311,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - Output Mode %d.", path, intVal);
 #endif
-			intVal = clampi(intVal, TSSequencerModuleBase::ValueMode::MIN_VALUE_MODE, TSSequencerModuleBase::ValueMode::MAX_VALUE_MODE);
+			intVal = (int)clamp(intVal, TSSequencerModuleBase::ValueMode::MIN_VALUE_MODE, TSSequencerModuleBase::ValueMode::MAX_VALUE_MODE);
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetPlayOutputMode, /*mode*/ intVal));
 		}
 		else if (std::strcmp(path, OSC_SET_PLAY_RESET) == 0)
@@ -342,7 +343,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 #endif
 			if (step != TROWA_INDEX_UNDEFINED)
 			{
-				step = clampi(step, 1, sequencerModule->maxSteps); // Must be 1 to 64 (not 0 to 63)
+				step = (int)clamp(step, 1, sequencerModule->maxSteps); // Must be 1 to 64 (not 0 to 63)
 			}
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetPlayLength, pattern, channel, step, stepVal));
 		}
@@ -355,7 +356,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - Step Length %d.", path, step);
 #endif
-			step = clampi(step, 1, sequencerModule->maxSteps); // Must be 1 to 64 (not 0 to 63)
+			step = (int)clamp(step, 1, sequencerModule->maxSteps); // Must be 1 to 64 (not 0 to 63)
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::StorePlayLength, pattern, channel, step, stepVal));
 		}
 		else if (std::strcmp(path, OSC_TOGGLE_PLAY_RUNNINGSTATE) == 0 || std::strcmp(path, OSC_SET_PLAY_RUNNINGSTATE) == 0)
@@ -417,7 +418,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - BPM %d.", path, intVal);
 #endif
-			intVal = clampi(intVal, 4, 5000); // Just make sure it's not 0 or negative or too crazy.
+			intVal = (int)clamp(intVal, 4, 5000); // Just make sure it's not 0 or negative or too crazy.
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::StorePlayBPM, pattern, channel, step, stepVal, /*mode*/ intVal));
 		}
 		else if (std::strcmp(path, OSC_SET_PLAY_BPM) == 0)
@@ -430,7 +431,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			debug("Received %s message - BPM %d.", path, intVal);
 #endif
 			if (intVal != TROWA_INDEX_UNDEFINED)
-				intVal = clampi(intVal, 4, 5000); // Just make sure it's not 0 or negative or too crazy.
+				intVal = (int)clamp(intVal, 4, 5000); // Just make sure it's not 0 or negative or too crazy.
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetPlayBPM, pattern, channel, step, stepVal, /*mode*/ intVal));
 		} // end if BPM
 		else if (std::strcmp(path, OSC_ADD_PLAY_BPM) == 0)
@@ -442,7 +443,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - BPM Add %d.", path, intVal);
 #endif
-			intVal = clampi(intVal, -5000, 5000); // Just make sure it's not too crazy
+			intVal = (int)clamp(intVal, -5000, 5000); // Just make sure it's not too crazy
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::AddPlayBPM, pattern, channel, step, stepVal, /*mode*/ intVal));
 		} // end if BPM Add
 		else if (std::strcmp(path, OSC_SET_PLAY_TEMPO) == 0)
@@ -454,7 +455,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - Tempo %.2f", path, stepVal);
 #endif
-			stepVal = clampf(stepVal, 0, 1.0); // Must be 0 to 1
+			stepVal = clamp(stepVal, 0.0f, 1.0f); // Must be 0 to 1
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetPlayTempo, pattern, channel, step, stepVal));
 		} // end if Tempo
 		else if (std::strcmp(path, OSC_COPYCURRENT_EDIT_PATTERN) == 0 || std::strcmp(path, OSC_COPY_EDIT_PATTERN) == 0)
@@ -481,7 +482,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 					pattern = CURRENT_EDIT_PATTERN_IX;
 				}
 				if (pattern != CURRENT_EDIT_PATTERN_IX)
-					pattern = clampi(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
+					pattern = (int)clamp(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
 			}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - Pattern %d.", path, pattern);
@@ -523,9 +524,9 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 					pattern = CURRENT_EDIT_PATTERN_IX;
 				}
 				if (pattern != CURRENT_EDIT_PATTERN_IX)
-					pattern = clampi(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
+					pattern = (int)clamp(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
 				if (channel != CURRENT_EDIT_CHANNEL_IX)
-					channel = clampi(channel, 1, TROWA_SEQ_NUM_CHNLS) - 1;
+					channel = (int)clamp(channel, 1, TROWA_SEQ_NUM_CHNLS) - 1;
 			}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - Pattern %d, Channel %d.", path, pattern, channel);
@@ -542,7 +543,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - Tempo %.2f", path, stepVal);
 #endif
-			stepVal = clampf(stepVal, 0, 1.0); // Must be 0 to 1
+			stepVal = clamp(stepVal, 0.0f, 1.0f); // Must be 0 to 1
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::AddPlayTempo, pattern, channel, step, stepVal));
 		} // end if Tempo Add
 		else if (std::strcmp(path, OSC_ADD_PLAY_BPMNOTE) == 0)
@@ -565,7 +566,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			debug("Received %s message - BPM Note Ix %d.", path, step);
 #endif
-			step = clampi(step, 0, TROWA_TEMP_BPM_NUM_OPTIONS - 1); // Must be 0 to TROWA_TEMP_BPM_NUM_OPTIONS - 1
+			step = (int)clamp(step, 0, TROWA_TEMP_BPM_NUM_OPTIONS - 1); // Must be 0 to TROWA_TEMP_BPM_NUM_OPTIONS - 1
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetPlayBPMNote, pattern, channel, step, stepVal));
 		} // end if BPMNote
 		else if (std::strcmp(path, OSC_INITIALIZE_EDIT_MODULE) == 0)
