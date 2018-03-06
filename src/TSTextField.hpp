@@ -40,7 +40,10 @@ bool isPrintableKey(int keyCode);
 // 3. Limit input length (with maxLength).
 /// TODO: Implement scrolling and cropping so that characters can't break out of the field box.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+/// TODO: Redo this struct completely.
 struct TSTextField : TextField {
+	int begin = 0;
+	int end = 0; // Removed from new version TextField.
 	// Maximum length allowed.
 	uint16_t maxLength = 50;
 	// The id of this widget. For use like tab order or something.
