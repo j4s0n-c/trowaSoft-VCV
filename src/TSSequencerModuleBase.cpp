@@ -126,9 +126,9 @@ TSSequencerModuleBase::TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int num
 	firstLoad = true;
 	return;
 } // end TSSequencerModuleBase()
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-  // Delete our goodies.
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// Delete our goodies.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 TSSequencerModuleBase::~TSSequencerModuleBase()
 {
 	initialized = false; // Stop doing stuff
@@ -179,10 +179,10 @@ TSSequencerModuleBase::~TSSequencerModuleBase()
 } // end ~TSSequencerModuleBase()
 
 
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-  // reset(void)
-  // Reset ALL step values to default.
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// reset(void)
+// Reset ALL step values to default.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 void TSSequencerModuleBase::reset()
 {
 	for (int p = 0; p < TROWA_SEQ_NUM_PATTERNS; p++)
@@ -289,12 +289,12 @@ void TSSequencerModuleBase::setOSCNamespace(const char* oscNs)
 
 	return;
 } // end setOSCNameSpace()
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-  // Initialize OSC on the given ip and ports.
-  // @ipAddress: (IN) The ip address.
-  // @outputPort: (IN) The output port.
-  // @inputPort: (IN) The input port.
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// Initialize OSC on the given ip and ports.
+// @ipAddress: (IN) The ip address.
+// @outputPort: (IN) The output port.
+// @inputPort: (IN) The input port.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSequencerModuleBase::initOSC(const char* ipAddress, int outputPort, int inputPort)
 {
 	oscMutex.lock();
@@ -359,9 +359,9 @@ void TSSequencerModuleBase::initOSC(const char* ipAddress, int outputPort, int i
 	oscMutex.unlock();
 	return;
 } // end initOSC()
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-  // Clean up OSC.
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// Clean up OSC.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSequencerModuleBase::cleanupOSC()
 {
 	oscMutex.lock();
@@ -410,11 +410,11 @@ void TSSequencerModuleBase::cleanupOSC()
 	return;
 } // end cleanupOSC()
 
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-  // copy()
-  // @patternIx : (IN) The index into our pattern matrix (0-15).
-  // @channelIx : (IN) The index of the channel (gate/trigger/voice) to copy if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL for all).
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// copy()
+// @patternIx : (IN) The index into our pattern matrix (0-15).
+// @channelIx : (IN) The index of the channel (gate/trigger/voice) to copy if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL for all).
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSequencerModuleBase::copy(/*in*/ int patternIx, /*in*/ int channelIx)
 {
 	copySourceChannelIx = channelIx;
@@ -440,11 +440,11 @@ void TSSequencerModuleBase::copy(/*in*/ int patternIx, /*in*/ int channelIx)
 	}
 	return;
 } // end copy()
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-  // paste(void)
-  // Paste our current clipboard Pattern/Gate to the currently selected Pattern/Gate.
-  // @returns: True if the values were copied, false if not.
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// paste(void)
+// Paste our current clipboard Pattern/Gate to the currently selected Pattern/Gate.
+// @returns: True if the values were copied, false if not.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 bool TSSequencerModuleBase::paste()
 {
 	if (copySourcePatternIx < 0) // Nothing to copy
@@ -471,14 +471,14 @@ bool TSSequencerModuleBase::paste()
 	return true;
 } // end paste()
 
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-  // Set a single the step value
-  // (i.e. this command probably comes from an external source)
-  // @step : (IN) The step number to edit (0 to maxSteps).
-  // @val : (IN) The step value.
-  // @channel : (IN) The channel to edit (0 to TROWA_SEQ_NUM_CHNLS - 1).
-  // @pattern: (IN) The pattern to edit (0 to TROWA_SEQ_NUM_PATTERNS - 1).
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// Set a single the step value
+// (i.e. this command probably comes from an external source)
+// @step : (IN) The step number to edit (0 to maxSteps).
+// @val : (IN) The step value.
+// @channel : (IN) The channel to edit (0 to TROWA_SEQ_NUM_CHNLS - 1).
+// @pattern: (IN) The pattern to edit (0 to TROWA_SEQ_NUM_PATTERNS - 1).
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSequencerModuleBase::setStepValue(int step, float val, int channel, int pattern)
 {
 	int r, c;
@@ -551,14 +551,14 @@ void TSSequencerModuleBase::setStepValue(int step, float val, int channel, int p
 } // end setStepValue()
 
 
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-  // getStepInputs()
-  // Get the inputs shared between our Sequencers.
-  // Now also processes our external message queue.
-  // @pulse : (OUT) If gate pulse
-  // @reloadMatrix: (OUT) If the edit matrix should be refreshed.
-  // @valueModeChanged: (OUT) If the output value mode has changed.
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// getStepInputs()
+// Get the inputs shared between our Sequencers.
+// Now also processes our external message queue.
+// @pulse : (OUT) If gate pulse
+// @reloadMatrix: (OUT) If the edit matrix should be refreshed.
+// @valueModeChanged: (OUT) If the output value mode has changed.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* reloadMatrix, /*out*/ bool* valueModeChanged)
 {
 	// Track if we have changed these
@@ -625,7 +625,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		input = params[BPM_PARAM].value; // -2 to 6
 	}
 	clockTime = powf(2.0, input); // -2 to 6
-								  // Calculate his all the time now instead of just on next step:
+								// Calculate his all the time now instead of just on next step:
 	currentBPM = roundf(clockTime * BPMOptions[selectedBPMNoteIx]->multiplier);
 	playBPMChanged = lastBPM != currentBPM;
 
@@ -660,8 +660,8 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		}
 	} // end if running
 
-	  // Current Playing Pattern
-	  // If we get an input, then use that:
+	// Current Playing Pattern
+	// If we get an input, then use that:
 	if (inputs[SELECTED_PATTERN_PLAY_INPUT].active)
 	{
 		currentPatternPlayingIx = VoltsToPattern(inputs[SELECTED_PATTERN_PLAY_INPUT].value) - 1;
@@ -767,7 +767,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 				if (recvMsg.pattern != CURRENT_EDIT_PATTERN_IX)
 				{
 					currentPatternPlayingIx = recvMsg.pattern; // Jump to this pattern if sent
-															   // Update our knob
+															 // Update our knob
 					controlKnobs[KnobIx::PlayPatternKnob]->value = currentPatternPlayingIx;
 					controlKnobs[KnobIx::PlayPatternKnob]->dirty = true;
 					params[ParamIds::SELECTED_PATTERN_PLAY_PARAM].value = currentPatternPlayingIx;
@@ -997,7 +997,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 				lights[PASTE_LIGHT].value = 1;	// Activate paste light to show there is something on the clipboard
 				pasteLight->setColor(COLOR_WHITE);
 				lights[COPY_PATTERN_LIGHT].value = 1; // Light up Pattern Copy as Active clipboard
-				lights[COPY_CHANNEL_LIGHT].value = 0;	  // Inactivate Gate Copy light
+				lights[COPY_CHANNEL_LIGHT].value = 0;	// Inactivate Gate Copy light
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 				debug("Copy Edit Pattern: %d.", pat);
 #endif
@@ -1073,7 +1073,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	} // end loop through message queue	
 
 
-	  //-- COPY / PASTE --
+	//-- COPY / PASTE --
 	bool pasteCompleted = false;
 	if (pasteTrigger.process(params[PASTE_PARAM].value) || doPaste)
 	{
@@ -1095,7 +1095,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 				lights[PASTE_LIGHT].value = 1;	// Activate paste light to show there is something on the clipboard
 				pasteLight->setColor(COLOR_WHITE);
 				lights[COPY_PATTERN_LIGHT].value = 1; // Light up Pattern Copy as Active clipboard
-				lights[COPY_CHANNEL_LIGHT].value = 0;	  // Inactivate Gate Copy light				
+				lights[COPY_CHANNEL_LIGHT].value = 0;	// Inactivate Gate Copy light				
 			}
 		}
 		if (copyGateTrigger.process(params[COPY_CHANNEL_PARAM].value))
@@ -1182,7 +1182,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		oscMutex.unlock();
 	} // end if next step
 
-	  // If we were just unpaused and we were reset during the pause, make sure we fire the first step.
+	// If we were just unpaused and we were reset during the pause, make sure we fire the first step.
 	if (running && !lastRunning)
 	{
 		if (resetPaused)
@@ -1192,7 +1192,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		resetPaused = false;
 	} // end if
 
-	  // Reset light
+	// Reset light
 	lights[RESET_LIGHT].value -= lights[RESET_LIGHT].value / lightLambda / engineGetSampleRate();
 	// BPM Note Calc light:
 	lights[SELECTED_BPM_MULT_IX_LIGHT].value -= lights[SELECTED_BPM_MULT_IX_LIGHT].value / lightLambda / engineGetSampleRate();
@@ -1443,10 +1443,10 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	return;
 } // end getStepInputs()
 
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-  // toJson(void)
-  // Save our junk to json.
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// toJson(void)
+// Save our junk to json.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 json_t *TSSequencerModuleBase::toJson() {
 	json_t *rootJ = json_object();
 
@@ -1493,10 +1493,10 @@ json_t *TSSequencerModuleBase::toJson() {
 
 	return rootJ;
 } // end toJson()
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-  // fromJson(void)
-  // Read in our junk from json.
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// fromJson(void)
+// Read in our junk from json.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 void TSSequencerModuleBase::fromJson(json_t *rootJ) {
 	// running
 	json_t *runningJ = json_object_get(rootJ, "running");

@@ -13,6 +13,12 @@
 #define trigSeq_GATE_ON_OUTPUT	  10.0  // If gate is on, the value to output (port Voltage)
 #define trigSeq_GATE_OFF_OUTPUT	   0.0  // If gate is off, the value to output (port Voltage)
 
+// Single instance to the trigSeq Models.
+// trigSeq (16-step) model
+extern Model* modelTrigSeq;
+// trigSeq (64-step) model
+extern Model* modelTrigSeq64;
+
 
 //===============================================================================
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -54,12 +60,18 @@ struct trigSeq : TSSequencerModuleBase
 	float getPlayingStepValue(int step, int pattern) override;
 };
 
-
+//===============================================================================
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// trigSeq64 Module
+// trowaSoft 64-step pad / trigger sequencer.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+//===============================================================================
 struct trigSeq64 : trigSeq {
 	trigSeq64() : trigSeq(N64_NUM_STEPS, N64_NUM_ROWS, N64_NUM_COLS)
 	{
 		return;
 	}
-}
-;
+};
+
+
 #endif

@@ -5,9 +5,12 @@
 #include "dsp/digital.hpp"
 #include "Module_multiScope.hpp"
 #include "TSScopeBase.hpp"
+#include "Widget_multiScope.hpp"
 
 
 
+// multiScope model.
+Model *modelMultiScope = Model::create<multiScope, multiScopeWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "multiScope", /*name*/ "multiScope", /*Tags*/ VISUAL_TAG, UTILITY_TAG);
 
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

@@ -10,6 +10,11 @@
 #include "TSOSCCommon.hpp"
 #include "TSSequencerWidgetBase.hpp"
 
+
+Model* modelTrigSeq = Model::create<trigSeq, trigSeqWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "trigSeq", /*name*/ "trigSeq", /*Tags*/ SEQUENCER_TAG, EXTERNAL_TAG);
+Model* modelTrigSeq64 = Model::create<trigSeq64, trigSeq64Widget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "trigSeq64", /*name*/ "trigSeq64", /*Tags*/ SEQUENCER_TAG, EXTERNAL_TAG);
+
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // trigSeq::randomize()
 // Only randomize the current gate/trigger steps.

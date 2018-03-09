@@ -27,6 +27,10 @@
 // Labels for each waveform / shape
 #define TROWA_SCOPE_SHAPE_FORMAT_STRING		"Shp %d"
 
+// multiScope model.
+extern Model *modelMultiScope;
+
+
 //===============================================================================
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // multiScope

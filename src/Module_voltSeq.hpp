@@ -2,7 +2,6 @@
 #define MODULE_VOLTSEQ_HPP
 #include <string.h>
 #include <stdio.h>
-//#include "trowaSoft.hpp"
 #include "dsp/digital.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
@@ -10,6 +9,9 @@
 
 #define voltSeq_STEP_KNOB_MIN	  -10.0  // Minimum value from our knobs
 #define voltSeq_STEP_KNOB_MAX	   10.0  // Maximum value from our knobs
+
+// voltSeq model.
+extern Model *modelVoltSeq;
 
 //===============================================================================
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -153,5 +155,7 @@ struct voltSeq : TSSequencerModuleBase
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void shiftValues(/*in*/ int patternIx, /*in*/ int channelIx, /*in*/ float volts);
 };
+
+
 
 #endif // end if not defined

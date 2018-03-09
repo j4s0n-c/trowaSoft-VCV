@@ -12,6 +12,9 @@
 #define TROWA_VOLTSEQ_KNOB_CHANGED_THRESHOLD		0.01  // Value must change at least this much to send changed value over OSC
 
 
+// Single model object? https://github.com/VCVRack/Rack/issues/258:
+Model* modelVoltSeq = Model::create<voltSeq, voltSeqWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "voltSeq", /*name*/ "voltSeq", /*Tags*/ SEQUENCER_TAG, EXTERNAL_TAG);
+
 // Round the value for OSC. We will match what VOLT mode shows
 inline float roundValForOSC(float val) {
 	return round(val * TROWA_VOLTSEQ_OSC_ROUND_VAL) / (float)(TROWA_VOLTSEQ_OSC_ROUND_VAL);

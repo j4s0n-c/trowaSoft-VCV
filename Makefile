@@ -3,7 +3,7 @@ SHELL:=/bin/bash -O extglob
 # 03/03/2018 Changed to match https://github.com/VCVRack/Fundamental/blob/master/Makefile
 
 SLUG = trowaSoft
-VERSION = 0.6.5.2dev # Not really a full release yet
+VERSION = 0.6.5.2dev# Not really a full release yet
 
 # Add .cpp and .c files to the build
 SOURCES = \
@@ -25,7 +25,9 @@ else
 	SOURCES += $(wildcard lib/oscpack/ip/posix/*.cpp) 
 endif
 
-DISTRIBUTABLES += $(wildcard LICENSE*) res
+DISTRIBUTABLES += $(wildcard LICENSE*) res \
+ pd other
+# ^ add our other folders (supplementary files)
 
 RACK_DIR ?= ../..
 include $(RACK_DIR)/plugin.mk

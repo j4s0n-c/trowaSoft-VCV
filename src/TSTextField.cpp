@@ -47,23 +47,24 @@ std::string TSTextField::cleanseString(std::string newText)
 
 // Remove invalid chars
 void TSTextField::insertText(std::string newText) {
-	if (begin < end)
-		text.erase(begin, end - begin);
+	if (cursor != selection) {
+		int begin = min(cursor, selection);
+		this->text.erase(begin, std::abs(selection - cursor));
+		cursor = selection = begin;
+	}
 	std::string cleansedStr = cleanseString(newText);
-	text.insert(begin, cleansedStr);
-	if (text.length() > maxLength)
-		text = text.substr(0, maxLength);
-	begin += cleansedStr.size();
-	if (begin > maxLength - 1)
-		begin = maxLength - 1;
-	end = begin;
+	this->text.insert(cursor, cleansedStr);
+	cursor += text.size();
+	selection = cursor;
 	onTextChange();
 } // end insertText()
+
 // When the text changes.
 void TSTextField::onTextChange() {
 	text = cleanseString(text);
-	begin = min(max(begin, 0), text.size());
-	end = min(max(end, 0), text.size());
+	//begin = min(max(begin, 0), text.size());
+	//end = min(max(end, 0), text.size());
+	selection = cursor = text.size();
 	return;
 } // end onTextChanged()
 // On key press.
@@ -77,63 +78,6 @@ void TSTextField::onKey(EventKey &e) {
 	// Flag if we need to validate/cleanse this character (only if printable and if we are doing validation).
 	bool checkKey = (this->allowedTextType != TextType::Any) && isPrintableKey(e.key);
 	switch (e.key) {
-	case GLFW_KEY_BACKSPACE:
-		if (begin < end) {
-			text.erase(begin, end - begin);
-			onTextChange();
-		}
-		else {
-			begin--;
-			if (begin >= 0) {
-				text.erase(begin, 1);
-				onTextChange();
-			}
-		}
-		end = begin;
-		break;
-	case GLFW_KEY_DELETE:
-		if (begin < end) {
-			text.erase(begin, end - begin);
-			onTextChange();
-		}
-		else {
-			text.erase(begin, 1);
-			onTextChange();
-		}
-		end = begin;
-		break;
-	case GLFW_KEY_LEFT:
-		if (begin < end) {
-		}
-		else {
-			begin--;
-		}
-		end = begin;
-		break;
-	case GLFW_KEY_RIGHT:
-		if (begin < end) {
-			begin = end;
-		}
-		else {
-			begin++;
-		}
-		end = begin;
-		break;
-	case GLFW_KEY_HOME:
-		end = begin = 0;
-		break;
-	case GLFW_KEY_END:
-		end = begin = text.size();
-		break;
-	case GLFW_KEY_ENTER:
-		if (multiline) {
-			insertText("\n");
-		}
-		else {
-			EventAction e;
-			onAction(e);
-		}
-		break;
 	case GLFW_KEY_TAB:
 		// If we have an event to fire, then do it
 		if (windowIsShiftPressed())//(guiIsShiftPressed())
@@ -165,23 +109,22 @@ void TSTextField::onKey(EventKey &e) {
 		if (windowIsModPressed()) { //guiIsModPressed()
 			// Copy (do not check character)
 			checkKey = false;
-			if (begin < end) {
-				std::string selectedText = text.substr(begin, end - begin);
+			if (cursor != selection) {
+				int begin = min(cursor, selection);
+				std::string selectedText = text.substr(begin, std::abs(selection - cursor));
 				glfwSetClipboardString(gWindow, selectedText.c_str());
 			}
 		}
+		break;
+	default:
+		// Call base method
+		TextField::onKey(e);
 		break;
 	}
 	if (checkKey)
 	{
 		this->onTextChange(); // Do some cleansing
 	}
-	else
-	{
-		begin = min(max(begin, 0), text.size());
-		end = min(max(end, 0), text.size());
-	}
-	e.consumed = true;
 	return;
 } // end onKey()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

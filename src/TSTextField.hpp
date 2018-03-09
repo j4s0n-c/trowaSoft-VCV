@@ -42,8 +42,8 @@ bool isPrintableKey(int keyCode);
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 /// TODO: Redo this struct completely.
 struct TSTextField : TextField {
-	int begin = 0;
-	int end = 0; // Removed from new version TextField.
+	//int begin = 0;
+	//int end = 0; // Removed from new version TextField.
 	// Maximum length allowed.
 	uint16_t maxLength = 50;
 	// The id of this widget. For use like tab order or something.

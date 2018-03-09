@@ -645,7 +645,8 @@ struct TS_LightRing : ColorValueLight
 		nvgRect(vg, radius - oradius, radius - oradius, 2*oradius, 2*oradius);
 		NVGpaint paint;
 		NVGcolor icol = color;
-		icol.a *= 0.8;
+		icol.a *= (module != NULL) ? module->lights[firstLightId].value : 0;
+		//icol.a *= value;
 		NVGcolor ocol = color;
 		ocol.a = 0.0;
 		paint = nvgRadialGradient(vg, radius, radius, innerRadius, oradius, icol, ocol);
@@ -1034,6 +1035,7 @@ ColorValueLight * TS_createColorValueLight(Vec pos, Module *module, int lightId,
 	light->box.pos = pos;
 	light->module = module;
 	light->firstLightId = lightId;	
+	
 	//light->value = value;
 	light->box.size = size;
 	//light->baseColor = lightColor;
