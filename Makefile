@@ -3,7 +3,7 @@ SHELL:=/bin/bash -O extglob
 # 03/03/2018 Changed to match https://github.com/VCVRack/Fundamental/blob/master/Makefile
 
 SLUG = trowaSoft
-VERSION = 0.6.5.2dev# Not really a full release yet
+VERSION = 0.6.0 # ONLY 3 digits allowed now. https://github.com/VCVRack/community/issues/269
 
 RACK_DIR ?= ../..
 
