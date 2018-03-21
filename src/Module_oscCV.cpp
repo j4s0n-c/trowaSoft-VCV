@@ -385,9 +385,9 @@ void oscCV::step()
 						// Only send if changed enough. Maybe about 0.01 V? Defined on channel.
 						// 1. Check for change:
 						if (inputChannels[c].convertVals)
-							sendVal = abs(inputChannels[c].translatedVal - inputChannels[c].lastTranslatedVal) > inputChannels[c].channelSensitivity;
+							sendVal = std::abs(inputChannels[c].translatedVal - inputChannels[c].lastTranslatedVal) > inputChannels[c].channelSensitivity;
 						else
-							sendVal = abs(inputChannels[c].val - inputChannels[c].lastVal) > inputChannels[c].channelSensitivity;
+							sendVal = std::abs(inputChannels[c].val - inputChannels[c].lastVal) > inputChannels[c].channelSensitivity;
 						// 2. Mark channel as needing to output
 						if (sendVal) {
 							inputChannels[c].doSend = true;
@@ -500,7 +500,7 @@ void oscCV::setOscNamespace(std::string oscNamespace)
 	{
 		try
 		{
-			debug("Setting listener's namespace: %s", oscNamespace);
+			//debug("Setting listener's namespace: %s", oscNamespace.c_str());
 			this->oscListener->setNamespace(oscNamespace);
 		}
 		catch (const std::exception& e)
