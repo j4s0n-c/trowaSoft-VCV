@@ -218,6 +218,8 @@ bool ReceivedMessageArgument::AsBoolUnchecked() const
         throw MissingArgumentException();
 	else if( *typeTagPtr_ == TRUE_TYPE_TAG )
 		return true;
+	else if (*typeTagPtr_ == osc::TypeTagValues::FLOAT_TYPE_TAG) // Do conversion for touchOSC's limited values
+		return AsFloatUnchecked() > 0;
     else
 	    return false;
 }
@@ -258,10 +260,16 @@ int32 ReceivedMessageArgument::AsInt32Unchecked() const
 
 float ReceivedMessageArgument::AsFloat() const
 {
-    if( !typeTagPtr_ )
-        throw MissingArgumentException();
-	else if( *typeTagPtr_ == FLOAT_TYPE_TAG )
+	if (!typeTagPtr_)
+		throw MissingArgumentException();
+	else if (*typeTagPtr_ == FLOAT_TYPE_TAG)
 		return AsFloatUnchecked();
+	else if (*typeTagPtr_ == TRUE_TYPE_TAG) // Allow conversion to other types
+		return 1.0f;
+	else if (*typeTagPtr_ == FALSE_TYPE_TAG)
+		return 0.0f;
+	else if (*typeTagPtr_ == INT32_TYPE_TAG)
+		return static_cast<float>(AsInt32Unchecked());
 	else
 		throw WrongArgumentTypeException();
 }

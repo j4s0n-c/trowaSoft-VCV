@@ -14,8 +14,10 @@ using namespace rack;
 #define TROWA_DEBUG_LVL_MED			 50
 #define TROWA_DEBUG_LVL_LOW			  1
 #define TROWA_DEBUG_LVL_OFF			  0
-#define TROWA_DEBUG_MSGS		TROWA_DEBUG_LVL_MED
+#define TROWA_DEBUG_MSGS		TROWA_DEBUG_LVL_OFF
 
+#define TROWA_PULSE_WIDTH			(1e-3)
+#define TROWA_HORIZ_MARGIN			13	// Margin for element layout in Module widget
 
 #define TROWA_INDEX_UNDEFINED		 -1 // Value for undefined index.
 #define TROWA_DISP_MSG_SIZE			 30 // For local buffers of strings
@@ -37,6 +39,7 @@ using namespace rack;
 // Fonts:
 #define TROWA_DIGITAL_FONT		"res/Fonts/Digital dream Fat.ttf"
 #define TROWA_LABEL_FONT		"res/Fonts/ZeroesThree-Regular.ttf"
+#define TROWA_MONOSPACE_FONT	"res/Fonts/larabieb.ttf"
 
 extern const char * TROWA_NOTES[TROWA_SEQ_NUM_NOTES]; // Our note labels.
 

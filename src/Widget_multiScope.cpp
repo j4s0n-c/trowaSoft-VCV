@@ -244,7 +244,7 @@ multiScopeWidget::multiScopeWidget(multiScope *scopeModule) : ModuleWidget(scope
 		}
 
 		// X Controls:
-		inputPorts[multiScope::X_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::X_INPUT + wIx, plugLightsEnabled, defaultColor));
+		inputPorts[multiScope::X_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::X_INPUT + wIx, !plugLightsEnabled, defaultColor));
 		addInput(inputPorts[multiScope::X_INPUT + wIx]);
 		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), scopeModule, multiScope::X_POS_PARAM + wIx, TROWA_SCOPE_POS_KNOB_MIN, TROWA_SCOPE_POS_KNOB_MAX, TROWA_SCOPE_POS_X_KNOB_DEF));
 		// Keep reference to the scale knobs for synching
@@ -261,7 +261,7 @@ multiScopeWidget::multiScopeWidget(multiScope *scopeModule) : ModuleWidget(scope
 
 		// Y Controls:
 		x += dx;
-		inputPorts[multiScope::Y_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::Y_INPUT + wIx, plugLightsEnabled, defaultColor));
+		inputPorts[multiScope::Y_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::Y_INPUT + wIx, !plugLightsEnabled, defaultColor));
 		addInput(inputPorts[multiScope::Y_INPUT + wIx]);
 		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), scopeModule, multiScope::Y_POS_PARAM + wIx, TROWA_SCOPE_POS_KNOB_MIN, TROWA_SCOPE_POS_KNOB_MAX, TROWA_SCOPE_POS_Y_KNOB_DEF));
 		// Keep reference to the scale knobs for synching
@@ -270,7 +270,7 @@ multiScopeWidget::multiScopeWidget(multiScope *scopeModule) : ModuleWidget(scope
 
 		// Color Controls:
 		x += dx;
-		inputPorts[multiScope::COLOR_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::COLOR_INPUT + wIx, plugLightsEnabled, defaultColor));
+		inputPorts[multiScope::COLOR_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::COLOR_INPUT + wIx, !plugLightsEnabled, defaultColor));
 		addInput(inputPorts[multiScope::COLOR_INPUT + wIx]);
 		float knobHueVal = rescale(defaultHue, 0, 1.0, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX);
 		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2 + TROWA_SCOPE_COLOR_KNOB_Y_OFFSET), scopeModule, multiScope::COLOR_PARAM + wIx, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, knobHueVal));
@@ -287,16 +287,16 @@ multiScopeWidget::multiScopeWidget(multiScope *scopeModule) : ModuleWidget(scope
 
 		// Opacity:
 		x += dx;
-		inputPorts[multiScope::OPACITY_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::OPACITY_INPUT + wIx, plugLightsEnabled, defaultColor));
+		inputPorts[multiScope::OPACITY_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::OPACITY_INPUT + wIx, !plugLightsEnabled, defaultColor));
 		addInput(inputPorts[multiScope::OPACITY_INPUT + wIx]);
 		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), scopeModule, multiScope::OPACITY_PARAM + wIx, TROWA_SCOPE_MIN_OPACITY, TROWA_SCOPE_MAX_OPACITY, TROWA_SCOPE_MAX_OPACITY));
 		// Pen On:
-		inputPorts[multiScope::PEN_ON_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y3 - knobOffset), scopeModule, multiScope::PEN_ON_INPUT + wIx, plugLightsEnabled, defaultColor));
+		inputPorts[multiScope::PEN_ON_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y3 - knobOffset), scopeModule, multiScope::PEN_ON_INPUT + wIx, !plugLightsEnabled, defaultColor));
 		addInput(inputPorts[multiScope::PEN_ON_INPUT + wIx]);
 
 		// Fill Color Controls:
 		x += dx;
-		inputPorts[multiScope::FILL_COLOR_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::FILL_COLOR_INPUT + wIx, plugLightsEnabled, defaultFillColor));
+		inputPorts[multiScope::FILL_COLOR_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::FILL_COLOR_INPUT + wIx, !plugLightsEnabled, defaultFillColor));
 		addInput(inputPorts[multiScope::FILL_COLOR_INPUT + wIx]);
 		knobHueVal = rescale(defaultFillHue, 0, 1.0, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX);
 		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2 + TROWA_SCOPE_COLOR_KNOB_Y_OFFSET), scopeModule, multiScope::FILL_COLOR_PARAM + wIx, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, knobHueVal));
@@ -312,14 +312,14 @@ multiScopeWidget::multiScopeWidget(multiScope *scopeModule) : ModuleWidget(scope
 
 		// Fill Opacity:
 		x += dx;
-		inputPorts[multiScope::FILL_OPACITY_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::FILL_OPACITY_INPUT + wIx, plugLightsEnabled, defaultFillColor));
+		inputPorts[multiScope::FILL_OPACITY_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::FILL_OPACITY_INPUT + wIx, !plugLightsEnabled, defaultFillColor));
 		addInput(inputPorts[multiScope::FILL_OPACITY_INPUT + wIx]);
 		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), scopeModule, multiScope::FILL_OPACITY_PARAM + wIx, TROWA_SCOPE_MIN_OPACITY, TROWA_SCOPE_MAX_OPACITY, TROWA_SCOPE_MAX_OPACITY));
 
 
 		// Rotation Controls:
 		x += dx;
-		inputPorts[multiScope::ROTATION_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::ROTATION_INPUT + wIx, plugLightsEnabled, defaultColor));
+		inputPorts[multiScope::ROTATION_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::ROTATION_INPUT + wIx, !plugLightsEnabled, defaultColor));
 		addInput(inputPorts[multiScope::ROTATION_INPUT + wIx]);
 		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), scopeModule, multiScope::ROTATION_PARAM + wIx, TROWA_SCOPE_ROT_KNOB_MIN, TROWA_SCOPE_ROT_KNOB_MAX, 0));
 		TS_PadSwitch* rotModeBtn = dynamic_cast<TS_PadSwitch*>( ParamWidget::create<TS_PadSwitch>(Vec(x + knobOffset + tinyOffset, y3 + tinyOffset), scopeModule, multiScope::ROTATION_MODE_PARAM + wIx, 0, 1, 0) );
@@ -336,7 +336,7 @@ multiScopeWidget::multiScopeWidget(multiScope *scopeModule) : ModuleWidget(scope
 
 		// Time Controls:
 		x += dx;
-		inputPorts[multiScope::TIME_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::TIME_INPUT + wIx, plugLightsEnabled, defaultColor));
+		inputPorts[multiScope::TIME_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::TIME_INPUT + wIx, !plugLightsEnabled, defaultColor));
 		addInput(inputPorts[multiScope::TIME_INPUT + wIx]);
 		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), scopeModule, multiScope::TIME_PARAM + wIx, TROWA_SCOPE_TIME_KNOB_MIN, TROWA_SCOPE_TIME_KNOB_MAX, TROWA_SCOPE_TIME_KNOB_DEF));
 		TS_PadSwitch* lissajousBtn = dynamic_cast<TS_PadSwitch*>(ParamWidget::create<TS_PadSwitch>(Vec(x + knobOffset + tinyOffset, y3 + tinyOffset), scopeModule, multiScope::LISSAJOUS_PARAM + wIx, 0, 1, 1));
@@ -353,7 +353,7 @@ multiScopeWidget::multiScopeWidget(multiScope *scopeModule) : ModuleWidget(scope
 
 		// Thickness:
 		x += dx;
-		inputPorts[multiScope::THICKNESS_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::THICKNESS_INPUT + wIx, plugLightsEnabled, defaultColor));
+		inputPorts[multiScope::THICKNESS_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), scopeModule, multiScope::THICKNESS_INPUT + wIx, !plugLightsEnabled, defaultColor));
 		addInput(inputPorts[multiScope::THICKNESS_INPUT + wIx]);
 		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), scopeModule, multiScope::THICKNESS_PARAM + wIx, TROWA_SCOPE_THICKNESS_MIN, TROWA_SCOPE_THICKNESS_MAX, TROWA_SCOPE_THICKNESS_DEF));
 		// Effect Controls:

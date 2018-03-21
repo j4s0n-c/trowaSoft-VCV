@@ -3,7 +3,8 @@
 <img src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2fdemo_screenshot.jpg" />
 </div>
 
-trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.0. Current pack includes [trigSeq &amp; trigSeq64](#trigseq--trigseq64), [voltSeq](#voltseq), and [multiScope](#multiscope).
+trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.x and v0.6.x. 
+Current pack includes [trigSeq &amp; trigSeq64](#trigseq--trigseq64), [voltSeq](#voltseq), [multiScope](#multiscope), and [cvOSCcv](#cvOSCcv) (**new 2018-03-20**).
 
 For more information about these modules, please visit:
 http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx.
@@ -13,7 +14,13 @@ https://vcvrack.com/.
 
 ## Binaries/Builds
 Any builds that are currently available are at [Github Releases page](https://github.com/j4s0n-c/trowaSoft-VCV/releases) and [geeksaurusrex](http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx). 
-**2018-02-17**: The latest version is [v0.5.5.2](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.5.5.2).
+
+**VCV Rack v0.6.x**:
+**2018-03-20**: The latest version is [v0.6.0](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.6.0).
+
+**VCV Rack v0.5.x**:
+2018-02-17: The last version is [v0.5.5.2](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.5.5.2). No more versions for Rack 0.5.x will be developed.
+
 
 To build for your platform, please visit the [VCV rack documentation](https://github.com/VCVRack/Rack#setting-up-your-development-environment).
 
@@ -50,7 +57,7 @@ Variable voltage output step sequencer (-10V to +10V), based off the [Fundamenta
 + 16 channels (outputs).
 + Output modes:
     + **VOLT** - Voltage (-10V to +10V): Output whatever voltage you want.
-    + **NOTE** - Midi Note (-4V to +6V) ~~(-5V to +5V)~~: Output notes (12 notes per 1 V; 10 octaves). [Base pitch (0V)](https://github.com/j4s0n-c/trowaSoft-VCV/issues/9) is now C4 (as of v0.5.5.2).
+    + **NOTE** - Midi Note (-5V to +5V) ~~(-4V to +6V)~~: Output notes (12 notes per 1 V; 10 octaves). [Base pitch (0V)](https://github.com/j4s0n-c/trowaSoft-VCV/issues/9) is now C4 (as of v0.5.5.2). Range is C-1 to C9 as of v0.6.0.
     + **PATT** - Pattern (-10V to +10V): To control the currently playing Pattern (or Length) on another **trigSeq** or **voltSeq**. (Now 1 to 64 in range).  
 + Inputs: Pattern, BPM, (step) Length, Clock, Reset.
 + Copy & Paste of channel or entire pattern.
@@ -102,3 +109,27 @@ Variable voltage output step sequencer (-10V to +10V), based off the [Fundamenta
     + **INFO** - (Toggle) Toggle input parameter information on / off (default is on). Located on the right-hand-side (RHS) bar.
 	+ **BG COLOR** - (Toggle) Toggle on-screen Background Color picker on / off (default is on). Located on the right-hand-side (RHS) bar.
 	+ **Background Color Picker** - Displayed on screen. Hue-Saturation-Light (HSL) sliders to pick the background color.
+
+### cvOSCcv
+<div>
+<img width="700" src="https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/cvOSCcv_screenshot_01.png?raw=true" />
+</div>
+
+**cvOSCcv** is a simple, generic Open Sound Control (OSC) module for outputting Rack CVs to OSC and reading in simple OSC messages into Rack CVs. This module is new in version 0.6.0.
++ **CV Inputs** - CV => OSC (8 Channels), each channel:
+    + **TRG** - If active, then OSC messages will output the **VAL** CV input value when triggered.
+	+ **VAL** - The value that will output over OSC. Currently sent as a float.
+	If there is no trigger present, the module will output whenever **VAL** changes at least 0.05 up to 100 Hz.
++ **CV Outputs** - OSC => CV (8 channels), each channel:
+    + **TRG** - (0-10V) Triggers whenever an OSC message is received.
+	+ **VAL** - (Gate) Outputs the last OSC value received.
++ **User Controls**:
+	+ **CONFIG** - (Toggle) Button to toggle the configuration view. When an OSC connection is active, a blue light will appear on the button.
+	+ **OSC IP Address** - The IP address of the OSC client/server.  Default is `127.0.0.1`.
+	+ **Out Port** - Port for sending messages. 
+	+ **In Port** - Port for receiving messages. Currently, trowaSoft modules can NOT share the same ports.
+	+ **Namespace** - The OSC namespace. Uris will be http://{ip address}:{port}/{namespace}. Default is `trowacv`.
+    + Per Channel: **Address** - Endpoint address. Default is `/ch/{channel #}`. Example of a full address would be `http://127.0.0.1:7000/trowacv/ch/1`.
+	  
+	NOTE: To save Channel Address changes after a connection is active, simply hide the configuration screen again.
+

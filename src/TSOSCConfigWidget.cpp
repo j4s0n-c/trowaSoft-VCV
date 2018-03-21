@@ -7,6 +7,8 @@ using namespace rack;
 #include "trowaSoftUtilities.hpp"
 //#include "TSSequencerModuleBase.hpp"
 #include "TSOSCCommon.hpp"
+#include <string>
+#include "trowaSoftComponents.hpp"
 
 #define START_Y   15
 
@@ -17,6 +19,18 @@ void TSOSCClientItem::onAction(EventAction &e) {
 	parentButton->selectedOSCClient = this->oscClient;
 	return;
 }
+
+TSOSCClientSelectBtn::TSOSCClientSelectBtn() {
+	font = Font::load(assetPlugin(plugin, TROWA_MONOSPACE_FONT));
+	fontSize = 14.0f;
+	backgroundColor = FORMS_DEFAULT_BG_COLOR;
+	color = FORMS_DEFAULT_TEXT_COLOR;
+	textOffset = Vec(5, 3);
+	borderWidth = 1;
+	borderColor = FORMS_DEFAULT_BORDER_COLOR;
+	return;
+}
+
 // On button click, create drop down menu.
 void TSOSCClientSelectBtn::onAction(EventAction &e) {
 	if (visible)
@@ -41,7 +55,39 @@ void TSOSCClientSelectBtn::step() {
 void TSOSCClientSelectBtn::draw(NVGcontext *vg) {
 	if (visible)
 	{
-		ChoiceButton::draw(vg);
+		nvgScissor(vg, 0, 0, box.size.x, box.size.y);
+
+		// Background
+		nvgBeginPath(vg);
+		nvgRoundedRect(vg, 0, 0, box.size.x, box.size.y, 5.0);
+		nvgFillColor(vg, backgroundColor);
+		nvgFill(vg);
+
+		// Border
+		if (borderWidth > 0) {
+			nvgStrokeWidth(vg, borderWidth);
+			nvgStrokeColor(vg, borderColor);
+			nvgStroke(vg);
+		}
+		nvgResetScissor(vg);
+
+		if (font->handle >= 0) {
+			nvgScissor(vg, 0, 0, box.size.x - 5, box.size.y);
+
+			nvgFillColor(vg, color);
+			nvgFontFaceId(vg, font->handle);
+			nvgTextLetterSpacing(vg, 0.0);
+
+			nvgFontSize(vg, fontSize);
+			nvgText(vg, textOffset.x, textOffset.y, text.c_str(), NULL);
+
+			nvgResetScissor(vg);
+
+			bndUpDownArrow(vg, box.size.x - 10,  10, 5, color);
+		}
+
+
+		//ChoiceButton::draw(vg);
 	}
 	return;
 }
@@ -52,15 +98,16 @@ TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableI
 {
 	return;
 }
-
-TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, OSCClient selectedClient, std::string ipAddress, uint16_t txPort, uint16_t rxPort)
+TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, std::string ipAddress, uint16_t txPort, uint16_t rxPort, 
+	bool showClient, OSCClient selectedClient, bool showNamespace, std::string oscNamespace)
 {
 	this->module = mod;
 	font = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
-	
+
+	this->showClientSelect = showClient;
+	this->showNamespace = showNamespace;
 
 	statusMsg2 = "";
-
 
 	this->box.size = Vec(400, 50);
 	int height = 20;
@@ -100,18 +147,36 @@ TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableI
 	addChild(tbRxPort);
 	textBoxes[i++] = tbRxPort;
 
+	x += tbRxPort->box.size.x + dx;
 	// OSC Client Type:
 	// (since touchOSC needs special handling, Lemur probably does too)
-	x += tbRxPort->box.size.x + dx;
 	btnClientSelect = new TSOSCClientSelectBtn();
 	btnClientSelect->selectedOSCClient = selectedClient;
 	btnClientSelect->box.size = Vec(78, height);
 	btnClientSelect->box.pos = Vec(x, y);
-	btnClientSelect->visible = visible;
+	btnClientSelect->visible = this->showClientSelect && visible;
 	addChild(btnClientSelect);
 
+	if (this->showClientSelect)
+		x += btnClientSelect->box.size.x + dx + 3;
+
+	// Namespace
+	tbNamespace = new TSTextField(TSTextField::TextType::Any, 20);
+	tbNamespace->box.size = Vec(78, height);
+	tbNamespace->box.pos = Vec(x, y);
+	tbNamespace->visible = this->showNamespace && visible;
+	tbNamespace->text = oscNamespace;
+	tbNamespace->id = i;
+	tbNamespace->placeholder = "namespace";
+	addChild(tbNamespace);
+	if (this->showNamespace)
+	{
+		textBoxes[i++] = tbNamespace;
+		xNamespace = x; // Save this so we can label it
+		x += tbNamespace->box.size.x + dx + 3;
+	}
+
 	// Button Enable/Disable
-	x += btnClientSelect->box.size.x + dx + 3;
 	Vec btnSize = Vec(36, height);
 	this->btnSave = new TS_PadBtn();
 	this->btnSave->module = module;
@@ -128,14 +193,20 @@ TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableI
 	//this->btnDisable->box.pos = Vec(x, y);
 	//addChild(btnDisable);
 
-	for (i = 0; i < TSOSC_NUM_TXTFIELDS; i++)
+	numTextFields = i;
+	for (i = 0; i < numTextFields; i++)
 	{
-		int prevIx = (i > 0) ? i - 1 : TSOSC_NUM_TXTFIELDS - 1;
-		int nextIx = (i < TSOSC_NUM_TXTFIELDS - 1) ? i + 1 : 0;
+		int prevIx = (i > 0) ? i - 1 : numTextFields - 1;
+		int nextIx = (i < numTextFields - 1) ? i + 1 : 0;
 		textBoxes[i]->nextField = textBoxes[nextIx];
 		textBoxes[i]->prevField = textBoxes[prevIx];
-
 	}
+	return;
+}
+
+TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, OSCClient selectedClient, std::string ipAddress, uint16_t txPort, uint16_t rxPort)
+	: TSOSCConfigWidget(mod, btnSaveId, btnDisableId, ipAddress, txPort, rxPort, true, selectedClient, false, std::string(""))
+{
 	return;
 }
 
@@ -171,7 +242,7 @@ void TSOSCConfigWidget::draw(NVGcontext *vg) {
 	}
 	nvgFontSize(vg, fontSize);
 	nvgFontFaceId(vg, font->handle);
-	
+
 	// Screen:
 	nvgBeginPath(vg);
 	nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
@@ -192,6 +263,10 @@ void TSOSCConfigWidget::draw(NVGcontext *vg) {
 	{
 		x = textBoxes[i]->box.pos.x + 2;
 		nvgText(vg, x, y, labels[i], NULL);
+	}
+	if (xNamespace > -1)
+	{
+		nvgText(vg, xNamespace + 1, y, "Namespace", NULL);
 	}
 
 	// Current status:

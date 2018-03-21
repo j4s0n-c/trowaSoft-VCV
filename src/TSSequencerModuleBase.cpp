@@ -625,7 +625,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		input = params[BPM_PARAM].value; // -2 to 6
 	}
 	clockTime = powf(2.0, input); // -2 to 6
-								// Calculate his all the time now instead of just on next step:
+	// Calculate his all the time now instead of just on next step:
 	currentBPM = roundf(clockTime * BPMOptions[selectedBPMNoteIx]->multiplier);
 	playBPMChanged = lastBPM != currentBPM;
 
@@ -1166,7 +1166,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		r = index / this->numCols;// TROWA_SEQ_STEP_NUM_COLS;
 		c = index % this->numCols; //TROWA_SEQ_STEP_NUM_COLS;
 		stepLights[r][c] = 1.0f;
-		gatePulse.trigger(1e-3);
+		gatePulse.trigger(TROWA_PULSE_WIDTH);
 
 		oscMutex.lock();
 		if (useOSC && oscInitialized)
@@ -1187,7 +1187,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	{
 		if (resetPaused)
 		{
-			gatePulse.trigger(1e-3);
+			gatePulse.trigger(TROWA_PULSE_WIDTH);
 		}
 		resetPaused = false;
 	} // end if

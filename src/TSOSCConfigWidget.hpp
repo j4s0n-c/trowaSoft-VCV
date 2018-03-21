@@ -23,6 +23,17 @@ struct TSOSCClientSelectBtn : ChoiceButton {
 	// The selected value.
 	OSCClient selectedOSCClient;
 	bool visible = false;
+	std::shared_ptr<Font> font;
+	Vec textOffset;
+	NVGcolor color;
+	// Font size
+	float fontSize;
+	std::string displayStr;
+	int borderWidth = 0;
+	NVGcolor borderColor;
+	NVGcolor backgroundColor;
+
+	TSOSCClientSelectBtn();
 	void step() override;
 	void onAction(EventAction &e) override;
 	// Draw if visible
@@ -44,10 +55,12 @@ struct TSOSCClientItem : MenuItem {
 struct TSOSCConfigWidget : OpaqueWidget
 {
 	// For looping, array of txt boxes
-	TSTextField* textBoxes[TSOSC_NUM_TXTFIELDS];
+	TSTextField* textBoxes[4];
 	TSTextField* tbIpAddress;
 	TSTextField* tbTxPort;
 	TSTextField* tbRxPort;
+	// Text field for the name space.
+	TSTextField* tbNamespace;
 	// Client select/drop down.
 	TSOSCClientSelectBtn* btnClientSelect;
 	// Reference to module.
@@ -73,11 +86,18 @@ struct TSOSCConfigWidget : OpaqueWidget
 	NVGcolor errorColor = nvgRGB(0xee, 0x00, 0x00);
 	NVGcolor successColor = nvgRGB(0x00, 0xee, 0x00);
 	NVGcolor statusColor = TSOSC_STATUS_COLOR;
+
+	bool showClientSelect = true;
+	bool showNamespace = false;
+	int xNamespace = -1;
+	int numTextFields = 3;
 	// Callback/event for when a VALID form is submitted.
 	void(*formSubmitted)();
 
 	TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, OSCClient selectedClient);
 	TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, OSCClient selectedClient, std::string ipAddress, uint16_t txPort, uint16_t rxPort);
+	TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, std::string ipAddress, uint16_t txPort, uint16_t rxPort, bool showClient, OSCClient selectedClient, bool showNamespace, std::string oscNamespace);
+
 
 	// If visible, check for btn submit
 	void step() override;
@@ -97,6 +117,14 @@ struct TSOSCConfigWidget : OpaqueWidget
 		tbRxPort->text = std::to_string(rxPort);
 		return;
 	}
+	// Sets the values
+	void setValues(std::string ipAddress, uint16_t txPort, uint16_t rxPort, std::string oscNamespace)
+	{
+		setValues(ipAddress, txPort, rxPort);
+		tbNamespace->text = oscNamespace;
+		return;
+	}
+
 	// Sets the visibility
 	void setVisible(bool isVisible) {
 		visible = isVisible;

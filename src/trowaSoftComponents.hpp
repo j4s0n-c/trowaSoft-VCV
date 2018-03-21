@@ -13,6 +13,7 @@ using namespace rack;
 #include "componentlibrary.hpp"
 #include "plugin.hpp"
 #include "trowaSoftUtilities.hpp"
+#include "util/color.hpp"
 
 extern Plugin* plugin;
 
@@ -90,19 +91,34 @@ extern Plugin* plugin;
 #define KNOB_SENSITIVITY 0.0015
 #endif // ! KNOB_SENSITIVITY
 
+
+//-----------------------------------------------------------------
+// Form controls - Default colors and such
+//-----------------------------------------------------------------
+#define FORMS_DEFAULT_TEXT_COLOR		nvgRGB(0xee, 0xee, 0xee)
+#define FORMS_DEFAULT_BORDER_COLOR		nvgRGB(0x66, 0x66, 0x66)
+#define FORMS_DEFAULT_BG_COLOR			COLOR_BLACK
+
+
 //--------------------------------------------------------------
 // ColorValueLight - Sorta like the old ColorValueLight that was in Rack.
 //--------------------------------------------------------------
 struct ColorValueLight : ModuleLightWidget {
 	NVGcolor baseColor;
+	// Pixels to add for outer radius (either px or relative %).
+	float outerRadiusHalo = 0.35;
+	bool outerRadiusRelative = true;
 	ColorValueLight()
 	{
+		bgColor = nvgRGB(0x20, 0x20, 0x20);
+		borderColor = nvgRGBA(0, 0, 0, 0);
 		return;
 	};
 	virtual ~ColorValueLight(){};
 	// Set a single color
 	void setColor(NVGcolor bColor)
 	{
+		color = bColor;
 		baseColor = bColor;
 		if (baseColors.size() < 1)
 		{
@@ -112,6 +128,21 @@ struct ColorValueLight : ModuleLightWidget {
 		{
 			baseColors[0] = bColor;
 		}
+	}
+	void drawHalo(NVGcontext *vg) override {
+		float radius = box.size.x / 2.0;
+		float oradius = radius + ((outerRadiusRelative) ? (radius*outerRadiusHalo) : outerRadiusHalo);
+
+		nvgBeginPath(vg);
+		nvgRect(vg, radius - oradius, radius - oradius, 2 * oradius, 2 * oradius);
+
+		NVGpaint paint;
+		NVGcolor icol = colorMult(color, 0.10);
+		NVGcolor ocol = nvgRGB(0, 0, 0);
+		paint = nvgRadialGradient(vg, radius, radius, radius, oradius, icol, ocol);
+		nvgFillPaint(vg, paint);
+		nvgGlobalCompositeOperation(vg, NVG_LIGHTER);
+		nvgFill(vg);
 	}
 };
 
@@ -234,7 +265,7 @@ struct TS_PadSwitch : MomentarySwitch {
 	/** Called when a widget responds to `onMouseDown` for a left button press */
 	void onDragStart(EventDragStart &e) override {
 		float newVal = (value < maxValue) ? maxValue : minValue;
-		debug("onDragStart(%d) - Current Value is %.1f, setting to %.1f.", btnId, value, newVal);
+		//debug("onDragStart(%d) - Current Value is %.1f, setting to %.1f.", btnId, value, newVal);
 		setValue(newVal); // Toggle Value
 		return;
 	}
@@ -242,7 +273,7 @@ struct TS_PadSwitch : MomentarySwitch {
 	// https://github.com/j4s0n-c/trowaSoft-VCV/issues/12
 	// Last button keeps pressed down.
 	void onDragEnd(EventDragEnd &e) override {
-		debug("onDragEnd(%d) - Current Value is %.1f, setting to %.1f (off).", btnId, value, minValue);
+		//debug("onDragEnd(%d) - Current Value is %.1f, setting to %.1f (off).", btnId, value, minValue);
 		setValue(minValue); // Turn Off
 		return;
 	}
@@ -252,19 +283,19 @@ struct TS_PadSwitch : MomentarySwitch {
 		TS_PadSwitch *origin = dynamic_cast<TS_PadSwitch*>(e.origin);
 		if (origin && origin->groupId == this->groupId) {
 			float newVal = (value < maxValue) ? maxValue : minValue;
-			debug("onDragEnter(%d) - Current Value is %.1f, setting to %.1f.", btnId, value, newVal);
+			//debug("onDragEnter(%d) - Current Value is %.1f, setting to %.1f.", btnId, value, newVal);
 			setValue(newVal); // Toggle Value
 		}
 	}
 	void onDragLeave(EventDragEnter &e) override {
 		TS_PadSwitch *origin = dynamic_cast<TS_PadSwitch*>(e.origin);
 		if (origin && origin->groupId == this->groupId) {
-			debug("onDragLeave(%d) - Current Value is %.1f, setting to %.1f (off).", btnId, value, minValue);
+			//debug("onDragLeave(%d) - Current Value is %.1f, setting to %.1f (off).", btnId, value, minValue);
 			setValue(minValue); // Turn Off
 		}
 	}
 	void onMouseUp(EventMouseUp &e) override {
-		debug("onMouseUp(%d) - Current Value is %.1f, setting to %.1f (off).", btnId, value, minValue);
+		//debug("onMouseUp(%d) - Current Value is %.1f, setting to %.1f (off).", btnId, value, minValue);
 		setValue(minValue); // Turn Off
 	};
 
@@ -328,6 +359,110 @@ struct TS_Pad_Reset : SVGSwitch, MomentarySwitch {
 		sw->wrap();
 		box.size = sw->box.size;
 	}	
+};
+//--------------------------------------------------------------
+// TS_ScreenBtn - Screen button.
+//--------------------------------------------------------------
+struct TS_ScreenBtn : MomentarySwitch {
+	bool visible = true;
+	// Text to display on the btn.
+	std::string btnText;
+	// Background color
+	NVGcolor backgroundColor = nvgRGBA(0, 0, 0, 0);
+	// Text color
+	NVGcolor color = COLOR_TS_GRAY;
+	// Border color
+	NVGcolor borderColor = COLOR_TS_GRAY;
+	// Border width
+	int borderWidth = 1;
+	// Corner radius. 0 for straight corners.
+	int cornerRadius = 5;
+	// Font size for our display numbers
+	int fontSize = 10;
+	// Font face
+	std::shared_ptr<Font> font = NULL;
+
+	//TS_ScreenBtn()
+	//{		
+	//	return;
+	//}
+	TS_ScreenBtn(Vec size, Module* module, int paramId, std::string text, float minVal, float maxVal, float defVal)
+	{
+		box.size = size;
+		font = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+		fontSize = 10;
+		btnText = text;
+		this->module = module;
+		this->paramId = paramId;
+		this->value = 0.0;
+		this->minValue = minVal;
+		this->maxValue = maxVal;
+		this->defaultValue = defVal;
+		return;
+	}
+	/** Called when a widget responds to `onMouseDown` for a left button press */
+	void onDragStart(EventDragStart &e) override {
+		if (visible) {
+			MomentarySwitch::onDragStart(e);
+		}
+		return;
+	}
+	/** Called when the left button is released and this widget is being dragged */
+	void onDragEnd(EventDragEnd &e) override {
+		if (visible) {
+			MomentarySwitch::onDragEnd(e);
+		}
+		return;
+	}
+	/** Called when a widget responds to `onMouseUp` for a left button release and a widget is being dragged */
+	void onDragEnter(EventDragEnter &e) override {
+		if (visible) {
+			MomentarySwitch::onDragEnter(e);
+		}
+	}
+
+
+	//void draw(NVGcontext *vg) override {
+	//	if (visible) {
+	//		MomentarySwitch::draw(vg);
+	//	}
+	//}
+
+	void setVisible(bool visible) {
+		this->visible = visible;
+		return;
+	}
+
+	void draw(NVGcontext *vg) override
+	{
+		if (!visible)
+			return;
+		// Background
+		nvgBeginPath(vg);
+		if (cornerRadius > 0)
+			nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
+		else
+			nvgRect(vg, 0.0, 0.0, box.size.x, box.size.y);
+		nvgFillColor(vg, backgroundColor);
+		nvgFill(vg);
+		// Background - border.
+		if (borderWidth > 0) {
+			nvgStrokeWidth(vg, borderWidth);
+			nvgStrokeColor(vg, borderColor);
+			nvgStroke(vg);
+		}
+		// Text
+		nvgBeginPath(vg);
+		nvgScissor(vg, 1, 1, box.size.x - 2, box.size.y - 2);
+		nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+		nvgFontSize(vg, fontSize);
+		nvgFontFaceId(vg, font->handle);
+		nvgFillColor(vg, color);
+		nvgText(vg, box.size.x / 2.0, box.size.y/2.0, btnText.c_str(), NULL);
+		nvgResetScissor(vg);
+
+		return;
+	}
 };
 
 //------------------------------------------------------------------------------------------------
@@ -659,9 +794,19 @@ struct TS_LightRing : ColorValueLight
 //--------------------------------------------------------------
 // TS_TinyBlackKnob - 20x20 RoundBlackKnob
 //--------------------------------------------------------------
-struct TS_TinyBlackKnob : RoundBlackKnob {
+struct TS_TinyBlackKnob : RoundKnob {
 	 TS_TinyBlackKnob() {
-		 box.size = Vec(20, 20);		
+		 box.size = Vec(20, 20);		//TS_RoundBlackKnob_20
+		 setSVG(SVG::load(assetPlugin(plugin, "res/ComponentLibrary/TS_RoundBlackKnob_20.svg")));
+		 ///// TODO: Make small SVG. Make all original SVGs (no more reliance on built-in controls except for base class for behavior).
+		 //this->sw->svg = SVG::load(assetGlobal("res/ComponentLibrary/RoundSmallBlackKnob.svg"));
+		 ////sw->setSVG(svg);
+		 //sw->box.size = box.size;
+		 //tw->box.size = sw->box.size;
+		 ////box.size = sw->box.size;
+		 //shadow->box.size = sw->box.size;
+		 //shadow->box.pos = Vec(0, sw->box.size.y * 0.1);
+
 	 }
  };
 
@@ -1035,10 +1180,7 @@ ColorValueLight * TS_createColorValueLight(Vec pos, Module *module, int lightId,
 	light->box.pos = pos;
 	light->module = module;
 	light->firstLightId = lightId;	
-	
-	//light->value = value;
 	light->box.size = size;
-	//light->baseColor = lightColor;
 	light->setColor(lightColor);	
 	light->bgColor = backColor;
 	return light;
@@ -1062,6 +1204,7 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId, NVGcolor lightColo
 	port->type = Port::INPUT;
 	port->portId = inputId;
 	port->setLightColor(lightColor);
+	port->enableLights();
 	return port;
 }
 template <class TPort>
@@ -1072,6 +1215,7 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId, NVGcolor negColor,
 	port->type = Port::INPUT;
 	port->portId = inputId;
 	port->setLightColor(negColor, posColor);
+	port->enableLights();
 	return port;
 }
 template <class TPort>
@@ -1083,6 +1227,8 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId, bool disableLight)
 	port->portId = inputId;
 	if (disableLight)
 		port->disableLights();
+	else
+		port->enableLights();
 	return port;
 }
 template <class TPort>
@@ -1095,6 +1241,8 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId, bool disableLight,
 	port->setLightColor(lightColor);
 	if (disableLight)
 		port->disableLights();
+	else
+		port->enableLights();
 	return port;
 }
 
@@ -1117,6 +1265,7 @@ TS_Port* TS_createOutput(Vec pos, Module *module, int inputId, NVGcolor lightCol
 	port->type = Port::OUTPUT;
 	port->portId = inputId;
 	port->setLightColor(lightColor);
+	port->enableLights();
 	return port;
 }
 template <class TPort>
@@ -1127,6 +1276,7 @@ TS_Port* TS_createOutput(Vec pos, Module *module, int inputId, NVGcolor negColor
 	port->type = Port::OUTPUT;
 	port->portId = inputId;
 	port->setLightColor(negColor, posColor);
+	port->enableLights();
 	return port;
 }
 template <class TPort>
@@ -1138,6 +1288,22 @@ TS_Port* TS_createOutput(Vec pos, Module *module, int inputId, bool disableLight
 	port->portId = inputId;
 	if (disableLight)
 		port->disableLights();
+	else
+		port->enableLights();
+	return port;
+}
+template <class TPort>
+TS_Port* TS_createOutput(Vec pos, Module *module, int inputId, bool disableLight, NVGcolor lightColor) {
+	TS_Port *port = new TPort();
+	port->box.pos = pos;
+	port->module = module;
+	port->type = Port::OUTPUT;
+	port->portId = inputId;
+	port->setLightColor(lightColor);
+	if (disableLight)
+		port->disableLights();
+	else
+		port->enableLights();
 	return port;
 }
 

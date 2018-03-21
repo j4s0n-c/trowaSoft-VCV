@@ -480,12 +480,12 @@ struct TSSequencerModuleBase : Module {
 	virtual void fromJson(json_t *rootJ) override;
 }; // end struct TSSequencerModuleBase
 
-   //===============================================================================
-   //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-   // TSSeqDisplay
-   // A top digital display for trowaSoft sequencers.
-   //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-   //===============================================================================
+//===============================================================================
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// TSSeqDisplay
+// A top digital display for trowaSoft sequencers.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+//===============================================================================
 struct TSSeqDisplay : TransparentWidget {
 	TSSequencerModuleBase *module;
 	std::shared_ptr<Font> font;
@@ -700,10 +700,10 @@ struct TSSeqDisplay : TransparentWidget {
 	} // end draw()
 }; // end struct TSSeqDisplay
 
-   //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-   // TSSeqLabelArea
-   // Draw labels on our sequencer.
-   //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// TSSeqLabelArea
+// Draw labels on our sequencer.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct TSSeqLabelArea : TransparentWidget {
 	TSSequencerModuleBase *module;
 	std::shared_ptr<Font> font;

@@ -56,6 +56,25 @@ bool TSOSCConnector::registerPorts(int id, uint16_t txPort, uint16_t rxPort)
 		return false; // Do nothing
 	}
 }
+// Register the usage of these ports.
+bool TSOSCConnector::registerPort(int id, uint16_t port)
+{
+	std::lock_guard<std::mutex> lock(_mutex);
+	int tx = -1;
+	if (_portMap.count(port) < 1 || _portMap[port] == id)
+	{
+		tx = port;
+	}
+	if (tx > -1)
+	{
+		_portMap[port] = id;
+		return true;
+	}
+	else
+	{
+		return false; // Do nothing
+	}
+}
 // Clear the usage of these ports.
 bool TSOSCConnector::clearPorts(int id, uint16_t txPort, uint16_t rxPort)
 {
@@ -75,6 +94,19 @@ bool TSOSCConnector::clearPorts(int id, uint16_t txPort, uint16_t rxPort)
 		nErased++;
 	}
 	return nErased == 2;
+}
+// Clear the usage of these ports.
+bool TSOSCConnector::clearPort(int id, uint16_t port)
+{
+	std::lock_guard<std::mutex> lock(_mutex);
+	std::map<uint16_t, int>::iterator it;
+	it = _portMap.find(port);
+	if (it != _portMap.end() && _portMap[port] == id)
+	{
+		_portMap.erase(it);
+		return true;
+	}
+	return false;
 }
 
 // See if the port is in use (returns the id of the module using it or 0 if it is free).

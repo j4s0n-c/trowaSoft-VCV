@@ -3,6 +3,7 @@
 #include "TSSequencerModuleBase.hpp"
 #include "Module_voltSeq.hpp"
 //#include "Widget_trowaTrack.hpp"
+#include "Module_oscCV.hpp"
 
 // The plugin-wide instance of the Plugin class
 Plugin *plugin;
@@ -19,12 +20,13 @@ void init(rack::Plugin *p) {
 	p->addModel(modelTrigSeq);
 	p->addModel(modelTrigSeq64);
 	p->addModel(modelVoltSeq);
-	//p->addModel(Model::create<trigSeq, trigSeqWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "trigSeq", /*name*/ "trigSeq", /*Tags*/ SEQUENCER_TAG, EXTERNAL_TAG));
-	//p->addModel(Model::create<trigSeq64, trigSeq64Widget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "trigSeq64", /*name*/ "trigSeq64", /*Tags*/ SEQUENCER_TAG, EXTERNAL_TAG));
-	//p->addModel(Model::create<voltSeq, voltSeqWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "voltSeq", /*name*/ "voltSeq", /*Tags*/ SEQUENCER_TAG, EXTERNAL_TAG));
 
-	// Tracker:
-	//p->addModel(Model::create<trowaTrack, trowaTrackWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "trowaTrack", /*name*/ "trowaTrack", /*Tags*/ SEQUENCER_TAG, EXTERNAL_TAG));
+	//// Tracker:
+	////p->addModel(Model::create<trowaTrack, trowaTrackWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "trowaTrack", /*name*/ "trowaTrack", /*Tags*/ SEQUENCER_TAG, EXTERNAL_TAG));
+	//p->addModel(modelTrowaTrack);
+
+	// Osc <==> CV:
+	p->addModel(modelOscCV);
 
 	// Scope Modules:
 	//p->addModel(Model::create<multiScope, multiScopeWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "multiScope", /*name*/ "multiScope", /*Tags*/ VISUAL_TAG, EFFECT_TAG, UTILITY_TAG));

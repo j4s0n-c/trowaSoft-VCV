@@ -37,6 +37,10 @@ public:
 	bool registerPorts(int id, uint16_t txPort, uint16_t rxPort);
 	// Clear the usage of these ports.
 	bool clearPorts(int id, uint16_t txPort, uint16_t rxPort);
+	// Register the usage of these ports.
+	bool registerPort(int id, uint16_t port);
+	// Clear the usage of these ports.
+	bool clearPort(int id, uint16_t port);
 	// Get an available port.
 	uint16_t getAvailablePort(int id, uint16_t desiredPort);
 	// See if the port is in use (returns the id of the module using it or 0 if it is free).
@@ -50,6 +54,11 @@ public:
 	static bool RegisterPorts(int id, uint16_t txPort, uint16_t rxPort) { return Connector()->registerPorts(id, txPort, rxPort); }
 	// Clear the usage of these ports.
 	static bool ClearPorts(int id, uint16_t txPort, uint16_t rxPort) { return Connector()->clearPorts(id, txPort, rxPort);}
+	// Register the usage of these ports.
+	static bool RegisterPort(int id, uint16_t port) { return Connector()->registerPort(id, port); }
+	// Clear the usage of these ports.
+	static bool ClearPort(int id, uint16_t port) { return Connector()->clearPort(id, port); }
+
 	// See if the port is in use (returns the id of the module using it or 0 if it is free).
 	static int PortInUse(uint16_t port) { return Connector()->portInUse(port); }
 private:

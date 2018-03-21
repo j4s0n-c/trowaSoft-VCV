@@ -130,7 +130,7 @@ void multiScope::step() {
 		if (waveForms[wIx]->fillOnTrigger.process(params[multiScope::FILL_ON_PARAM + wIx].value))
 		{
 			waveForms[wIx]->doFill = !waveForms[wIx]->doFill;
-			debug("Waveform %d: Fill On Clicked : %d (ParamId: %d).", wIx, waveForms[wIx]->doFill, multiScope::FILL_ON_PARAM + wIx);
+			//debug("Waveform %d: Fill On Clicked : %d (ParamId: %d).", wIx, waveForms[wIx]->doFill, multiScope::FILL_ON_PARAM + wIx);
 		}
 		lights[multiScope::FILL_ON_LED + wIx].value = waveForms[wIx]->doFill;
 		hue = 0;
@@ -170,7 +170,7 @@ void multiScope::step() {
 		if (waveForms[wIx]->rotModeTrigger.process(params[multiScope::ROTATION_MODE_PARAM+wIx].value))
 		{
 			waveForms[wIx]->rotMode = !waveForms[wIx]->rotMode;
-			debug("Waveform %d: Rotation Mode On Clicked : %d.", wIx, waveForms[wIx]->rotMode);
+			//debug("Waveform %d: Rotation Mode On Clicked : %d.", wIx, waveForms[wIx]->rotMode);
 		}
 		lights[multiScope::ROT_LED+wIx].value = waveForms[wIx]->rotMode;		
 		float rot = 0;

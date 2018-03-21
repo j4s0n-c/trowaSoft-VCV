@@ -504,7 +504,7 @@ struct multiScopeDisplay : TransparentWidget {
 
 
 	void draw(NVGcontext *vg) override {
-		if (!module->initialized)
+		if (module == NULL || !module->initialized)
 			return;
 		float gainX = ((int)(module->params[multiScope::X_SCALE_PARAM + wIx].value * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
 		float gainY = ((int)(module->params[multiScope::Y_SCALE_PARAM + wIx].value * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);

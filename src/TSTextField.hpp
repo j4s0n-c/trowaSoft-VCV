@@ -11,6 +11,7 @@ using namespace rack;
 #include <sstream>
 #include <string>
 
+
 // Integer/Digits: Entire string validation
 #define TROWA_REGEX_NUMERIC_STR_ONLY		"^[0-9]*$"
 // Integer/Digits: Single char validation
@@ -32,6 +33,7 @@ using namespace rack;
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 bool isPrintableKey(int keyCode);
 
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // TSTextField - overload rack TextField
 // trowaSoft text field with some basic validation and character limiting enforced.
@@ -42,8 +44,6 @@ bool isPrintableKey(int keyCode);
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 /// TODO: Redo this struct completely.
 struct TSTextField : TextField {
-	//int begin = 0;
-	//int end = 0; // Removed from new version TextField.
 	// Maximum length allowed.
 	uint16_t maxLength = 50;
 	// The id of this widget. For use like tab order or something.
@@ -82,15 +82,28 @@ struct TSTextField : TextField {
 	std::regex regexStr;
 	// Regex for invalid characters (to match on invalid and remove).
 	std::regex regexInvalidChar;
+	// The background color.
+	NVGcolor backgroundColor;
+	// Font
+	std::shared_ptr<Font> font;
+	// Text offset
+	Vec textOffset;
+	// Text color
+	NVGcolor color;
+	// Font size
+	float fontSize;
+	// The caret color
+	NVGcolor caretColor;
 
-	TSTextField(TextType textType) : TextField() {
-		setTextType(textType);
-		return;
-	}
-	TSTextField(TextType textType, int maxLength) : TSTextField(textType) {
-		this->maxLength = maxLength;
-		return;
-	}
+	std::string displayStr;
+
+	int borderWidth = 0;
+	NVGcolor borderColor;
+
+	int getTextPosition(Vec mousePos) override;
+
+	TSTextField(TextType textType);
+	TSTextField(TextType textType, int maxLength);
 	//-----------------------------------------------------------------------------------------------
 	// TSTextField()
 	// @id : (IN) Hopefully unique id for the form. Should indicate tab order.
@@ -138,8 +151,14 @@ struct TSTextField : TextField {
 	void onKey(EventKey &e) override;
 	void insertText(std::string newText);
 	void onTextChange() override;
+	// Set the text
+	void setText(std::string text);
+	// On key
+	void onText(EventText &e) override;
 	// Request focus on this field from the Rack engine.
 	void requestFocus();
+	//void onDefocus(EventDefocus &e) override;
+
 }; // end struct TSTextField
 
 
