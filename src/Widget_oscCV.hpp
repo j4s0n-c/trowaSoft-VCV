@@ -119,7 +119,7 @@ struct TSOscCVDataTypeSelectBtn : ChoiceButton {
 		return;
 	}
 	void step() override {
-		text = ellipsize(itemStrs[selectedIndex], showNumChars);
+		text = stringEllipsize(itemStrs[selectedIndex], showNumChars);
 	}
 	void onAction(EventAction &e) override;
 	// Draw if visible

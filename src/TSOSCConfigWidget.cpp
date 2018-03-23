@@ -49,7 +49,7 @@ void TSOSCClientSelectBtn::onAction(EventAction &e) {
 }
 
 void TSOSCClientSelectBtn::step() {
-	text = ellipsize(OSCClientStr[selectedOSCClient], 15);
+	text = stringEllipsize(OSCClientStr[selectedOSCClient], 15);
 }
 
 void TSOSCClientSelectBtn::draw(NVGcontext *vg) {
