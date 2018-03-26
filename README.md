@@ -4,7 +4,7 @@
 </div>
 
 trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.x and v0.6.x. 
-Current pack includes [trigSeq &amp; trigSeq64](#trigseq--trigseq64), [voltSeq](#voltseq), [multiScope](#multiscope), and [cvOSCcv](#cvOSCcv) (**new 2018-03-20**).
+Current pack includes [trigSeq &amp; trigSeq64](#trigseq--trigseq64), [voltSeq](#voltseq), [multiScope](#multiscope), and [cvOSCcv](#cvosccv) (**new 2018-03-20**).
 
 For more information about these modules, please visit:
 http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx.
@@ -117,9 +117,9 @@ Variable voltage output step sequencer (-10V to +10V), based off the [Fundamenta
 
 **cvOSCcv** is a simple, generic Open Sound Control (OSC) module for outputting Rack CVs to OSC and reading in simple OSC messages into Rack CVs. This module is new in version 0.6.0.
 + **CV Inputs** - CV => OSC (8 Channels), each channel:
-    + **TRG** - If active, then OSC messages will output the **VAL** CV input value when triggered.
-	+ **VAL** - The value that will output over OSC. Currently sent as a float.
-	If there is no trigger present, the module will output whenever **VAL** changes at least 0.05 up to 100 Hz.
+    + **TRG** - If active, then OSC messages will output the **VAL** CV input when triggered.
+    + **VAL** - The value that will output over OSC. Currently sent as a float.
+      If there is no trigger present, the module will output whenever **VAL** changes at least 0.05 up to 100 Hz.
 + **CV Outputs** - OSC => CV (8 channels), each channel:
     + **TRG** - (0-10V) Triggers whenever an OSC message is received.
 	+ **VAL** - (Gate) Outputs the last OSC value received.
@@ -128,8 +128,8 @@ Variable voltage output step sequencer (-10V to +10V), based off the [Fundamenta
 	+ **OSC IP Address** - The IP address of the OSC client/server.  Default is `127.0.0.1`.
 	+ **Out Port** - Port for sending messages. 
 	+ **In Port** - Port for receiving messages. Currently, trowaSoft modules can NOT share the same ports.
-	+ **Namespace** - The OSC namespace. Uris will be http://{ip address}:{port}/{namespace}. Default is `trowacv`.
-    + Per Channel: **Address** - Endpoint address. Default is `/ch/{channel #}`. Example of a full address would be `http://127.0.0.1:7000/trowacv/ch/1`.
+	+ **Namespace** - The OSC namespace. Uris will be `{ip address}:{port}/{namespace}`. Default is `trowacv`.
+    + Per Channel: **Address** - Endpoint address. Default is `/ch/{channel #}`. Example of a full address would be `127.0.0.1:7000/trowacv/ch/1`.
 	  
 	NOTE: To save Channel Address changes after a connection is active, simply hide the configuration screen again.
 
