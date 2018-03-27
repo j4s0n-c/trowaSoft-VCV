@@ -128,8 +128,8 @@ Variable voltage output step sequencer (-10V to +10V), based off the [Fundamenta
 	+ **OSC IP Address** - The IP address of the OSC client/server.  Default is `127.0.0.1`.
 	+ **Out Port** - Port for sending messages. 
 	+ **In Port** - Port for receiving messages. Currently, trowaSoft modules can NOT share the same ports.
-	+ **Namespace** - The OSC namespace. Uris will be `{ip address}:{port}/{namespace}`. Default is `trowacv`.
-    + Per Channel: **Address** - Endpoint address. Default is `/ch/{channel #}`. Example of a full address would be `127.0.0.1:7000/trowacv/ch/1`.
+	+ **Namespace** - The OSC namespace. Default is `trowacv`.
+    + Per Channel: **Address** - Endpoint address. Default is `/ch/{channel #}`. 
 	  
 	NOTE: To save Channel Address changes after a connection is active, simply hide the configuration screen again.
 
