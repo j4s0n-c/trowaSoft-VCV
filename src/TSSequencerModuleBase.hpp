@@ -146,6 +146,9 @@ struct TSSequencerModuleBase : Module {
 	bool initialized = false;
 	// If reset is pressed while paused, when we play, we should fire step 0.
 	bool resetPaused = false;
+	// [03/30/2015] A  reset has been queued for the next step. (https://github.com/j4s0n-c/trowaSoft-VCV/issues/11)
+	// So now reset is not immediate, but will wait for the next step.
+	bool resetQueued = false;
 	// If this module is running.
 	bool running = true;
 	SchmittTrigger clockTrigger; 		// for external clock

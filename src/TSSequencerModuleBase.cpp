@@ -1125,12 +1125,21 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	lastOutputValueMode = selectedOutputValueMode;
 
 	// Reset
+	// [03/30/2018] So, now j4s0n wants RESET to wait until the next step is played... 
+	// So it's delayed reset. https://github.com/j4s0n-c/trowaSoft-VCV/issues/11
 	if (resetTrigger.process(params[RESET_PARAM].value + inputs[RESET_INPUT].value) || resetMsg)
 	{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 		debug("Reset");
 #endif
 		resetPaused = !running;
+		// [03/30/2018] Delay reset until the next step. (https://github.com/j4s0n-c/trowaSoft-VCV/issues/11)
+		// So it's more like JUMP TO step 0 (waits until the next step).
+		resetQueued = true; // Flag that the reset has been queued.
+	} // end check for reset
+
+	if (resetQueued && nextStep) {
+		resetQueued = false; 
 		realPhase = 0.0;
 		swingAdjustedPhase = 0; // Reset swing		
 		index = 999;
@@ -1148,7 +1157,8 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 			oscTxSocket->Send(oscStream.Data(), oscStream.Size());
 		}
 		oscMutex.unlock();
-	}
+	} // end if resetQueued and it's time to reset
+
 	// Next Step
 	if (nextStep)
 	{
