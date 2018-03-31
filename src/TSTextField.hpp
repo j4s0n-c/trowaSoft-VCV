@@ -19,6 +19,13 @@ using namespace rack;
 // Integer/Digits: Not an digit
 #define TROWA_REGEX_NUMERIC_CHAR_NOT		"[^0-9]"
 
+// Floating Point/Real: Entire string validation -- Format String. The precision should be injected (%d)!!!
+#define TROWA_REGEX_FLOAT_STR_ONLY_FORMAT		"^-?[0-9]+(\\.[0-9]{0,%d})?$"
+// Floating Point/Real: Single char validation
+#define TROWA_REGEX_FLOAT_CHAR_ONLY				"^[\\-0-9\\.]$"
+// Floating Point/Real: Not a valid char
+#define TROWA_REGEX_FLOAT_CHAR_NOT				"[^\\-0-9\\.]"
+
 // IP Address: Entire string validation
 #define TROWA_REGEX_IP_ADDRESS			 "^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" 
 // IP Address: Single char validation
@@ -72,7 +79,9 @@ struct TSTextField : TextField {
 		// Digits only (no decimals even).
 		DigitsOnly,
 		// IP address (digits and periods), IPv4.
-		IpAddress
+		IpAddress,
+		// Real number (or integer), specify precision (max # of decimals).
+		RealNumberOnly
 	};
 	// Text type for validation of input.
 	TextType allowedTextType = TextType::Any;
@@ -94,6 +103,8 @@ struct TSTextField : TextField {
 	float fontSize;
 	// The caret color
 	NVGcolor caretColor;
+	// The number of decmals allowed.
+	int realNumberPrecision = 2;
 
 	std::string displayStr;
 
@@ -127,6 +138,9 @@ struct TSTextField : TextField {
 	void setTextType(TextType validationType)
 	{
 		this->allowedTextType = validationType;
+
+		char buffer[50] = { '\0' };
+
 		switch (allowedTextType)
 		{
 		case TextType::DigitsOnly:
@@ -139,18 +153,35 @@ struct TSTextField : TextField {
 			regexStr = std::regex(TROWA_REGEX_IP_ADDRESS);
 			regexInvalidChar = std::regex(TROWA_REGEX_IP_CHAR_NOT);
 			break;
+		case TextType::RealNumberOnly:
+			regexChar = std::regex(TROWA_REGEX_FLOAT_CHAR_ONLY);
+			// Add our number of decimals to the regex:
+			sprintf(buffer, TROWA_REGEX_FLOAT_STR_ONLY_FORMAT, this->realNumberPrecision);
+			regexStr = std::regex(buffer);
+			regexInvalidChar = std::regex(TROWA_REGEX_FLOAT_CHAR_NOT);
+			break;
 		case TextType::Any:
 		default:
 			break;
 		}
 		return;
 	}
+	// Set the decimal precision allowed for the text box.
+	void setRealPrecision(int precision) {
+		this->realNumberPrecision = precision;
+		if (allowedTextType == TextType::RealNumberOnly) {
+			setTextType(allowedTextType); // Redo our regex.
+		}
+	}
+
+
+
 	// Remove invalid chars.
 	std::string cleanseString(std::string newText);
 	void draw(NVGcontext *vg) override;
-	void onKey(EventKey &e) override;
 	void insertText(std::string newText);
 	void onTextChange() override;
+	void onKey(EventKey &e) override;
 	// Set the text
 	void setText(std::string text);
 	// On key
@@ -159,6 +190,89 @@ struct TSTextField : TextField {
 	void requestFocus();
 	//void onDefocus(EventDefocus &e) override;
 
+	// -- TRY TO NOT RESPOND TO EVENTS IF WE ARE HIDING --
+
+	/** Called when a mouse button is pressed over this widget
+	0 for left, 1 for right, 2 for middle.
+	Return `this` to accept the event.
+	Return NULL to reject the event and pass it to the widget behind this one.
+	*/
+	void onMouseDown(EventMouseDown &e) override {
+		if (visible) {
+			TextField::onMouseDown(e);
+		}
+	};
+	void onMouseUp(EventMouseUp &e) override {
+		if (visible) {
+			TextField::onMouseUp(e);
+		}
+	};
+	/** Called on every frame, even if mouseRel = Vec(0, 0) */
+	void onMouseMove(EventMouseMove &e) override {
+		if (visible) {
+			TextField::onMouseMove(e);
+		}
+	}
+	void onHoverKey(EventHoverKey &e) override {
+		if (visible) {
+			TextField::onHoverKey(e);
+		}
+	};
+	///** Called when this widget begins responding to `onMouseMove` events */
+	//virtual void onMouseEnter(EventMouseEnter &e) {}
+	///** Called when another widget begins responding to `onMouseMove` events */
+	//virtual void onMouseLeave(EventMouseLeave &e) {}
+	//virtual void onFocus(EventFocus &e) {}
+	//virtual void onDefocus(EventDefocus &e) {}
+	//virtual void onScroll(EventScroll &e);
+
+	/** Called when a widget responds to `onMouseDown` for a left button press */
+	void onDragStart(EventDragStart &e) override {
+		if (visible) {
+			TextField::onDragStart(e);
+		}
+	}
+	/** Called when the left button is released and this widget is being dragged */
+	void onDragEnd(EventDragEnd &e) override {
+		if (visible) {
+			TextField::onDragEnd(e);
+		}
+	}
+	/** Called when a widget responds to `onMouseMove` and is being dragged */
+	void onDragMove(EventDragMove &e) override {
+		if (visible) {
+			TextField::onDragMove(e);
+		}
+	}
+	/** Called when a widget responds to `onMouseUp` for a left button release and a widget is being dragged */
+	void onDragEnter(EventDragEnter &e) override {
+		if (visible) {
+			TextField::onDragEnter(e);
+		}
+	}
+	void onDragLeave(EventDragEnter &e) override {
+		if (visible) {
+			TextField::onDragLeave(e);
+		}
+	}
+	void onDragDrop(EventDragDrop &e) override {
+		if (visible) {
+			TextField::onDragDrop(e);
+		}
+	}
+	void onPathDrop(EventPathDrop &e)override {
+		if (visible) {
+			TextField::onPathDrop(e);
+		}
+	}
+
+	void onAction(EventAction &e) override {
+		if (visible) {
+			TextField::onAction(e);
+		}
+	}
+	//void onChange(EventChange &e) override {
+	//}
 }; // end struct TSTextField
 
 
