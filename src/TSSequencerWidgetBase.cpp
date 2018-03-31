@@ -461,6 +461,7 @@ struct seqRandomMenuItem : MenuItem {
 
 	seqRandomMenuItem(std::string text, bool useStructured, TSSequencerModuleBase* seqModule)
 	{
+		this->box.size.x = 200;
 		this->text = text;
 		this->useStucturedRandom = useStructured;
 		this->sequencerModule = seqModule;

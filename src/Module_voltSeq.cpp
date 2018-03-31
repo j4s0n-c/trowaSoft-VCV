@@ -246,6 +246,9 @@ void voltSeq::step()
 				dynamic_cast<TS_LightArc*>(padLightPtrs[r][c])->zeroAnglePoint = currOutputValueMode->zeroPointAngle_radians;
 				dynamic_cast<TS_LightArc*>(padLightPtrs[r][c])->valueMode = currOutputValueMode;
 				knobStepMatrix[r][c]->defaultValue = currOutputValueMode->zeroValue;
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+				debug("Setting Knob %d default value to %.2f", knobStepMatrix[r][c]->id, knobStepMatrix[r][c]->defaultValue);
+#endif
 			}
 		}
 	}
@@ -455,11 +458,13 @@ voltSeqWidget::voltSeqWidget(voltSeq* seqModule) : TSSequencerWidgetBase(seqModu
 			// Pad Knob:
 			TS_LightedKnob* knobPtr = dynamic_cast<TS_LightedKnob*>(ParamWidget::create<TS_LightedKnob>(Vec(x, y), seqModule, 
 				TSSequencerModuleBase::CHANNEL_PARAM + r*seqModule->numCols + c, 
-				/*min*/ voltSeq_STEP_KNOB_MIN,  /*max*/ voltSeq_STEP_KNOB_MAX, /*default*/ voltSeq_STEP_KNOB_MIN));
+				/*min*/ voltSeq_STEP_KNOB_MIN,  /*max*/ voltSeq_STEP_KNOB_MAX, /*default*/ 0.0f));
 			if (!isPreview)
 				seqModule->knobStepMatrix[r][c] = knobPtr;
-			knobPtr->value = 0.0;// voltSeq_STEP_KNOB_MIN;
-			knobPtr->defaultValue = 0.0; // For now, assume always that Voltage is first
+			knobPtr->id = r * seqModule->numCols + c;
+			knobPtr->value = 0.0f;// voltSeq_STEP_KNOB_MIN;
+			knobPtr->defaultValue = 0.0f; // For now, assume always that Voltage is first
+
 			
 			// Keep a reference to our pad lights so we can change the colors			
 			TS_LightArc* lightPtr = dynamic_cast<TS_LightArc*>(TS_createColorValueLight<TS_LightArc>(/*pos */ Vec(x+dx, y+dx), 
@@ -559,6 +564,7 @@ struct voltSeq_ShiftVoltageMenuItem : MenuItem {
 
 	voltSeq_ShiftVoltageMenuItem(std::string text, float amount, voltSeq* seqModule)
 	{
+		this->box.size.x = 200;
 		this->text = text;
 		this->amount = amount;
 		this->sequencerModule = seqModule;

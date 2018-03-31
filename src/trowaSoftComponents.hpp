@@ -360,6 +360,93 @@ struct TS_Pad_Reset : SVGSwitch, MomentarySwitch {
 		box.size = sw->box.size;
 	}	
 };
+
+struct HideableLEDButton : LEDButton
+{
+
+	void draw(NVGcontext *vg) override {
+		if (visible) {
+			LEDButton::draw(vg);
+		}
+	}
+
+	void onMouseDown(EventMouseDown &e) override {
+		if (visible) {
+			LEDButton::onMouseDown(e);
+		}
+	};
+	void onMouseUp(EventMouseUp &e) override {
+		if (visible) {
+			LEDButton::onMouseUp(e);
+		}
+	};
+	/** Called on every frame, even if mouseRel = Vec(0, 0) */
+	void onMouseMove(EventMouseMove &e) override {
+		if (visible) {
+			LEDButton::onMouseMove(e);
+		}
+	}
+	void onHoverKey(EventHoverKey &e) override {
+		if (visible) {
+			LEDButton::onHoverKey(e);
+		}
+	};
+	///** Called when this widget begins responding to `onMouseMove` events */
+	//virtual void onMouseEnter(EventMouseEnter &e) {}
+	///** Called when another widget begins responding to `onMouseMove` events */
+	//virtual void onMouseLeave(EventMouseLeave &e) {}
+	//virtual void onFocus(EventFocus &e) {}
+	//virtual void onDefocus(EventDefocus &e) {}
+	//virtual void onScroll(EventScroll &e);
+
+	/** Called when a widget responds to `onMouseDown` for a left button press */
+	void onDragStart(EventDragStart &e) override {
+		if (visible) {
+			LEDButton::onDragStart(e);
+		}
+	}
+	/** Called when the left button is released and this widget is being dragged */
+	void onDragEnd(EventDragEnd &e) override {
+		if (visible) {
+			LEDButton::onDragEnd(e);
+		}
+	}
+	/** Called when a widget responds to `onMouseMove` and is being dragged */
+	void onDragMove(EventDragMove &e) override {
+		if (visible) {
+			LEDButton::onDragMove(e);
+		}
+	}
+	/** Called when a widget responds to `onMouseUp` for a left button release and a widget is being dragged */
+	void onDragEnter(EventDragEnter &e) override {
+		if (visible) {
+			LEDButton::onDragEnter(e);
+		}
+	}
+	void onDragLeave(EventDragEnter &e) override {
+		if (visible) {
+			LEDButton::onDragLeave(e);
+		}
+	}
+	void onDragDrop(EventDragDrop &e) override {
+		if (visible) {
+			LEDButton::onDragDrop(e);
+		}
+	}
+	void onPathDrop(EventPathDrop &e)override {
+		if (visible) {
+			LEDButton::onPathDrop(e);
+		}
+	}
+
+	void onAction(EventAction &e) override {
+		if (visible) {
+			LEDButton::onAction(e);
+		}
+	}
+
+
+};
 //--------------------------------------------------------------
 // TS_ScreenBtn - Screen button.
 //--------------------------------------------------------------
@@ -381,6 +468,16 @@ struct TS_ScreenBtn : MomentarySwitch {
 	int fontSize = 10;
 	// Font face
 	std::shared_ptr<Font> font = NULL;
+	// Padding
+	int padding = 1;
+
+	enum TextAlignment {
+		Left,
+		Center,
+		Right
+	};
+
+	TextAlignment textAlign = TextAlignment::Center;
 
 	//TS_ScreenBtn()
 	//{		
@@ -420,13 +517,11 @@ struct TS_ScreenBtn : MomentarySwitch {
 			MomentarySwitch::onDragEnter(e);
 		}
 	}
-
-
-	//void draw(NVGcontext *vg) override {
-	//	if (visible) {
-	//		MomentarySwitch::draw(vg);
-	//	}
-	//}
+	void onMouseDown(EventMouseDown &e) override {
+		if (visible) {
+			MomentarySwitch::onMouseDown(e);
+		}
+	}
 
 	void setVisible(bool visible) {
 		this->visible = visible;
@@ -453,12 +548,32 @@ struct TS_ScreenBtn : MomentarySwitch {
 		}
 		// Text
 		nvgBeginPath(vg);
-		nvgScissor(vg, 1, 1, box.size.x - 2, box.size.y - 2);
-		nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+		nvgScissor(vg, padding, padding, box.size.x - 2*padding, box.size.y - 2*padding);
 		nvgFontSize(vg, fontSize);
 		nvgFontFaceId(vg, font->handle);
 		nvgFillColor(vg, color);
-		nvgText(vg, box.size.x / 2.0, box.size.y/2.0, btnText.c_str(), NULL);
+
+		float x, y;
+		NVGalign nvgAlign;
+		y = box.size.y / 2.0f;
+		switch (textAlign) {
+			case TextAlignment::Left:
+				nvgAlign = NVG_ALIGN_LEFT;
+				x = box.size.x + padding;
+				break;
+			case TextAlignment::Right:
+				nvgAlign = NVG_ALIGN_RIGHT;
+				x = box.size.x - padding;
+				break;
+			case TextAlignment::Center:
+			default:
+				nvgAlign = NVG_ALIGN_CENTER;
+				x = box.size.x / 2.0f;
+				break;
+		}
+
+		nvgTextAlign(vg, nvgAlign | NVG_ALIGN_MIDDLE);
+		nvgText(vg, x, y, btnText.c_str(), NULL);
 		nvgResetScissor(vg);
 
 		return;
@@ -579,6 +694,7 @@ struct TS_LightedKnob : SVGKnob {
 	float currentAngle;
 	float differentialAngle;
 	const float zeroAnglePoint = TROWA_ANGLE_STRAIGHT_UP_RADIANS;
+	int id = 0; // For debugging.
 
 	TS_LightedKnob() {
 		minAngle = -0.83*NVG_PI;
@@ -590,13 +706,22 @@ struct TS_LightedKnob : SVGKnob {
 		snap = false;
 		return;
 	}
+	TS_LightedKnob(int id) : TS_LightedKnob() {
+		this->id = id;
+	}
 	void randomize() override { return; }	
 	void setKnobValue(float val)
 	{
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+		float prevVal = value;
+#endif
 		value = val;
 		differentialAngle = rescale(value, minValue, maxValue, minAngle, maxAngle);
 		currentAngle = zeroAnglePoint + differentialAngle;		
 		this->dirty = true;
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+		debug("Knob %d: Set value to %.2f (from %.2f). Current Value is now %.2f.", id, val, prevVal, value);
+#endif
 		return;
 	}
 	void step() override {
