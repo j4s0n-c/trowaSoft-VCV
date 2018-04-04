@@ -8,9 +8,10 @@ using namespace rack;
 extern Plugin *plugin;
 
 // An internal version number (integer) value. Simple int value for quick/dirty easy comparison.
-#define TROWA_INTERNAL_VERSION_INT		8 
+#define TROWA_INTERNAL_VERSION_INT		9
 // 7: 0.5.5.2
 // 8: 0.6.5.2dev - For Rack 0.6.0dev
+// 9: 0.6.1
 
 
 //#include "TSSModuleWidgetBase.hpp"

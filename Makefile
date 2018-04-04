@@ -3,7 +3,7 @@ SHELL:=/bin/bash -O extglob
 # 03/03/2018 Changed to match https://github.com/VCVRack/Fundamental/blob/master/Makefile
 
 SLUG = trowaSoft
-VERSION = 0.6.0
+VERSION = 0.6.1
 # ^ Don't allow any SPACE after the VERSION because it will F'UP the zip...
 # ONLY 3 digits allowed now. https://github.com/VCVRack/community/issues/269
 
