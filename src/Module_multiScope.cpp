@@ -1,3 +1,8 @@
+#include "Features.hpp"
+
+#if USE_NEW_SCOPE
+
+
 #include <string.h>
 #include "trowaSoft.hpp"
 #include "trowaSoftComponents.hpp"
@@ -482,3 +487,5 @@ void multiScopeDisplay::drawWaveform(NVGcontext *vg, float *valX, float *valY, b
 	nvgGlobalCompositeOperation(vg, NVG_SOURCE_OVER); // Restore to normal
 	return;
 } // end drawWaveform()	  
+
+#endif // end if use new scope

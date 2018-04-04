@@ -1,4 +1,8 @@
-﻿#include <string.h>
+﻿#include "Features.hpp"
+
+#if USE_NEW_SCOPE
+
+#include <string.h>
 #include "trowaSoft.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
@@ -574,3 +578,4 @@ void multiScopeWidget::fromJson(json_t *rootJ) {
 } // end fromJson()
 
 
+#endif // use new scope

@@ -1,10 +1,9 @@
-#ifndef WIDGET_MULTISCOPE_HPP
-#define WIDGET_MULTISCOPE_HPP
-
 #include "Features.hpp"
 
-#if USE_NEW_SCOPE
+#if !USE_NEW_SCOPE
 
+#ifndef WIDGET_MULTISCOPE_OLD_HPP
+#define WIDGET_MULTISCOPE_OLD_HPP
 
 #include "rack.hpp"
 using namespace rack;
@@ -14,9 +13,7 @@ using namespace rack;
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
 #include "dsp/digital.hpp"
-#include "Module_multiScope.hpp"
-
-/// TODO: Widget/Module wide invert setting
+#include "Module_multiScope_Old.hpp"
 
 
 
@@ -28,8 +25,6 @@ struct TSScopeModuleResizeHandle : Widget {
 
 	TS_PadSwitch* displayToggleBtn = NULL;
 	ColorValueLight* displayToggleLED = NULL;
-	TS_PadSwitch* colorDisplayToggleBtn = NULL;
-	ColorValueLight* colorDisplayToggleLED = NULL;
 
 	TSScopeModuleResizeHandle(float minWidth) {
 		box.size = Vec(RACK_GRID_WIDTH * 1, RACK_GRID_HEIGHT);
@@ -64,21 +59,6 @@ struct TSScopeModuleResizeHandle : Widget {
 				margin = 0;
 			displayToggleLED->box.pos.x = this->box.pos.x + margin;
 		}
-		if (colorDisplayToggleBtn)
-		{
-			float margin = (this->box.size.x - colorDisplayToggleBtn->box.size.x) / 2.0;
-			if (margin < 0)
-				margin = 0;
-			colorDisplayToggleBtn->box.pos.x = this->box.pos.x + margin;
-		}
-		if (colorDisplayToggleLED)
-		{
-			float margin = (this->box.size.x - colorDisplayToggleLED->box.size.x) / 2.0;
-			if (margin < 0)
-				margin = 0;
-			colorDisplayToggleLED->box.pos.x = this->box.pos.x + margin;
-		}
-		return;
 	}
 
 
@@ -123,8 +103,7 @@ struct multiScopeWidget : ModuleWidget {
 	Panel* panel;
 	TSScopeModuleResizeHandle* rightHandle;
 	TransparentWidget* display[TROWA_SCOPE_NUM_WAVEFORMS];
-	TS_Panel* screenContainer;
-	TS_ColorSlider* colorSliders[3];
+	Panel* screenBackground;
 	TSScopeDisplay* scopeInfoDisplay;
 	// Keep screw references to move them.
 	ScrewBlack* rhsScrews[2];
@@ -134,13 +113,7 @@ struct multiScopeWidget : ModuleWidget {
 	TS_Port* inputPorts[multiScope::NUM_INPUTS];
 	// Keep references to our scale knobs [0: x, 1: y]
 	TS_TinyBlackKnob* scaleKnobs[TROWA_SCOPE_NUM_WAVEFORMS][2];
-	ColorValueLight* fillColorLEDs[TROWA_SCOPE_NUM_WAVEFORMS];
-
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// multiScopeWidget()
-	// Instantiate a multiScope widget. v0.60 must have module as param.
-	// @scopeModule : (IN) Pointer to the multiScope module.
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	
 	multiScopeWidget(multiScope* scopeModule);
 	void step() override;
 	json_t *toJson() override;
@@ -148,6 +121,6 @@ struct multiScopeWidget : ModuleWidget {
 	//Menu *createContextMenu() override;
 };
 
-#endif // use new scope
-
+#endif // not use new scope
 #endif // end if not defined
+

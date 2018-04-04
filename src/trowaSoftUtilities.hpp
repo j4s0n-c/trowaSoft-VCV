@@ -70,7 +70,7 @@ inline int VoltsToNoteIx(float v)
 // Floating point hue [0-1.0] to color.
 NVGcolor inline HueToColor(float hue)
 {
-	return nvgHSLA(hue, 0.5, 0.5, /*alpha 0-255*/ 0xff);
+	return nvgHSLA(hue, 1.0, 0.5, /*alpha 0-255*/ 0xff);
 }
 // Floating point hue [0-1.0] to color.
 NVGcolor inline HueToColor(float hue, float sat, float light)

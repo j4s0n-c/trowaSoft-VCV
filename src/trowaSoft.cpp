@@ -1,9 +1,11 @@
 #include "trowaSoft.hpp"
 #include "Widget_multiScope.hpp"
+#include "Widget_multiScope_Old.hpp"
 #include "TSSequencerModuleBase.hpp"
 #include "Module_voltSeq.hpp"
 //#include "Widget_trowaTrack.hpp"
 #include "Module_oscCV.hpp"
+//#include "TSMidiOutTest.hpp"
 
 // The plugin-wide instance of the Plugin class
 Plugin *plugin;
@@ -24,10 +26,11 @@ void init(rack::Plugin *p) {
 	//// Tracker:
 	////p->addModel(Model::create<trowaTrack, trowaTrackWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "trowaTrack", /*name*/ "trowaTrack", /*Tags*/ SEQUENCER_TAG, EXTERNAL_TAG));
 	//p->addModel(modelTrowaTrack);
+	//p->addModel(modelTrowaTrack);
 
 	// Osc <==> CV:
 	p->addModel(modelOscCV);
-
+	//p->addModel(modelTSMidiOutTest);
 	// Scope Modules:
 	//p->addModel(Model::create<multiScope, multiScopeWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "multiScope", /*name*/ "multiScope", /*Tags*/ VISUAL_TAG, EFFECT_TAG, UTILITY_TAG));
 	p->addModel(modelMultiScope);
