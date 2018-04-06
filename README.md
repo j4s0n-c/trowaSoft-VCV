@@ -12,11 +12,13 @@ http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx
 For more information about Rack, please visit:
 https://vcvrack.com/.
 
+If you like the modules and wish to donate, you may do so [here](https://paypal.me/j4s0n). Any donation is much appreciated.
+
 ## Binaries/Builds
 Any builds that are currently available are at [Github Releases page](https://github.com/j4s0n-c/trowaSoft-VCV/releases) and [geeksaurusrex](http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx). 
 
 **VCV Rack v0.6.x**:
-**2018-03-20**: The latest version is [v0.6.0](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.6.0).
+**2018-04-05**: The latest version is [v0.6.1](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.6.1).
 
 **VCV Rack v0.5.x**:
 2018-02-17: The last version is [v0.5.5.2](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.5.5.2). No more versions for Rack 0.5.x will be developed.
@@ -65,8 +67,7 @@ Variable voltage output step sequencer (-10V to +10V), based off the [Fundamenta
 + Advanced Randomization options (as of v.0.5.5.2) for all patterns, current edit pattern, or only the displayed channel. Chose from 'normal random' or 'structured' random patterns.
 + Shift Values (as of v0.5.5.2): +/- 1 Volt or 1 Octave or 1 Pattern for all patterns, current edit pattern, or only the displayed channel.
 
-## Other
-### multiScope
+## multiScope
 <div>
 <img width="700" src="https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/multiScope_screenshot_02.png?raw=true" />
 </div>
@@ -110,7 +111,7 @@ Variable voltage output step sequencer (-10V to +10V), based off the [Fundamenta
 	+ **BG COLOR** - (Toggle) Toggle on-screen Background Color picker on / off (default is on). Located on the right-hand-side (RHS) bar.
 	+ **Background Color Picker** - Displayed on screen. Hue-Saturation-Light (HSL) sliders to pick the background color.
 
-### cvOSCcv
+## cvOSCcv
 <div>
 <img width="700" src="https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/cvOSCcv_screenshot_01.png?raw=true" />
 </div>
