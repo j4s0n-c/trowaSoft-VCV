@@ -27,6 +27,7 @@ inline float roundValForOSC(float val) {
 void voltSeq::randomize()
 {
 	int r, c;
+	valuesChanging = true;
 	for (int s = 0; s < maxSteps; s++) 
 	{
 		// randomUniform() - [0.0, 1.0)
@@ -37,6 +38,7 @@ void voltSeq::randomize()
 		knobStepMatrix[r][c]->setKnobValue(this->triggerState[currentPatternEditingIx][currentChannelEditingIx][s]);			
 	}	
 	reloadEditMatrix = true;
+	valuesChanging = false;
 	return;
 } // end randomize()
 
@@ -345,7 +347,7 @@ void voltSeq::step()
 		oscMutex.unlock();
 	} // end if reload edit matrix
 	//-- * Read the buttons
-	else
+	else if (!valuesChanging) // Only read in if another thread isn't changing the values
 	{		
 		oscMutex.lock();
 		osc::OutboundPacketStream oscStream(oscBuffer, OSC_OUTPUT_BUFFER_SIZE);

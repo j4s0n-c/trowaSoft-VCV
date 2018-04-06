@@ -161,7 +161,8 @@ struct TSSequencerModuleBase : Module {
 	int prevIndex = TROWA_INDEX_UNDEFINED;
 	// Next index in to jump to in the sequence (step) if any. (for external controls)
 	int nextIndex = TROWA_INDEX_UNDEFINED;
-
+	// Flag if values are being changed outside of step().
+	bool valuesChanging = false;
 
 	enum GateMode : short {
 		TRIGGER = 0,

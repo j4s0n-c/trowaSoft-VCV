@@ -178,7 +178,7 @@ void trigSeq::step() {
 		oscMutex.unlock();
 	}
 	//-- * Read the buttons
-	else
+	else if (!valuesChanging) // Only read in if another thread isn't changing the values
 	{		
 		oscMutex.lock();
 		osc::OutboundPacketStream oscStream(oscBuffer, OSC_OUTPUT_BUFFER_SIZE);

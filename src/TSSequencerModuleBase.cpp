@@ -185,6 +185,7 @@ TSSequencerModuleBase::~TSSequencerModuleBase()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 void TSSequencerModuleBase::reset()
 {
+	valuesChanging = true;
 	for (int p = 0; p < TROWA_SEQ_NUM_PATTERNS; p++)
 	{
 		for (int c = 0; c < TROWA_SEQ_NUM_CHNLS; c++)
@@ -197,6 +198,7 @@ void TSSequencerModuleBase::reset()
 	}
 	/// TODO: Also clear our clipboard and turn off OSC?
 	reloadEditMatrix = true;
+	valuesChanging = false;
 	return;
 }
 
@@ -228,6 +230,7 @@ void TSSequencerModuleBase::randomize(int patternIx, int channelIx, bool useStru
 	}
 	else
 	{
+		valuesChanging = true;
 		// -- Randomize Channel Specified --
 		float val;
 		if (useStructured)
@@ -263,6 +266,7 @@ void TSSequencerModuleBase::randomize(int patternIx, int channelIx, bool useStru
 			}
 		} // end else (normal Rand -- all values random)
 		reloadEditMatrix = (patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx);
+		valuesChanging = false;
 	} // end else (channel and pattern specified)
 	return;
 }
@@ -449,6 +453,7 @@ bool TSSequencerModuleBase::paste()
 {
 	if (copySourcePatternIx < 0) // Nothing to copy
 		return false;
+	valuesChanging = true;
 	if (copySourceChannelIx == TROWA_SEQ_COPY_CHANNELIX_ALL)
 	{
 		// Copy entire pattern (all gates/triggers/voices)
@@ -468,6 +473,7 @@ bool TSSequencerModuleBase::paste()
 			triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = copyBuffer[copySourceChannelIx][s];
 		}
 	}
+	valuesChanging = false;
 	return true;
 } // end paste()
 
