@@ -1,4 +1,4 @@
-#ifndef TROWASOFT_COMPONENTS_HPP
+﻿#ifndef TROWASOFT_COMPONENTS_HPP
 #define TROWASOFT_COMPONENTS_HPP
 
 #include "rack.hpp"
@@ -171,15 +171,36 @@ struct TS_Label : Label {
 	};
 	// Vertical alignment. Default is Baseline.
 	VerticalAlignment verticalAlign = VerticalAlignment::Baseline;
+	// The text letter spacing (default 1.0f).
+	float textLetterSpacing = 1.0f;
 
-	TS_Label()
+	bool drawBackground = false;
+	NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
+	NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
+	float padding = 0.f;
+
+	TS_Label(const char* fontPath)
 	{
-		font = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+		font = Font::load(assetPlugin(plugin, fontPath));
 		return;
 	}
-	TS_Label(Vec size) : TS_Label()
+	TS_Label() : TS_Label(TROWA_LABEL_FONT)
+	{
+		return;
+	}
+	TS_Label(const char* fontPath, Vec size) : TS_Label(fontPath)
 	{
 		box.size = size;
+		return;
+	}
+	TS_Label(Vec size) : TS_Label(TROWA_LABEL_FONT)
+	{
+		box.size = size;
+		return;
+	}
+	TS_Label(const char* fontPath, std::string text, Vec size) : TS_Label(fontPath, size)
+	{
+		this->text = text;
 		return;
 	}
 	TS_Label(std::string text, Vec size) : TS_Label(size)
@@ -192,9 +213,21 @@ struct TS_Label : Label {
 	{
 		if (visible)
 		{
-			nvgBeginPath(vg);
-			nvgGlobalCompositeOperation(vg, NVG_SOURCE_OVER);//Restore to default.
+			//nvgGlobalCompositeOperation(vg, NVG_SOURCE_OVER);//Restore to default.
+			if (drawBackground)
+			{
+				nvgBeginPath(vg);
+				nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+				nvgFillColor(vg, backgroundColor);
+				nvgFill(vg);
+				nvgStrokeWidth(vg, 1.0);
+				nvgStrokeColor(vg, borderColor);
+				nvgStroke(vg);
+			}
+
+			nvgFontFaceId(vg, font->handle);
 			nvgFontSize(vg, fontSize);
+			nvgTextLetterSpacing(vg, textLetterSpacing);
 			float x = 0;
 			float y = 0;
 			uint8_t alignment = 0x00;
@@ -205,12 +238,12 @@ struct TS_Label : Label {
 				alignment = NVGalign::NVG_ALIGN_CENTER;
 				break;
 			case TextAlignment::Right:
-				x = box.size.x;
+				x = box.size.x - padding;
 				alignment = NVGalign::NVG_ALIGN_RIGHT;
 				break;
 			case TextAlignment::Left:
 			default:
-				x = 0.0f;
+				x = 0.0f + padding;
 				alignment = NVGalign::NVG_ALIGN_LEFT;
 				break;
 			}
@@ -221,16 +254,16 @@ struct TS_Label : Label {
 				alignment |= NVGalign::NVG_ALIGN_MIDDLE;
 				break;
 			case VerticalAlignment::Bottom:
-				y = box.size.y;
+				y = box.size.y - padding;
 				alignment |= NVGalign::NVG_ALIGN_BOTTOM;
 				break;
 			case VerticalAlignment::Top:
-				y = 0.0f;
+				y = 0.0f + padding;
 				alignment |= NVGalign::NVG_ALIGN_TOP;
 				break;
 			case VerticalAlignment::Baseline:
 			default:
-				y = 0.0f;
+				y = 0.0f + padding;
 				alignment |= NVGalign::NVG_ALIGN_BASELINE;  // Default, align text vertically to baseline.
 				break;
 			}
@@ -528,7 +561,7 @@ struct TS_ScreenBtn : MomentarySwitch {
 		return;
 	}
 
-	void draw(NVGcontext *vg) override
+	virtual void draw(NVGcontext *vg) override
 	{
 		if (!visible)
 			return;
@@ -575,6 +608,92 @@ struct TS_ScreenBtn : MomentarySwitch {
 		nvgTextAlign(vg, nvgAlign | NVG_ALIGN_MIDDLE);
 		nvgText(vg, x, y, btnText.c_str(), NULL);
 		nvgResetScissor(vg);
+
+		return;
+	}
+};
+//--------------------------------------------------------------
+// TS_ScreenCheckBox : Screen checkbox button
+//--------------------------------------------------------------
+struct TS_ScreenCheckBox : TS_ScreenBtn {
+	// If the check box should show as checked.
+	bool checked = false;
+	float checkBoxWidth = 14;
+	float checkBoxHeight = 14;
+
+	TS_ScreenCheckBox(Vec size, Module* module, int paramId, std::string text, float minVal, float maxVal, float defVal)
+		: TS_ScreenBtn(size, module, paramId, text, minVal, maxVal, defVal)
+	{
+		return;
+	}
+
+	void draw(NVGcontext *vg) override
+	{
+		if (!visible)
+			return;
+		// Background
+		nvgBeginPath(vg);
+		if (cornerRadius > 0)
+			nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
+		else
+			nvgRect(vg, 0.0, 0.0, box.size.x, box.size.y);
+		nvgFillColor(vg, backgroundColor);
+		nvgFill(vg);
+		// Background - border.
+		if (borderWidth > 0) {
+			nvgStrokeWidth(vg, borderWidth);
+			nvgStrokeColor(vg, borderColor);
+			nvgStroke(vg);
+		}
+
+		// Text
+		nvgBeginPath(vg);
+		nvgScissor(vg, padding, padding, box.size.x - 2 * padding, box.size.y - 2 * padding);
+		nvgFontSize(vg, fontSize);
+		nvgFontFaceId(vg, font->handle);
+		nvgFillColor(vg, color);
+
+		float x, y;
+		NVGalign nvgAlign;
+		y = box.size.y / 2.0f;
+		switch (textAlign) {
+		case TextAlignment::Left:
+			nvgAlign = NVG_ALIGN_LEFT;
+			x = box.size.x + padding;
+			break;
+		case TextAlignment::Right:
+			nvgAlign = NVG_ALIGN_RIGHT;
+			x = box.size.x - padding;
+			break;
+		case TextAlignment::Center:
+		default:
+			nvgAlign = NVG_ALIGN_CENTER;
+			x = box.size.x / 2.0f;
+			break;
+		}
+		nvgTextAlign(vg, nvgAlign | NVG_ALIGN_MIDDLE);
+		float txtBounds[4] = { 0,0,0,0 };
+		nvgTextBounds(vg, x, y, btnText.c_str(), NULL, txtBounds);
+		nvgText(vg, x, y, btnText.c_str(), NULL);
+		nvgResetScissor(vg);
+
+		// Check box ::::::::::::::::::::::::::::::::::::::::::::::
+
+		float boxX = txtBounds[0] - checkBoxWidth - padding;
+		float boxY = y - checkBoxHeight / 2.0 - padding;
+		nvgBeginPath(vg);
+		nvgRoundedRect(vg, boxX, boxY, checkBoxWidth, checkBoxHeight, 3);
+		nvgStrokeColor(vg, color);
+		nvgStrokeWidth(vg, 1.0f);
+		nvgStroke(vg);
+
+		if (checked)
+		{
+			nvgBeginPath(vg);
+			nvgRoundedRect(vg, boxX + padding, boxY + padding, checkBoxWidth - padding * 2, checkBoxHeight - padding*2, 3);
+			nvgFillColor(vg, color);
+			nvgFill(vg);
+		}
 
 		return;
 	}
@@ -920,8 +1039,9 @@ struct TS_LightRing : ColorValueLight
 // TS_TinyBlackKnob - 20x20 RoundBlackKnob
 //--------------------------------------------------------------
 struct TS_TinyBlackKnob : RoundKnob {
+	const int size = 20;
 	 TS_TinyBlackKnob() {
-		 box.size = Vec(20, 20);		//TS_RoundBlackKnob_20
+		 box.size = Vec(size, size);		//TS_RoundBlackKnob_20
 		 setSVG(SVG::load(assetPlugin(plugin, "res/ComponentLibrary/TS_RoundBlackKnob_20.svg")));
 		 ///// TODO: Make small SVG. Make all original SVGs (no more reliance on built-in controls except for base class for behavior).
 		 //this->sw->svg = SVG::load(assetGlobal("res/ComponentLibrary/RoundSmallBlackKnob.svg"));
@@ -1135,11 +1255,14 @@ struct TS_SVGPanel : SVGPanel
 		// Set size
 		box.size = sw->box.size.div(RACK_GRID_SIZE).round().mult(RACK_GRID_SIZE);
 
-		TS_Panel* pb = new TS_Panel();		
-		pb->setBorderWidth(borderTop, borderRight, borderBottom, borderLeft);
-		pb->borderColor = this->borderColor;
-		pb->box.size = box.size;
-		addChild(pb);		
+		if (borderTop + borderRight + borderLeft + borderBottom > 0)
+		{
+			TS_Panel* pb = new TS_Panel();
+			pb->setBorderWidth(borderTop, borderRight, borderBottom, borderLeft);
+			pb->borderColor = this->borderColor;
+			pb->box.size = box.size;
+			addChild(pb);
+		}
 		
 		// PanelBorder *pb = new PanelBorder();
 		// pb->box.size = box.size;

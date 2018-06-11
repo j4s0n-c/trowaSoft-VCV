@@ -20,9 +20,9 @@ using namespace rack;
 // Model for trowa OSC2CV
 extern Model* modelOscCV;
 
-#define TROWA_OSSCV_SHOW_ADV_CH_CONFIG			0 // Flag to showing advanced config or hiding it (while it is not finished)
+#define TROWA_OSSCV_SHOW_ADV_CH_CONFIG			1 // Flag to showing advanced config or hiding it (while it is not finished)
 
-#define TROWA_OSCCV_DEFAULT_NUM_CHANNELS		8
+#define TROWA_OSCCV_DEFAULT_NUM_CHANNELS		8 // Default number of channels
 #define TROWA_OSCCV_NUM_PORTS_PER_INPUT			2 // Each input port should have a trigger input and actual value input.
 #define TROWA_OSCCV_DEFAULT_NAMESPACE		"trowacv" // Default namespace for this module (should not be the same as the sequencers)
 #define TROWA_OSCCV_MAX_VOLTAGE				 10.0 // Max output voltage
@@ -40,6 +40,11 @@ extern Model* modelOscCV;
 
 // A channel for OSC.
 struct TSOSCCVChannel {
+	// Base param ids for the channel
+	enum BaseParamIds {
+		CH_SHOW_CONFIG,
+		CH_NUM_PARAMS
+	};
 	// Path for this channel. Must start with '/'.
 	std::string path;
 	// The value
@@ -55,7 +60,7 @@ struct TSOSCCVChannel {
 	// Channel number (1-based)
 	int channelNum;
 	// What our parameter type should be. We can't really translate strings to voltage, so that is not available.
-	enum ArgDataType {
+	enum ArgDataType : int {
 		OscFloat = 1,
 		OscInt = 2,
 		OscBool = 3,
@@ -70,6 +75,12 @@ struct TSOSCCVChannel {
 	float valBuffer[TROWA_OSCCV_VAL_BUFFER_SIZE] = { 0.0 };
 	// Value buffer current index to insert into.
 	int valBuffIx = 0;
+	// The frame index.
+	int frameIx = 0;
+
+	// Show channel configuration for this channel.
+	SchmittTrigger showChannelConfigTrigger;
+
 
 	/// TODO: Configuration for conversion & use the conversion stuff.
 	/// TODO: Eventually allow strings? Basically user would have to enumerate and we should have an index into the array of strings.
@@ -106,9 +117,9 @@ struct TSOSCCVChannel {
 		this->translatedVal = getValOSC2CV();
 		this->dataType = ArgDataType::OscFloat;
 		// Min Rack input or output voltage
-		minVoltage = TROWA_OSCCV_MIN_VOLTAGE;
+		minVoltage = TROWA_OSCCV_MIDI_VALUE_MIN_V;
 		// Max Rack input or output voltage
-		maxVoltage = TROWA_OSCCV_MAX_VOLTAGE;
+		maxVoltage = TROWA_OSCCV_MIDI_VALUE_MAX_V;
 		// Min OSC input or output value.
 		minOscVal = 0;
 		// Max OSC input or output value.
@@ -136,18 +147,33 @@ struct TSOSCCVChannel {
 		float tVal = val;
 		if (convertVals) {
 			tVal = rescale(val, minVoltage, maxVoltage, minOscVal, maxOscVal);
+			switch (this->dataType)
+			{
+			case TSOSCCVChannel::ArgDataType::OscInt:
+				tVal = static_cast<float>(static_cast<int>(tVal));
+				break;
+			case TSOSCCVChannel::ArgDataType::OscBool:
+				tVal = static_cast<float>(static_cast<bool>(tVal));
+				break;
+			case TSOSCCVChannel::ArgDataType::OscFloat:
+			default:
+				break;
+			}
 		}
 		return tVal;
 	}
+	void setOSCInValue(float oscVal) {
+		val = oscVal;
+		translatedVal = getValOSC2CV();
+		return;
+	}
+	void addValToBuffer(float buffVal);
+
 	void setValue(float newVal) {
 		val = newVal;
 		if (convertVals)
 			translatedVal = getValCV2OSC();
-		if (valBuffIx > TROWA_OSCCV_VAL_BUFFER_SIZE - 1)
-			valBuffIx = 0;
-		valBuffer[valBuffIx++] = val;
-		if (valBuffIx > TROWA_OSCCV_VAL_BUFFER_SIZE - 1)
-			valBuffIx = 0;
+		addValToBuffer(newVal);
 		return;
 	}
 	void setPath(std::string path)
@@ -287,6 +313,7 @@ struct oscCV : Module {
 	enum LightIds {
 		OSC_CONFIGURE_LIGHT, // The light for configuring OSC.
 		OSC_ENABLED_LIGHT, // Light for OSC enabled and currently running/active.
+		OSC_CH_TRANSLATE_LIGHT, // Light for Channel Translate enabled.
 		CH_LIGHT_START,
 		NUM_LIGHTS = CH_LIGHT_START // Add # channels *2 to this
 	};

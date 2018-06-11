@@ -277,7 +277,7 @@ struct multiScope : Module {
 			if (itemJ)
 				plotBackgroundColor.rgba[i] = (float)(json_real_value(itemJ));
 		}
-		info("BG COLOR loaded from json (rgb): %0.2f, %0.2f, %0.2f", plotBackgroundColor.r, plotBackgroundColor.g, plotBackgroundColor.b);
+		//info("BG COLOR loaded from json (rgb): %0.2f, %0.2f, %0.2f", plotBackgroundColor.r, plotBackgroundColor.g, plotBackgroundColor.b);
 		plotBackgroundColor.a = 1.0f;
 		firstLoad = true;
 		return;

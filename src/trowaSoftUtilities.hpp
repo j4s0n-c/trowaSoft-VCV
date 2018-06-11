@@ -18,6 +18,7 @@ using namespace rack;
 
 #define TROWA_PULSE_WIDTH			(1e-3)
 #define TROWA_HORIZ_MARGIN			13	// Margin for element layout in Module widget
+#define TROWA_VERT_MARGIN			13  // Margin for element layout
 
 #define TROWA_INDEX_UNDEFINED		 -1 // Value for undefined index.
 #define TROWA_DISP_MSG_SIZE			 30 // For local buffers of strings
@@ -36,10 +37,14 @@ using namespace rack;
 #define TROWA_ANGLE_STRAIGHT_UP_RADIANS			(1.5*NVG_PI) // Angle for straight up (svg angles start from positive x and go clockwise)
 #define TROWA_ANGLE_STRAIGHT_DOWN_RADIANS		(0.5*NVG_PI) // Angle for straiclamght down
 
+#define TROWA_BASE_FREQUENCY	261.626f // Base frequency for C4 (Voltage 0)
+
+
 // Fonts:
 #define TROWA_DIGITAL_FONT		"res/Fonts/Digital dream Fat.ttf"
 #define TROWA_LABEL_FONT		"res/Fonts/ZeroesThree-Regular.ttf"
 #define TROWA_MONOSPACE_FONT	"res/Fonts/larabieb.ttf"
+#define TROWA_MATH_FONT			"res/Fonts/Math Symbols Normal.ttf"
 
 extern const char * TROWA_NOTES[TROWA_SEQ_NUM_NOTES]; // Our note labels.
 
@@ -67,6 +72,17 @@ inline int VoltsToNoteIx(float v)
 	// (-0.33 - -1) * 12 = 0.67*12 = int(8.04) = 8 [G#]
 	return (int)(round((v + TROWA_SEQ_ZERO_OCTAVE)*TROWA_SEQ_NUM_NOTES)) % TROWA_SEQ_NUM_NOTES;
 }
+// Voltage to frequency (Hz).
+inline float VoltageToFrequency(float v)
+{
+	return TROWA_BASE_FREQUENCY * powf(2.0f, v);
+}
+// Frequency (Hz) to Voltage.
+inline float Frequency2Voltage(float f)
+{
+	return log2f(f / TROWA_BASE_FREQUENCY);
+}
+
 // Floating point hue [0-1.0] to color.
 NVGcolor inline HueToColor(float hue)
 {

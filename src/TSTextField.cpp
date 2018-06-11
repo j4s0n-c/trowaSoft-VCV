@@ -18,8 +18,8 @@ TSTextField::TSTextField(TextType textType) : TextField() {
 	textOffset = Vec(0, 0);
 	borderWidth = 1;
 	borderColor = FORMS_DEFAULT_BORDER_COLOR;
-
-	caretColor = nvgRGBAf(1.0f - color.r, 1.0f - color.g, 1.0f - color.b, 0.70);
+	//caretColor = COLOR_TS_RED;// nvgRGBAf(1.0f - color.r, 1.0f - color.g, 1.0f - color.b, 0.70);
+	caretColor = nvgRGBAf((color.r + backgroundColor.r) / 2.0, (color.g + backgroundColor.g) / 2.0, (color.b + backgroundColor.b) / 2.0, 0.70);
 	return;
 }
 TSTextField::TSTextField(TextType textType, int maxLength) : TSTextField(textType) {
@@ -88,7 +88,6 @@ void TSTextField::draw(NVGcontext *vg) {
 					int lastIx = (cursor > nChars) ? cursor : nChars;
 					int startIx = clamp(lastIx - nChars, 0, lastIx);
 					displayStr = text.substr(startIx, nChars);
-
 					begin -= startIx;
 					if (end > -1)
 						end -= startIx;
@@ -97,6 +96,8 @@ void TSTextField::draw(NVGcontext *vg) {
 					displayStr = text.substr(0, nChars);
 				}
 			}
+
+
 			// The caret color actually isn't the cursor color (that is hard-coded as nvgRGBf(0.337,0.502,0.761))
 			// 
 
@@ -118,10 +119,17 @@ void TSTextField::draw(NVGcontext *vg) {
 
 // Request focus on this field.
 void TSTextField::requestFocus() {
+	if (gFocusedWidget) {
+		EventDefocus evt;
+		gFocusedWidget->onDefocus(evt);
+		gFocusedWidget = NULL;
+	}
 	gFocusedWidget = this;	
 	{
 		EventFocus eFocus;
-		this->onFocus(eFocus);
+		onFocus(eFocus);
+		cursor = 0;
+		selection = text.length();
 	}
 	return;
 } // end requestFocus()
@@ -151,30 +159,26 @@ void TSTextField::insertText(std::string newText) {
 		this->text.erase(begin, std::abs(selection - cursor));
 		cursor = selection = begin;
 	}
-//	debug("insertText(newText=%s). Current Cursor is %d", newText.c_str(), cursor);
 	std::string cleansedStr = cleanseString(newText);
 	this->text.insert(cursor, cleansedStr);
 	cursor += cleansedStr.size();
 	selection = cursor;
-//	debug("insertText(newText=%s). Final Cursor is %d", newText.c_str(), cursor);
 	onTextChange();
-	//TextField::insertText(newText); // Call base
 	return;
 } // end insertText()
 
 // On Key
 void TSTextField::onText(EventText &e) {
-	if (e.codepoint < 128) {
-		std::string newText(1, (char)e.codepoint);
-		//insertText(newText);
-		if ((allowedTextType == TextType::Any || regex_match(newText, regexChar)) && text.length() < maxLength)
-		{
-			//debug("onText() - Passed key test: %s", newText.c_str());
-			insertText(newText);
+	if (enabled)
+	{
+		if (e.codepoint < 128) {
+			std::string newText(1, (char)e.codepoint);
+			//insertText(newText);
+			if ((allowedTextType == TextType::Any || regex_match(newText, regexChar)) && text.length() < maxLength)
+			{
+				insertText(newText);
+			}
 		}
-		//else {
-		//	debug("onText() - Consuming and throwing away: %s.", newText.c_str());
-		//}
 	}
 	e.consumed = true;
 	return;
@@ -202,20 +206,51 @@ void TSTextField::onKey(EventKey &e) {
 		e.consumed = false;
 		return;
 	}
+	if (!enabled)
+	{
+		e.consumed = false; // We are ingoring this.
+		return;
+	}
 	// We can throw invalid chars away in onText(), so we don't have to check here anymore.
 	//// Flag if we need to validate/cleanse this character (only if printable and if we are doing validation).
 	//bool checkKey = (this->allowedTextType != TextType::Any) && isPrintableKey(e.key);
-
-	//debug("onKey(%d) - Check key = %d. Cursor %d", e.key, checkKey, cursor);
 	switch (e.key) {
 		case GLFW_KEY_TAB:
 			// If we have an event to fire, then do it
 			if (windowIsShiftPressed())//(guiIsShiftPressed())
 			{
 				if (onShiftTabCallback != NULL)
+				{			
 					onShiftTabCallback(id);
+				}
 				else if (prevField != NULL)
-					prevField->requestFocus();
+				{
+					TSTextField* fField = prevField;
+					if (!fField->visible)
+					{
+						switch (tabNextHiddenAction)
+						{
+						case TabFieldHiddenAction::MoveToNextVisibleTabField:
+							fField = fField->prevField;
+							while (fField != NULL && !fField->visible && fField != this)
+								fField = fField->prevField;
+							if (fField == this || (fField != NULL && !fField->visible))
+								fField = NULL;
+							break;
+						case TabFieldHiddenAction::ShowHiddenTabToField:
+							fField->visible = true;
+							break;
+						case TabFieldHiddenAction::DoNothing:
+						default:
+							fField = NULL;
+							break;
+						}
+					}
+					if (fField != NULL)
+					{
+						fField->requestFocus();
+					}
+				} // end if previous field
 			}
 			else if (onTabCallback != NULL)
 			{
@@ -223,46 +258,47 @@ void TSTextField::onKey(EventKey &e) {
 			}
 			else if (nextField != NULL)
 			{
-				nextField->requestFocus();
-			}
-			break;
-		case GLFW_KEY_V:
-			if (windowIsModPressed()) { //guiIsModPressed()
-				// Paste (do not check character)
-				//checkKey = false;
-				const char *newText = glfwGetClipboardString(gWindow);
-				if (newText)
-					insertText(newText);
-			}	
-			break;
-		case GLFW_KEY_C:
-			if (windowIsModPressed()) { //guiIsModPressed()
-				// Copy (do not check character)
-				//checkKey = false;
-				if (cursor != selection) {
-					int begin = min(cursor, selection);
-					std::string selectedText = text.substr(begin, std::abs(selection - cursor));
-					glfwSetClipboardString(gWindow, selectedText.c_str());
+				TSTextField* fField = nextField;
+				if (!fField->visible)
+				{
+					switch (tabNextHiddenAction)
+					{
+					case TabFieldHiddenAction::MoveToNextVisibleTabField:
+						fField = fField->nextField;
+						while (fField != NULL && !fField->visible && fField != this)
+							fField = fField->nextField;
+						if (fField == this || (fField != NULL && !fField->visible))
+							fField = NULL;
+						break;
+					case TabFieldHiddenAction::ShowHiddenTabToField:
+						fField->visible = true;
+						break;
+					case TabFieldHiddenAction::DoNothing:
+					default:
+						fField = NULL;
+						break;
+					}
 				}
-			}
+				if (fField != NULL)
+				{
+					fField->requestFocus();
+				}
+			} // end if next field
+			break;
+		case GLFW_KEY_KP_ENTER:
+		{
+			// Key pad enter should also trigger event action
+			EventAction evt;
+			onAction(evt);
+		}
 			break;
 		default:
 			// Call base method
 			TextField::onKey(e);
 			break;
 	}
-	//if (checkKey)
-	//{
-	//	this->onTextChange(); // Do some cleansing
-	//}
-	//else
-	//{
-	//	cursor = clamp(cursor, 0, text.size());
-	//	selection = clamp(selection, 0, text.size());
-	//}
 	cursor = clamp(cursor, 0, text.size());
 	selection = clamp(selection, 0, text.size());
-	//debug("onKey(%d) Final Cursor %d", e.key, cursor);
 	e.consumed = true;
 	return;
 } // end onKey()

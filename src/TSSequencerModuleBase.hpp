@@ -516,7 +516,7 @@ struct TSSeqDisplay : TransparentWidget {
 	void draw(/*in*/ NVGcontext *vg) override {
 		bool isPreview = module == NULL; // May get a NULL module for preview
 
-										 // Background Colors:
+		// Background Colors:
 		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
 		NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
 

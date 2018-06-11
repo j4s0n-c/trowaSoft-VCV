@@ -16,6 +16,7 @@ struct oscCV;
 struct TSOscCVTopDisplay;
 struct TSOscCVMiddleDisplay;
 struct TSOscCVLabels;
+struct TSOscCVChannelConfigScreen;
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // oscCVWidget
@@ -28,6 +29,8 @@ struct oscCVWidget : TSSModuleWidgetBase {
 	TSOscCVTopDisplay* display;
 	// The middle display
 	TSOscCVMiddleDisplay* middleDisplay;
+	// Screen for the channel configuration.
+	TSOscCVChannelConfigScreen* oscChannelConfigScreen;
 	// Number of channels. Should be in the module instance, but since we are no longer guaranteed a non-NULL reference, we will store the # channels here.
 	int numberChannels;
 	// Rack CV Input (osc trans messge path)
@@ -41,7 +44,10 @@ struct oscCVWidget : TSSModuleWidgetBase {
 	// Advanced channel configs
 	std::vector<TS_ScreenBtn*> btnDrawOutputAdvChConfig;
 
+
+
 	// Channel colors
+	/// TODO: Move this to someplace else
 	static const NVGcolor CHANNEL_COLORS[TROWA_OSCCV_NUM_COLORS];
 	// Plug lights
 	bool plugLightsEnabled = true;
@@ -105,8 +111,17 @@ struct TSOscCVDataTypeSelectBtn : ChoiceButton {
 	NVGcolor borderColor;
 	NVGcolor backgroundColor;
 	int showNumChars = 15;
+	TSOscCVChannelConfigScreen* parentScreen = NULL;
 
 	TSOscCVDataTypeSelectBtn(int numVals, int* itemVals, std::string* itemStrs, int selVal) {
+		font = Font::load(assetPlugin(plugin, TROWA_MONOSPACE_FONT));
+		fontSize = 14.0f;
+		backgroundColor = FORMS_DEFAULT_BG_COLOR;
+		color = FORMS_DEFAULT_TEXT_COLOR;
+		textOffset = Vec(5, 3);
+		borderWidth = 1;
+		borderColor = FORMS_DEFAULT_BORDER_COLOR;
+
 		this->numVals = numVals;
 		this->selectedVal = selVal;
 		this->itemVals = itemVals;
@@ -116,6 +131,27 @@ struct TSOscCVDataTypeSelectBtn : ChoiceButton {
 			if (itemVals[i] == selectedVal)
 				selectedIndex = i;
 		}
+		return;
+	}
+	// When the selected index changes.
+	void onSelectedIndexChanged();
+
+	// Set the selected value.
+	void setSelectedValue(int selVal) {
+		this->selectedVal = selVal;
+		for (int i = 0; i < numVals; i++)
+		{
+			if (itemVals[i] == selectedVal)
+				selectedIndex = i;
+		}
+		onSelectedIndexChanged();
+		return;
+	}
+	// Set the selected index.
+	void setSelectedIndex(int selIx) {
+		this->selectedIndex = selIx;
+		this->selectedVal = itemVals[selectedIndex];
+		onSelectedIndexChanged();
 		return;
 	}
 	void step() override {
@@ -137,47 +173,167 @@ struct TSOscCVDataTypeItem : MenuItem {
 		return;
 	}
 	void onAction(EventAction &e) override {
-		parentButton->selectedVal = itemVal;
-		parentButton->selectedIndex = index;
+		parentButton->setSelectedIndex(index);
 	}
 };
 
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// Single Channel configuration (advanced) widget.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct TSOscCVChannelConfigScreen : OpaqueWidget {
 	oscCVWidget* parentWidget;
 	std::shared_ptr<Font> font;
 	std::shared_ptr<Font> labelFont;
 	int fontSize;
 	bool visible = false;
+	// If this is an input or output channel.
+	bool isInput = false;
+	enum TextBoxIx {
+		// Minimum CV voltage
+		MinCVVolt,
+		// Maximum CV voltage
+		MaxCVVolt,
+		// Minimum OSC value
+		MinOSCVal,
+		// Maximum OSC value
+		MaxOSCVal,
+		NumTextBoxes
+	};
 
-	TSTextField* tbCVMinVolt;
-	TSTextField* tbCVMaxVolt;
-	TSTextField* tbOSCMinVal;
-	TSTextField* tbOSCMaxVal;
+	// The text boxes for min/max values.
+	TSTextField* tbNumericBounds[TextBoxIx::NumTextBoxes];
+	std::string tbErrors[TextBoxIx::NumTextBoxes];
+
+	const int numDataTypes = 3;
+	TSOSCCVChannel::ArgDataType oscDataTypeVals[3] = { TSOSCCVChannel::ArgDataType::OscFloat, TSOSCCVChannel::ArgDataType::OscInt, TSOSCCVChannel::ArgDataType::OscBool };
+	std::string oscDataTypeStr[3] = { std::string("Float"), std::string("Int"), std::string("Bool") };
+	// The selected data type.
+	TSOSCCVChannel::ArgDataType selectedDataType = TSOSCCVChannel::ArgDataType::OscFloat;
+	// Label buffer
+	char buffer[50];
+
 	// OSC Data Type select/dropdown
 	TSOscCVDataTypeSelectBtn* btnSelectDataType;
+	// Turn on / off translating values.
+	bool translateValsEnabled = false;
+	//HideableLEDButton* btnToggleTranslateVals;
+	TS_ScreenCheckBox* btnToggleTranslateVals;
+	//ColorValueLight* lightTranslateVals;
+	SchmittTrigger translateTrigger;
+
 	// Save button
 	TS_ScreenBtn* btnSave;
 	// Cancel button
 	TS_ScreenBtn* btnCancel;
+	SchmittTrigger saveTrigger;
+	SchmittTrigger cancelTrigger;
+
+	// Pointer to the current channel information.
+	TSOSCCVChannel* currentChannelPtr = NULL;
+
+	int startX = 6;
+	int startY = 6;
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// TSOscCVChannelConfigScreen(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	TSOscCVChannelConfigScreen() : TSOscCVChannelConfigScreen(NULL) {
+	TSOscCVChannelConfigScreen() : TSOscCVChannelConfigScreen(NULL, Vec(0,0), Vec(300, 300)) {
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// TSOscCVChannelConfigScreen()
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	TSOscCVChannelConfigScreen(oscCVWidget* widget)
+	TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec pos, Vec boxSize);
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// Set visible or not.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	void setVisibility(bool visible) {
+		debug("setVisibility(%d)", visible);
+		this->visible = visible;
+		try
+		{
+			//debug("setVisibility(%d) - btn", visible);
+			if (btnToggleTranslateVals)
+				btnToggleTranslateVals->visible = visible;
+			//debug("setVisibility(%d) - light", visible);
+			//if (lightTranslateVals)
+			//	lightTranslateVals->visible = visible;
+			//debug("setVisibility(%d) - dropdown", visible);
+			this->btnSelectDataType->visible = visible;
+
+			//debug("setVisibility(%d) - buttons", visible);
+			btnSave->visible = visible;
+			btnCancel->visible = visible;
+			//debug("setVisibility(%d) - text boxes", visible);
+			for (int i = 0; i < TextBoxIx::NumTextBoxes; i++)
+			{
+				tbNumericBounds[i]->visible = visible;
+			}
+		}
+		catch (const std::exception& e)
+		{
+			warn("Error %s.", e.what());
+		}
+		//debug("setVisibility(%d) - Done", visible);
+		return;
+	} // end setVisibility()
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// Save the values to the ptr.
+	// @channelPtr : (OUT) Place to save the values.
+	// @returns : True if saved, false if there was an error.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	bool saveValues(/*out*/ TSOSCCVChannel* channelPtr);
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// Save the values to current ptr.
+	// @returns : True if saved, false if there was an error.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	bool saveValues() {
+		return saveValues(this->currentChannelPtr);		
+	}
+
+	void setDataType(TSOSCCVChannel::ArgDataType dataType)
 	{
-		parentWidget = widget;
-		font = Font::load(assetPlugin(plugin, TROWA_DIGITAL_FONT));
-		labelFont = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
-		fontSize = 12;
-		visible = true;
+		if (dataType == TSOSCCVChannel::ArgDataType::OscBool)
+		{
+			// Bools have to be false/true....
+			tbNumericBounds[TextBoxIx::MinOSCVal]->enabled = false;
+			tbNumericBounds[TextBoxIx::MaxOSCVal]->enabled = false;
+			tbNumericBounds[TextBoxIx::MinOSCVal]->text = std::string("0");
+			tbNumericBounds[TextBoxIx::MaxOSCVal]->text = std::string("1");
+		}
+		else
+		{
+			tbNumericBounds[TextBoxIx::MinOSCVal]->enabled = true;
+			tbNumericBounds[TextBoxIx::MaxOSCVal]->enabled = true;
+		}
 		return;
 	}
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// validateValues(void)
+	// @returns : True if valid, false if not.
+	// POST CONDITION: tbErrors is set and errors may be displayed on the screen.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	bool validateValues();
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// showControl()
+	// @channel: (IN) The channel which we are configuring.
+	// @isInput: (IN) If this an input or output.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	void showControl(TSOSCCVChannel* channel, bool isInput);
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// Process
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	void step() override;
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// draw()
+	// @vg : (IN) NVGcontext to draw on
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	void draw(/*in*/ NVGcontext *vg) override;
 };
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

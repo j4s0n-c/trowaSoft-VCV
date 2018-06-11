@@ -20,7 +20,9 @@ using namespace rack;
 #define TROWA_REGEX_NUMERIC_CHAR_NOT		"[^0-9]"
 
 // Floating Point/Real: Entire string validation -- Format String. The precision should be injected (%d)!!!
-#define TROWA_REGEX_FLOAT_STR_ONLY_FORMAT		"^-?[0-9]+(\\.[0-9]{0,%d})?$"
+//^-?[0-9]+(\\.[0-9]{0,%d})?$
+// Now just allow or more decimals
+#define TROWA_REGEX_FLOAT_STR_ONLY_FORMAT		"^-?[0-9]+(\\.[0-9]*)?$"
 // Floating Point/Real: Single char validation
 #define TROWA_REGEX_FLOAT_CHAR_ONLY				"^[\\-0-9\\.]$"
 // Floating Point/Real: Not a valid char
@@ -53,6 +55,8 @@ bool isPrintableKey(int keyCode);
 struct TSTextField : TextField {
 	// Maximum length allowed.
 	uint16_t maxLength = 50;
+	// IF text input is enabled.
+	bool enabled = true;
 	// The id of this widget. For use like tab order or something.
 	int id = 0;
 	// The call back if any (parameter is id). i.e. For tabbing to another field.
@@ -71,6 +75,13 @@ struct TSTextField : TextField {
 	TSTextField* nextField = NULL;
 	// Next field to focus if Tab (in lieu of callback).
 	TSTextField* prevField = NULL;
+	// If the tab to field is hidden, should we show on tab or go to the next one?
+	enum TabFieldHiddenAction {
+		DoNothing,
+		ShowHiddenTabToField,
+		MoveToNextVisibleTabField
+	};
+	TabFieldHiddenAction tabNextHiddenAction = TabFieldHiddenAction::MoveToNextVisibleTabField;
 
 	// Text type for validation of input.
 	enum TextType {
@@ -101,7 +112,7 @@ struct TSTextField : TextField {
 	NVGcolor color;
 	// Font size
 	float fontSize;
-	// The caret color
+	// The caret color - Actually the highlight color.
 	NVGcolor caretColor;
 	// The number of decmals allowed.
 	int realNumberPrecision = 2;
@@ -139,7 +150,7 @@ struct TSTextField : TextField {
 	{
 		this->allowedTextType = validationType;
 
-		char buffer[50] = { '\0' };
+		//char buffer[50] = { '\0' };
 
 		switch (allowedTextType)
 		{
@@ -156,8 +167,9 @@ struct TSTextField : TextField {
 		case TextType::RealNumberOnly:
 			regexChar = std::regex(TROWA_REGEX_FLOAT_CHAR_ONLY);
 			// Add our number of decimals to the regex:
-			sprintf(buffer, TROWA_REGEX_FLOAT_STR_ONLY_FORMAT, this->realNumberPrecision);
-			regexStr = std::regex(buffer);
+			//sprintf(buffer, TROWA_REGEX_FLOAT_STR_ONLY_FORMAT, this->realNumberPrecision);
+			//regexStr = std::regex(buffer);
+			regexStr = std::regex(TROWA_REGEX_FLOAT_STR_ONLY_FORMAT);
 			regexInvalidChar = std::regex(TROWA_REGEX_FLOAT_CHAR_NOT);
 			break;
 		case TextType::Any:

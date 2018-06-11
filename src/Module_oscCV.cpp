@@ -8,6 +8,9 @@ using namespace rack;
 // Model for trowa OSC2CV
 Model* modelOscCV = Model::create<oscCV, oscCVWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "cvOSCcv", /*name*/ "cvOSCcv", /*Tags*/ EXTERNAL_TAG);
 
+
+
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // oscCV()
 // Create a module with numChannels.
@@ -396,6 +399,7 @@ void oscCV::step()
 					// 3. Check if it is time to send out
 					sendVal = sendTime && inputChannels[c].doSend;
 				}
+				float outVal = inputChannels[c].translatedVal;
 				if (sendVal)
 				{
 					lights[LightIds::CH_LIGHT_START + c * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL].value = 1.0f;
@@ -408,10 +412,35 @@ void oscCV::step()
 							packetOpened = true;
 						}
 						sprintf(addressBuffer, "/%s%s", oscNamespace.c_str(), inputChannels[c].getPath().c_str());
-						/// TODO: Enforce Data Type
-						oscStream << osc::BeginMessage(addressBuffer)
-							<< ((inputChannels[c].convertVals) ? inputChannels[c].translatedVal : inputChannels[c].val)
-							<< osc::EndMessage;
+						oscStream << osc::BeginMessage(addressBuffer);
+						if (inputChannels[c].convertVals)
+						{
+							// Enforce Data Type:
+							switch (inputChannels[c].dataType)
+							{
+							case TSOSCCVChannel::ArgDataType::OscInt:
+								oscStream << static_cast<int>(inputChannels[c].translatedVal);
+								outVal = static_cast<float>(static_cast<int>(inputChannels[c].translatedVal));
+								break;
+							case TSOSCCVChannel::ArgDataType::OscBool:
+								oscStream << static_cast<bool>(inputChannels[c].translatedVal);
+								outVal = static_cast<float>(static_cast<bool>(inputChannels[c].translatedVal));
+								break;
+							case TSOSCCVChannel::ArgDataType::OscFloat:
+							default:
+								oscStream << inputChannels[c].translatedVal;
+								break;
+							}
+						}
+						else
+						{
+							// Raw value out
+							oscStream << inputChannels[c].val;
+						}
+						oscStream << osc::EndMessage;
+						//oscStream << osc::BeginMessage(addressBuffer)
+						//	<< ((inputChannels[c].convertVals) ? inputChannels[c].translatedVal : inputChannels[c].val)
+						//	<< osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 						debug("SEND OSC[%d]: %s %7.3f", c, addressBuffer, inputChannels[c].getValCV2OSC());
 #endif					
@@ -422,7 +451,8 @@ void oscCV::step()
 					}
 					oscMutex.unlock();
 					// Save our last sent values
-					inputChannels[c].lastTranslatedVal = inputChannels[c].translatedVal;
+					//inputChannels[c].lastTranslatedVal = inputChannels[c].translatedVal;
+					inputChannels[c].lastTranslatedVal = outVal;
 					inputChannels[c].lastVal = inputChannels[c].val;
 					inputChannels[c].doSend = false; // Reset
 				} // end if send value 
@@ -448,38 +478,44 @@ void oscCV::step()
 		} // end if packet opened (close it)
 	} // end Rack Input Ports ==> OSC Output
 
-	//------------------------------------------------------------
-	// Look for OSC Rx messages --> Output to Rack
-	//------------------------------------------------------------
-	while (rxMsgQueue.size() > 0)
+	//--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--
+	// OSC ==> Rack Output Ports
+	//--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--
+	if (doOSC2CVPort)
 	{
-		TSOSCCVSimpleMessage rxOscMsg = rxMsgQueue.front();
-		rxMsgQueue.pop();
-
-		int chIx = rxOscMsg.channelNum - 1;
-		if (chIx > -1 && chIx < numberChannels)
+		//------------------------------------------------------------
+		// Look for OSC Rx messages --> Output to Rack
+		//------------------------------------------------------------
+		while (rxMsgQueue.size() > 0)
 		{
-			// Process the message
-			pulseGens[chIx].trigger(TROWA_PULSE_WIDTH); // Trigger (msg received)
-			outputChannels[chIx].setValue(rxOscMsg.rxVal);
-			lights[LightIds::CH_LIGHT_START + chIx * 2 + 1].value = 1.0f;
+			TSOSCCVSimpleMessage rxOscMsg = rxMsgQueue.front();
+			rxMsgQueue.pop();
 
-		} // end if valid channel
-	} // end while (loop through message queue)
-	// ::: OUTPUTS :::
-	float dt = 1.0 / engineGetSampleRate();
-	for (int c = 0; c < numberChannels; c++)
-	{
-		// Output the value first
-		// We should limit this value (-10V to +10V). Rack says nothing should be higher than +/- 12V.
-		// Do any massaging?
-		outputs[OutputIds::CH_OUTPUT_START + c * 2 + 1].value = clamp(outputChannels[c].getValOSC2CV(), TROWA_OSCCV_MIN_VOLTAGE, TROWA_OSCCV_MAX_VOLTAGE);
-
-		// Then trigger if needed.
-		bool trigger = pulseGens[c].process(dt);
-		outputs[OutputIds::CH_OUTPUT_START + c * 2].value = (trigger) ? TROWA_OSCCV_TRIGGER_ON_V : TROWA_OSCCV_TRIGGER_OFF_V;
-
-		lights[LightIds::CH_LIGHT_START + c * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + 1].value = clamp(lights[LightIds::CH_LIGHT_START + c * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + 1].value - lightLambda, 0.0f, 1.0f);
+			int chIx = rxOscMsg.channelNum - 1;
+			if (chIx > -1 && chIx < numberChannels)
+			{
+				// Process the message
+				pulseGens[chIx].trigger(TROWA_PULSE_WIDTH); // Trigger (msg received)
+				//outputChannels[chIx].setValue(rxOscMsg.rxVal);
+				outputChannels[chIx].setOSCInValue(rxOscMsg.rxVal);
+				lights[LightIds::CH_LIGHT_START + chIx * 2 + 1].value = 1.0f;
+			} // end if valid channel
+		} // end while (loop through message queue)
+		  // ::: OUTPUTS :::
+		float dt = 1.0 / engineGetSampleRate();
+		for (int c = 0; c < numberChannels; c++)
+		{
+			// Output the value first
+			// We should limit this value (-10V to +10V). Rack says nothing should be higher than +/- 12V.
+			// Do any massaging?
+			float outVal = outputChannels[c].getValOSC2CV();
+			outputs[OutputIds::CH_OUTPUT_START + c * 2 + 1].value = clamp(outVal, TROWA_OSCCV_MIN_VOLTAGE, TROWA_OSCCV_MAX_VOLTAGE);
+			outputChannels[c].addValToBuffer(outVal);
+			// Then trigger if needed.
+			bool trigger = pulseGens[c].process(dt);
+			outputs[OutputIds::CH_OUTPUT_START + c * 2].value = (trigger) ? TROWA_OSCCV_TRIGGER_ON_V : TROWA_OSCCV_TRIGGER_OFF_V;
+			lights[LightIds::CH_LIGHT_START + c * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + 1].value = clamp(lights[LightIds::CH_LIGHT_START + c * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + 1].value - lightLambda, 0.0f, 1.0f);
+		}
 	}
 	return;
 } // end step()
@@ -642,6 +678,32 @@ void TSOSCCVSimpleMsgListener::ProcessMessage(const osc::ReceivedMessage& rxMsg,
 	return;
 } // end ProcessMessage()
 
+//--------------------------------------------------------
+// addValToBuffer()
+// Add a value to the buffer.
+// @buffVal : (IN) The value to possibly add.
+//--------------------------------------------------------
+void TSOSCCVChannel::addValToBuffer(float buffVal)
+{
+	float deltaTime = powf(2.0, -12.0);
+	int frameCount = (int)ceilf(deltaTime * engineGetSampleRate());
+	// Add frame to buffer
+	if (valBuffIx < TROWA_OSCCV_VAL_BUFFER_SIZE) {
+		if (++frameIx > frameCount) {
+			frameIx = 0;
+			valBuffer[valBuffIx++] = buffVal;
+		}
+	}
+	else {
+		frameIx++;
+		const float holdTime = 0.1;
+		if (frameIx >= engineGetSampleRate() * holdTime) {
+			valBuffIx = 0;
+			frameIx = 0;
+		}
+	}
+	return;
+} // end addValToBuffer()
 
 //--------------------------------------------------------
 // serialize()
