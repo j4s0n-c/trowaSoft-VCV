@@ -18,7 +18,7 @@ If you like the modules and wish to donate, you may do so [here](https://paypal.
 Any builds that are currently available are at [Github Releases page](https://github.com/j4s0n-c/trowaSoft-VCV/releases) and [geeksaurusrex](http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx). 
 
 **VCV Rack v0.6.x**:
-**2018-04-05**: The latest version is [v0.6.1](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.6.1).
+**2018-06-17**: The latest version is [v0.6.2](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.6.2) (for Rack v0.6.1).
 
 **VCV Rack v0.5.x**:
 2018-02-17: The last version is [v0.5.5.2](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.5.5.2). No more versions for Rack 0.5.x will be developed.
@@ -82,7 +82,7 @@ Variable voltage output step sequencer (-10V to +10V), based off the [Fundamenta
     + **C** - Color/hue (0V to +5V).
     + **A** - Alpha channel (0V to +5V).
     + **BLANK** - Blank ON or OFF. By default, Blank is off. ON is any input <=0 (really < 0.1V), otherwise it will be OFF.  
-    You can use a **trigSeq** (in **CONT** mode, synchronized with a **voltSeq**) to control / hide lines that you do not wish to be shown. �
+    You can use a **trigSeq** (in **CONT** mode, synchronized with a **voltSeq**) to control / hide lines that you do not wish to be shown.
 	+ **FC** - Fill Color hue (0V to +5V)
     + **FA** - Fill alpha channel (0V to +5V).
     + **R** - Rotation (-10V to +10V). Will either be a rotational rate or if the **ABS** button is on, it will be the absolute angular position.
@@ -130,7 +130,9 @@ Variable voltage output step sequencer (-10V to +10V), based off the [Fundamenta
 	+ **Out Port** - Port for sending messages. 
 	+ **In Port** - Port for receiving messages. Currently, trowaSoft modules can NOT share the same ports.
 	+ **Namespace** - The OSC namespace. Default is `trowacv`.
-    + Per Channel: **Address** - Endpoint address. Default is `/ch/{channel #}`. 
-	  
+    + Per Channel:  
+        + **Address** - Endpoint address. Default is `/ch/{channel #}`.
+		+ **ADV** - (v0.6.2) Advanced settings for simple value conversions. Specify simple OSC data types (float, int, bool) and the CV and OSC ranges.
+
 	NOTE: To save Channel Address changes after a connection is active, simply hide the configuration screen again.
 
