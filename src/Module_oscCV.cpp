@@ -250,6 +250,7 @@ json_t *oscCV::toJson() {
 	json_object_set_new(oscJ, "TxPort", json_integer(this->currentOSCSettings.oscTxPort));
 	json_object_set_new(oscJ, "RxPort", json_integer(this->currentOSCSettings.oscRxPort));
 	json_object_set_new(oscJ, "Namespace", json_string(this->oscNamespace.c_str()));
+	json_object_set_new(oscJ, "Enabled", json_boolean(this->oscInitialized));
 	json_object_set_new(rootJ, "osc", oscJ);
 
 	// Channels
@@ -273,6 +274,8 @@ json_t *oscCV::toJson() {
 // Deserialize.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 void oscCV::fromJson(json_t *rootJ) {
+	// if OSC was previously activated, will try to connect on launch
+	bool wasEnabled = false;
 	json_t* currJ = NULL;
 
 	// OSC Parameters
@@ -292,6 +295,11 @@ void oscCV::fromJson(json_t *rootJ) {
 		if (currJ)
 		{
 			setOscNamespace( json_string_value(currJ) );
+		}
+		currJ = json_object_get(oscJ, "Enabled");
+		if (json_boolean_value(currJ)) {
+			debug("was enabled!");
+			wasEnabled = true;
 		}
 	} // end if OSC node
 
@@ -325,6 +333,12 @@ void oscCV::fromJson(json_t *rootJ) {
 			} // end if channel object
 		} // end if there is an outputChannels array
 	} // end loop through channels
+
+	// restore connection
+	if (wasEnabled) {
+		this->cleanupOSC(); // at this stage no connection should be active, just in case
+		this->initOSC(this->currentOSCSettings.oscTxIpAddress.c_str(), this->currentOSCSettings.oscTxPort, this->currentOSCSettings.oscRxPort);
+	}
 
 	return;
 } // end fromJson() 
