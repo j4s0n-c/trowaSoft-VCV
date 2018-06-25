@@ -71,7 +71,7 @@ void TSParamTextField::saveValue()
 //-----------------------------------------------------------------------------------------------
 void TSParamTextField::onAction(EventAction &e)
 {
-	debug("onAction() - visible = %d!", visible);
+	//debug("onAction() - visible = %d!", visible);
 	if (visible)
 	{
 		saveValue();

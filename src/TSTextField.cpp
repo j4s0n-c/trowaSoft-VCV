@@ -232,13 +232,18 @@ void TSTextField::onKey(EventKey &e) {
 						{
 						case TabFieldHiddenAction::MoveToNextVisibleTabField:
 							fField = fField->prevField;
-							while (fField != NULL && !fField->visible && fField != this)
+							while (fField != NULL && !fField->visible && fField != this && !fField->canTabToThisEnabled)
 								fField = fField->prevField;
 							if (fField == this || (fField != NULL && !fField->visible))
 								fField = NULL;
 							break;
 						case TabFieldHiddenAction::ShowHiddenTabToField:
-							fField->visible = true;
+							while (fField != NULL && fField != this && !fField->canTabToThisEnabled)
+								fField = fField->prevField;
+							if (fField == this || (fField != NULL && !fField->canTabToThisEnabled))
+								fField = NULL;
+							if (fField != NULL)
+								fField->visible = true;
 							break;
 						case TabFieldHiddenAction::DoNothing:
 						default:
@@ -265,13 +270,18 @@ void TSTextField::onKey(EventKey &e) {
 					{
 					case TabFieldHiddenAction::MoveToNextVisibleTabField:
 						fField = fField->nextField;
-						while (fField != NULL && !fField->visible && fField != this)
+						while (fField != NULL && !fField->visible && fField != this && !fField->canTabToThisEnabled)
 							fField = fField->nextField;
 						if (fField == this || (fField != NULL && !fField->visible))
 							fField = NULL;
 						break;
 					case TabFieldHiddenAction::ShowHiddenTabToField:
-						fField->visible = true;
+						while (fField != NULL && fField != this && !fField->canTabToThisEnabled)
+							fField = fField->nextField;
+						if (fField == this || (fField != NULL && !fField->canTabToThisEnabled))
+							fField = NULL;
+						if (fField != NULL)
+							fField->visible = true;
 						break;
 					case TabFieldHiddenAction::DoNothing:
 					default:

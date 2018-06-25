@@ -22,7 +22,7 @@ using namespace rack;
 // Floating Point/Real: Entire string validation -- Format String. The precision should be injected (%d)!!!
 //^-?[0-9]+(\\.[0-9]{0,%d})?$
 // Now just allow or more decimals
-#define TROWA_REGEX_FLOAT_STR_ONLY_FORMAT		"^-?[0-9]+(\\.[0-9]*)?$"
+#define TROWA_REGEX_FLOAT_STR_ONLY_FORMAT		"^[+-]?([0-9]*[.])?[0-9]+$"//"^-?[0-9]+(\\.[0-9]*)?$"
 // Floating Point/Real: Single char validation
 #define TROWA_REGEX_FLOAT_CHAR_ONLY				"^[\\-0-9\\.]$"
 // Floating Point/Real: Not a valid char
@@ -118,6 +118,9 @@ struct TSTextField : TextField {
 	int realNumberPrecision = 2;
 
 	std::string displayStr;
+
+	// If this field can be tabbed to.
+	bool canTabToThisEnabled = true;
 
 	int borderWidth = 0;
 	NVGcolor borderColor;

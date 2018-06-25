@@ -1041,19 +1041,81 @@ struct TS_LightRing : ColorValueLight
 struct TS_TinyBlackKnob : RoundKnob {
 	const int size = 20;
 	 TS_TinyBlackKnob() {
-		 box.size = Vec(size, size);		//TS_RoundBlackKnob_20
+		 box.size = Vec(size, size);
 		 setSVG(SVG::load(assetPlugin(plugin, "res/ComponentLibrary/TS_RoundBlackKnob_20.svg")));
-		 ///// TODO: Make small SVG. Make all original SVGs (no more reliance on built-in controls except for base class for behavior).
-		 //this->sw->svg = SVG::load(assetGlobal("res/ComponentLibrary/RoundSmallBlackKnob.svg"));
-		 ////sw->setSVG(svg);
-		 //sw->box.size = box.size;
-		 //tw->box.size = sw->box.size;
-		 ////box.size = sw->box.size;
-		 //shadow->box.size = sw->box.size;
-		 //shadow->box.pos = Vec(0, sw->box.size.y * 0.1);
-
 	 }
  };
+//--------------------------------------------------------------
+// TS_15_BlackKnob - 15x15 RoundBlackKnob
+// This is a little too tiny
+//--------------------------------------------------------------
+struct TS_15_BlackKnob : RoundKnob {
+	const int size = 15;
+	 TS_15_BlackKnob() {
+		 box.size = Vec(size, size);
+		 setSVG(SVG::load(assetPlugin(plugin, "res/ComponentLibrary/TS_RoundBlackKnob_15.svg")));
+	 }
+ };
+//--------------------------------------------------------------
+// TS_20_BlackEncoder - 20x20 Encoder
+// Pseudo continuous.... Still enforces the limits but allows the knob rotate 360.
+//--------------------------------------------------------------
+struct TS_20_BlackEncoder : RoundKnob {
+	const int size = 20;
+	int c = 0;
+	float rotationRangeMin = -1.f;
+	float rotationRangeMax = 1.f;
+	float fineControlMult = 1. / 16.f;
+	float coarseControlMult = 16.f;
+
+	TS_20_BlackEncoder() {
+		box.size = Vec(size, size);
+		setSVG(SVG::load(assetPlugin(plugin, "res/ComponentLibrary/TS_RoundBlackEncoder_20.svg")));
+		minAngle = 0;
+		maxAngle = 2 * M_PI;
+		return;
+	}
+	// Set the amount a full rotation should yield.
+	void setRotationAmount(float amt) {
+		rotationRangeMin = -0.5f*amt;
+		rotationRangeMax = 0.5f*amt;
+		return;
+	}
+	// Override to allow pseudo endless encoding (still bound by some real values).
+	void onDragMove(EventDragMove &e) override {
+		float range = rotationRangeMax - rotationRangeMin;
+		float delta = KNOB_SENSITIVITY * -e.mouseRel.y * speed * range;
+		// Drag slower if Mod is held
+		if (windowIsModPressed())
+			delta *= fineControlMult; // Finer control
+		else if (windowIsShiftPressed())
+			delta *= coarseControlMult; // Coarser control
+		dragValue += delta;
+		dragValue = clamp2(dragValue, minValue, maxValue);
+		if (snap)
+			setValue(roundf(dragValue));
+		else
+			setValue(dragValue);
+		return;
+	}
+	void step() override {
+		// Re-transform TransformWidget if dirty
+		if (dirty) {
+			// Allow rotations 360 degrees:
+			float angle = rescale(value, rotationRangeMin, rotationRangeMax, minAngle, maxAngle);
+			angle = fmodf(angle, 2 * M_PI);
+
+			tw->identity();
+			// Rotate SVG
+			Vec center = sw->box.getCenter();
+			tw->translate(center);
+			tw->rotate(angle);
+			tw->translate(center.neg());
+		}
+		FramebufferWidget::step();
+		return;
+	}
+};
 
 //--------------------------------------------------------------
 // TS_Port - Smaller port with set light color and light disable
