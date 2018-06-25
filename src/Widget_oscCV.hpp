@@ -58,6 +58,17 @@ struct oscCVWidget : TSSModuleWidgetBase {
 	// @oscModule : (IN) Pointer to the osc module.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	oscCVWidget(oscCV* oscModule);
+
+	~oscCVWidget()
+	{
+		oscConfigurationScreen = NULL;
+		display = NULL;
+		middleDisplay = NULL;
+		oscChannelConfigScreen = NULL;
+		btnDrawInputAdvChConfig.clear();
+		btnDrawOutputAdvChConfig.clear();
+		return;
+	}
 	// Step
 	void step() override;
 
@@ -244,11 +255,17 @@ struct TSOscCVChannelConfigScreen : OpaqueWidget {
 	// TSOscCVChannelConfigScreen()
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec pos, Vec boxSize);
+
+	~TSOscCVChannelConfigScreen()
+	{
+		parentWidget = NULL;
+		return;
+	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// Set visible or not.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void setVisibility(bool visible) {
-		debug("setVisibility(%d)", visible);
+		//debug("setVisibility(%d)", visible);
 		this->visible = visible;
 		try
 		{
@@ -357,6 +374,10 @@ struct TSOscCVTopDisplay : TransparentWidget {
 	TSOscCVTopDisplay() : TSOscCVTopDisplay(NULL) {
 		return;
 	}
+	~TSOscCVTopDisplay() {
+		parentWidget = NULL;
+		return;
+	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// TSOscCVMiddleDisplay(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -422,6 +443,8 @@ struct TSOscCVMiddleDisplay : TransparentWidget {
 		return;
 	}
 	~TSOscCVMiddleDisplay() {
+		parentWidget = NULL;
+		return;
 	}
 
 	void setDisplayMode(DisplayMode mode) {

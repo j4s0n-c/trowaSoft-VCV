@@ -94,11 +94,11 @@ void TSOSCClientSelectBtn::draw(NVGcontext *vg) {
 
 
 
-TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, OSCClient selectedClient) : TSOSCConfigWidget(mod, btnSaveId, btnDisableId, selectedClient, "", 1000, 1001)
+TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReconnectId, OSCClient selectedClient) : TSOSCConfigWidget(mod, btnSaveId, btnAutoReconnectId, selectedClient, "", 1000, 1001)
 {
 	return;
 }
-TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, std::string ipAddress, uint16_t txPort, uint16_t rxPort, 
+TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReconnectId, std::string ipAddress, uint16_t txPort, uint16_t rxPort, 
 	bool showClient, OSCClient selectedClient, bool showNamespace, std::string oscNamespace)
 {
 	this->module = mod;
@@ -185,13 +185,16 @@ TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableI
 	this->btnSave->box.pos = Vec(x, y);
 	addChild(btnSave);
 
-	//x += btnSave->box.size.x + dx;
-	//this->btnDisable = new TS_PadBtn();
-	//this->btnDisable->module = module;
-	//this->btnDisable->paramId = btnDisableId;
-	//this->btnDisable->box.size = btnSize;
-	//this->btnDisable->box.pos = Vec(x, y);
-	//addChild(btnDisable);
+	// Checkbox for Auto-reconnect:
+	this->ckAutoReconnect = new TS_ScreenCheckBox(Vec(50, 12), module, btnAutoReconnectId, "Auto Con", 0.f, 1.f, 0.f);
+	this->ckAutoReconnect->box.pos = Vec(x + 4, y - 13);
+	this->ckAutoReconnect->checkBoxWidth = 10;
+	this->ckAutoReconnect->checkBoxHeight = 10;
+	this->ckAutoReconnect->fontSize = 9;
+	this->ckAutoReconnect->borderWidth = 0;
+	this->ckAutoReconnect->padding = 1;
+	this->ckAutoReconnect->color = textColor;
+	addChild(ckAutoReconnect);
 
 	numTextFields = i;
 	for (i = 0; i < numTextFields; i++)
@@ -204,13 +207,17 @@ TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableI
 	return;
 }
 
-TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, OSCClient selectedClient, std::string ipAddress, uint16_t txPort, uint16_t rxPort)
-	: TSOSCConfigWidget(mod, btnSaveId, btnDisableId, ipAddress, txPort, rxPort, true, selectedClient, false, std::string(""))
+TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReconnectId, OSCClient selectedClient, std::string ipAddress, uint16_t txPort, uint16_t rxPort)
+	: TSOSCConfigWidget(mod, btnSaveId, btnAutoReconnectId, ipAddress, txPort, rxPort, true, selectedClient, false, std::string(""))
 {
 	return;
 }
 
 void TSOSCConfigWidget::step() {
+	// Check for enable/disable data massaging
+	if (autoReconnectTrigger.process(module->params[ckAutoReconnect->paramId].value)) {
+		ckAutoReconnect->checked = !ckAutoReconnect->checked;
+	}
 	Widget::step();
 	return;
 }
@@ -318,13 +325,6 @@ void TSOSCConfigWidget::draw(NVGcontext *vg) {
 		nvgFillColor(vg, COLOR_TS_ORANGE);
 		nvgText(vg, x, y, "DISABLE", NULL);
 	}
-	//// Disable:
-	//x = btnDisable->box.pos.x + btnDisable->box.size.x / 2.0;
-	//nvgFillColor(vg, COLOR_TS_ORANGE);
-	//nvgText(vg, x, y, "DISABLE", NULL);
-
-
-
 	return;
 }
 void onTabField(int id)

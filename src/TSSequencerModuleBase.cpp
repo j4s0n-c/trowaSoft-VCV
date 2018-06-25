@@ -167,6 +167,9 @@ TSSequencerModuleBase::~TSSequencerModuleBase()
 			triggerState[p][g] = NULL;
 		}
 	}
+	this->copyGateLight = NULL;
+	this->copyPatternLight = NULL;
+	this->pasteLight = NULL;
 	// Free our buffer if we had initialized it
 	oscMutex.lock();
 	if (oscBuffer != NULL)
@@ -340,9 +343,11 @@ void TSSequencerModuleBase::initOSC(const char* ipAddress, int outputPort, int i
 #endif
 				oscListenerThread = std::thread(&UdpListeningReceiveSocket::Run, oscRxSocket);
 			}
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-			debug("TSSequencerModuleBase::initOSC() - OSC Initialized");
-#endif
+//#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
+//			debug("TSSequencerModuleBase::initOSC() - OSC Initialized");
+//#endif
+			info("TSSequencerModuleBase::initOSC() - OSC Initialized : %s :%d :%d", ipAddress, outputPort, inputPort);
+
 			oscInitialized = true;
 		}
 		else
@@ -356,9 +361,7 @@ void TSSequencerModuleBase::initOSC(const char* ipAddress, int outputPort, int i
 	catch (const std::exception& ex)
 	{
 		oscError = true;
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
 		warn("TSSequencerModuleBase::initOSC() - Error initializing: %s.", ex.what());
-#endif
 	}
 	oscMutex.unlock();
 	return;
@@ -1212,7 +1215,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	lights[RESET_LIGHT].value -= lights[RESET_LIGHT].value / lightLambda / engineGetSampleRate();
 	// BPM Note Calc light:
 	lights[SELECTED_BPM_MULT_IX_LIGHT].value -= lights[SELECTED_BPM_MULT_IX_LIGHT].value / lightLambda / engineGetSampleRate();
-	*pulse = gatePulse.process(1.0 / engineGetSampleRate());
+	*pulse = gatePulse.process(engineGetSampleTime());// 1.0 / engineGetSampleRate());
 
 	editChannelChanged = currentChannelEditingIx != lastChannelIx;
 	editPatternChanged = currentPatternEditingIx != lastEditPatternIx;
@@ -1505,6 +1508,8 @@ json_t *TSSequencerModuleBase::toJson() {
 	json_object_set_new(oscJ, "TxPort", json_integer(this->currentOSCSettings.oscTxPort));
 	json_object_set_new(oscJ, "RxPort", json_integer(this->currentOSCSettings.oscRxPort));
 	json_object_set_new(oscJ, "Client", json_integer(this->oscCurrentClient));
+	json_object_set_new(oscJ, "AutoReconnectAtLoad", json_boolean(oscReconnectAtLoad)); // [v11, v0.6.3]
+	json_object_set_new(oscJ, "Initialized", json_boolean(oscInitialized)); // [v11, v0.6.3] We know the settings are good at least at the time of save
 	json_object_set_new(rootJ, "osc", oscJ);
 
 	return rootJ;
@@ -1576,7 +1581,29 @@ void TSSequencerModuleBase::fromJson(json_t *rootJ) {
 		currJ = json_object_get(oscJ, "Client");
 		if (currJ)
 			this->oscCurrentClient = static_cast<OSCClient>((uint8_t)(json_integer_value(currJ)));
+		currJ = json_object_get(oscJ, "AutoReconnectAtLoad");
+		if (currJ)
+			oscReconnectAtLoad = json_boolean_value(currJ);
+		if (oscReconnectAtLoad)
+		{
+			currJ = json_object_get(oscJ, "Initialized");
+			if (currJ && json_boolean_value(currJ))
+			{
+				oscCurrentAction = OSCAction::Enable; // Will enable at next step
+				//// Try to reconnect
+				//cleanupOSC();
+				//this->initOSC(this->currentOSCSettings.oscTxIpAddress.c_str(), this->currentOSCSettings.oscTxPort, this->currentOSCSettings.oscRxPort);
 
+				//if (oscError || !oscInitialized)
+				//{
+				//	warn("TSSequencerModuleBase::fromJson(): Error on auto-reconnect OSC %s :%d :%d.", this->currentOSCSettings.oscTxIpAddress.c_str(), this->currentOSCSettings.oscTxPort, this->currentOSCSettings.oscRxPort);
+				//}
+				//else
+				//{
+				//	info("TSSequencerModuleBase::fromJson(): Successful auto-reconnection of OSC %s :%d :%d.", this->currentOSCSettings.oscTxIpAddress.c_str(), this->currentOSCSettings.oscTxPort, this->currentOSCSettings.oscRxPort);
+				//}
+			}
+		}
 	}
 
 	saveVersion = 0;

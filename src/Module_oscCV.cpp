@@ -78,6 +78,7 @@ void oscCV::reset() {
 	cleanupOSC();
 
 	setOscNamespace(TROWA_OSCCV_DEFAULT_NAMESPACE); // Default namespace.
+	this->oscReconnectAtLoad = false;
 
 	// Reset our values
 	oscMutex.lock();
@@ -182,7 +183,6 @@ void oscCV::initOSC(const char* ipAddress, int outputPort, int inputPort)
 	}
 	oscMutex.unlock();
 	return;
-
 }
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // Clean up OSC.
@@ -239,7 +239,6 @@ void oscCV::cleanupOSC()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 json_t *oscCV::toJson() {
 	json_t* rootJ = json_object();
-	//json_t* currJ = NULL;
 
 	// version
 	json_object_set_new(rootJ, "version", json_integer(TROWA_INTERNAL_VERSION_INT));
@@ -250,6 +249,8 @@ json_t *oscCV::toJson() {
 	json_object_set_new(oscJ, "TxPort", json_integer(this->currentOSCSettings.oscTxPort));
 	json_object_set_new(oscJ, "RxPort", json_integer(this->currentOSCSettings.oscRxPort));
 	json_object_set_new(oscJ, "Namespace", json_string(this->oscNamespace.c_str()));
+	json_object_set_new(oscJ, "AutoReconnectAtLoad", json_boolean(oscReconnectAtLoad)); // [v11, v0.6.3]
+	json_object_set_new(oscJ, "Initialized", json_boolean(oscInitialized)); // [v11, v0.6.3] We know the settings are good at least at the time of save
 	json_object_set_new(rootJ, "osc", oscJ);
 
 	// Channels
@@ -274,7 +275,7 @@ json_t *oscCV::toJson() {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 void oscCV::fromJson(json_t *rootJ) {
 	json_t* currJ = NULL;
-
+	bool autoReconnect = false;
 	// OSC Parameters
 	json_t* oscJ = json_object_get(rootJ, "osc");
 	if (oscJ)
@@ -290,8 +291,14 @@ void oscCV::fromJson(json_t *rootJ) {
 			this->currentOSCSettings.oscRxPort = (uint16_t)(json_integer_value(currJ));
 		currJ = json_object_get(oscJ, "Namespace");
 		if (currJ)
-		{
 			setOscNamespace( json_string_value(currJ) );
+		currJ = json_object_get(oscJ, "AutoReconnectAtLoad");
+		if (currJ)
+			oscReconnectAtLoad = json_boolean_value(currJ);
+		if (oscReconnectAtLoad)
+		{
+			currJ = json_object_get(oscJ, "Initialized");
+			autoReconnect = currJ && json_boolean_value(currJ);
 		}
 	} // end if OSC node
 
@@ -326,6 +333,21 @@ void oscCV::fromJson(json_t *rootJ) {
 		} // end if there is an outputChannels array
 	} // end loop through channels
 
+	if (autoReconnect)
+	{
+		// Try to reconnect
+		cleanupOSC();
+		this->initOSC(this->currentOSCSettings.oscTxIpAddress.c_str(), this->currentOSCSettings.oscTxPort, this->currentOSCSettings.oscRxPort);
+
+		if (oscError || !oscInitialized)
+		{
+			warn("oscCV::fromJson(): Error on auto-reconnect OSC %s :%d :%d.", this->currentOSCSettings.oscTxIpAddress.c_str(), this->currentOSCSettings.oscTxPort, this->currentOSCSettings.oscRxPort);
+		}
+		else
+		{
+			info("oscCV::fromJson(): Successful auto-reconnection of OSC %s :%d :%d.", this->currentOSCSettings.oscTxIpAddress.c_str(), this->currentOSCSettings.oscTxPort, this->currentOSCSettings.oscRxPort);
+		}
+	}
 	return;
 } // end fromJson() 
 

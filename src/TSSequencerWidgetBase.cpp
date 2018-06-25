@@ -46,7 +46,7 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	////////////////////////////////////
 	if (!isPreview)
 	{
-		TSOSCConfigWidget* oscConfig = new TSOSCConfigWidget(thisModule, TSSequencerModuleBase::ParamIds::OSC_SAVE_CONF_PARAM, TSSequencerModuleBase::ParamIds::OSC_DISABLE_PARAM,
+		TSOSCConfigWidget* oscConfig = new TSOSCConfigWidget(thisModule, TSSequencerModuleBase::ParamIds::OSC_SAVE_CONF_PARAM, TSSequencerModuleBase::ParamIds::OSC_AUTO_RECONNECT_PARAM,
 			thisModule->oscCurrentClient,
 			thisModule->currentOSCSettings.oscTxIpAddress.c_str(), thisModule->currentOSCSettings.oscTxPort, thisModule->currentOSCSettings.oscRxPort);
 		oscConfig->setVisible(false);
@@ -294,6 +294,7 @@ void TSSequencerWidgetBase::step()
 
 			}
 			this->oscConfigurationScreen->setValues(thisModule->currentOSCSettings.oscTxIpAddress, thisModule->currentOSCSettings.oscTxPort, thisModule->currentOSCSettings.oscRxPort);
+			this->oscConfigurationScreen->ckAutoReconnect->checked = thisModule->oscReconnectAtLoad;
 			this->oscConfigurationScreen->setSelectedClient(thisModule->oscCurrentClient); // OSC Client
 			this->oscConfigurationScreen->btnActionEnable = !thisModule->oscInitialized;
 
@@ -355,6 +356,7 @@ void TSSequencerWidgetBase::step()
 					thisModule->oscNewSettings.oscRxPort = this->oscConfigurationScreen->getRxPort(); 
 					thisModule->oscCurrentClient = this->oscConfigurationScreen->getSelectedClient();
 					thisModule->oscCurrentAction = TSSequencerModuleBase::OSCAction::Enable;
+					thisModule->oscReconnectAtLoad = this->oscConfigurationScreen->ckAutoReconnect->checked;
 				}
 			} // end if enable osc
 			else
@@ -377,17 +379,18 @@ void TSSequencerWidgetBase::step()
 		}
 		// Current status of OSC
 		if (thisModule->useOSC && thisModule->oscInitialized)
-		{
-			this->oscConfigurationScreen->statusMsg = OSCClientAbbr[thisModule->oscCurrentClient] + " " + thisModule->currentOSCSettings.oscTxIpAddress;
-			this->oscConfigurationScreen->statusMsg2 = ":" + std::to_string(thisModule->currentOSCSettings.oscTxPort)
-				+ " :" + std::to_string(thisModule->currentOSCSettings.oscRxPort);
+		{ // Now we have a checkbox up top where statusMsg used to be, so let's not use it for now.
+			//this->oscConfigurationScreen->statusMsg = OSCClientAbbr[thisModule->oscCurrentClient] + " " + thisModule->currentOSCSettings.oscTxIpAddress;
+			//this->oscConfigurationScreen->statusMsg2 = ":" + std::to_string(thisModule->currentOSCSettings.oscTxPort)
+			//	+ " :" + std::to_string(thisModule->currentOSCSettings.oscRxPort);
+			this->oscConfigurationScreen->statusMsg2 = OSCClientAbbr[thisModule->oscCurrentClient] + " " + thisModule->currentOSCSettings.oscTxIpAddress;
 			this->oscConfigurationScreen->btnActionEnable = false;
 		}
 		else
 		{
 			this->oscConfigurationScreen->successMsg = "";
-			this->oscConfigurationScreen->statusMsg = "OSC Not Connected";
-			this->oscConfigurationScreen->statusMsg2 = "";
+			this->oscConfigurationScreen->statusMsg = "";// "OSC Not Connected";
+			this->oscConfigurationScreen->statusMsg2 = "OSC Not Connected"; //"";
 			this->oscConfigurationScreen->btnActionEnable = true;
 		}
 	} // end if show OSC config screen
@@ -417,6 +420,10 @@ struct seqRandomSubMenuItem : MenuItem {
 		this->useStucturedRandom = useStructured;
 		this->sequencerModule = seqModule;
 	}
+	~seqRandomSubMenuItem()
+	{
+		sequencerModule = NULL;
+	}
 
 	void onAction(EventAction &e) override {
 		if (this->Target == ShiftType::AllPatterns)
@@ -445,6 +452,10 @@ struct seqRandomSubMenu : Menu {
 		this->sequencerModule = seqModule;
 		return;
 	}
+	~seqRandomSubMenu()
+	{
+		sequencerModule = NULL;
+	}
 
 	void createChildren()
 	{
@@ -465,6 +476,10 @@ struct seqRandomMenuItem : MenuItem {
 		this->text = text;
 		this->useStucturedRandom = useStructured;
 		this->sequencerModule = seqModule;
+		return;
+	}
+	~seqRandomMenuItem() {
+		sequencerModule = NULL;
 		return;
 	}
 	Menu *createChildMenu() override {

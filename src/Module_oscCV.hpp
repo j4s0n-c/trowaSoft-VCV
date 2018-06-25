@@ -285,10 +285,11 @@ struct oscCV : Module {
 		OSC_SAVE_CONF_PARAM, // ENABLE and Save the configuration for OSC
 		OSC_DISABLE_PARAM,   // Disable OSC (ignore config values)
 		OSC_SHOW_CONF_PARAM, // Configure OSC toggle
-		OSC_SHOW_ADV_CONF_PARAM, // Advanced configuration
-		OSC_ADV_CONF_NEXT_PARAM, // Advanced configuration Next >
-		OSC_ADV_CONF_PREV_PARAM, // Advanced configuration < Prev
-		OSC_ADV_CONF_BACK_PARAM, // Advanced configuration Back
+		OSC_SHOW_ADV_CONF_PARAM, // [TBI] Advanced configuration
+		OSC_ADV_CONF_NEXT_PARAM, // [TBI] Advanced configuration Next >
+		OSC_ADV_CONF_PREV_PARAM, // [TBI] Advanced configuration < Prev
+		OSC_ADV_CONF_BACK_PARAM, // [TBI] Advanced configuration Back
+		OSC_AUTO_RECONNECT_PARAM, // Automatically reconnect (if connection is active as of save) on re-load.
 		OSC_CH_SAVE_PARAM, // Channel: Save changes and go back to main config. 
 		OSC_CH_CANCEL_PARAM, // Channel: Save changes and go back to main config. 
 		OSC_CH_OSC_DATATYPE_PARAM, // Channel: OSC data type.
@@ -297,8 +298,8 @@ struct oscCV : Module {
 		OSC_CH_MAX_CV_VOLT_PARAM, // Channel: Maximum CV Voltage
 		OSC_CH_MIN_OSC_VAL_PARAM, // Channel: Minimum OSC Value
 		OSC_CH_MAX_OSC_VAL_PARAM, // Channel: Maximum OSC Value
-		OSC_CH_SEND_FREQ_PARAM, // Channel [INPUT->OSC only]: Send frequency (if trigger not active)
-		OSC_CH_SEND_THRESHOLD_PARAM, // Channell [INPUT->OSC only]: CV value change needed to trigger send (if trigger not active)
+		OSC_CH_SEND_FREQ_PARAM, // [TBI] Channel [INPUT->OSC only]: Send frequency (if trigger not active)
+		OSC_CH_SEND_THRESHOLD_PARAM, // [TBI] Channell [INPUT->OSC only]: CV value change needed to trigger send (if trigger not active)
 		CH_PARAM_START,
 		NUM_PARAMS = CH_PARAM_START // Add #channels * 2 to this
 	};
@@ -348,6 +349,8 @@ struct oscCV : Module {
 	float sendDt = 0.0f;
 	int sendFrequency_Hz = TROWA_OSCCV_DEFAULT_SEND_HZ;
 
+	// Flag to reconnect at load. IFF true and oscInitialized is also true.
+	bool oscReconnectAtLoad = false;
 	// Flag if OSC objects have been initialized
 	bool oscInitialized = false;
 	// If there is an osc error.

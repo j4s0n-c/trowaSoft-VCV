@@ -103,7 +103,7 @@ struct TSSequencerModuleBase : Module {
 		PASTE_PARAM, // Paste what is on our clip board to the now current editing.
 		SELECTED_BPM_MULT_IX_PARAM, // Selected index into our BPM calculation multipliers (for 1/4, 1/8, 1/8T, 1/16 note calcs)
 		OSC_SAVE_CONF_PARAM, // ENABLE and Save the configuration for OSC
-		OSC_DISABLE_PARAM,   // Disable OSC (ignore config values)
+		OSC_AUTO_RECONNECT_PARAM,   // Auto-reconnect OSC on load from save file.
 		OSC_SHOW_CONF_PARAM, // Configure OSC toggle
 		CHANNEL_PARAM, // Edit Channel/Step Buttons/Knobs
 		NUM_PARAMS = CHANNEL_PARAM // Add the number of steps separately...
@@ -256,7 +256,7 @@ struct TSSequencerModuleBase : Module {
 	// References to our pad lights
 	ColorValueLight*** padLightPtrs; /// TODO: Just make linear
 
-									 // Output lights (for triggers/gate jacks)
+	// Output lights (for triggers/gate jacks)
 	float gateLightsOut[TROWA_SEQ_NUM_CHNLS];
 	// Colors for each channel
 	NVGcolor voiceColors[TROWA_SEQ_NUM_CHNLS] = {
@@ -326,6 +326,8 @@ struct TSSequencerModuleBase : Module {
 	SchmittTrigger oscDisconnectTrigger;
 	// Show the OSC configuration screen or not.
 	bool oscShowConfigurationScreen = false;
+	// Flag to reconnect at load. IFF true and oscInitialized is also true.
+	bool oscReconnectAtLoad = false;
 	// Flag if OSC objects have been initialized
 	bool oscInitialized = false;
 	// If there is an osc error.
@@ -424,11 +426,6 @@ struct TSSequencerModuleBase : Module {
 	void randomize() override
 	{
 		randomize(currentPatternEditingIx, currentChannelEditingIx, false);
-		//for (int s = 0; s < maxSteps; s++)
-		//{
-		//	triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = (randomUniform() > 0.5);
-		//}
-		//reloadEditMatrix = true;
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

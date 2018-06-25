@@ -69,8 +69,11 @@ struct TSOSCConfigWidget : OpaqueWidget
 	TS_PadBtn* btnSave;
 	// If the btn should be Enable (true) or Disable (false).
 	bool btnActionEnable = true;
-	// Disable OSC
-	//TS_PadBtn* btnDisable;
+	// Auto-reconnect toggle (auto-reconnect on loading).
+	TS_ScreenCheckBox* ckAutoReconnect;
+	SchmittTrigger autoReconnectTrigger;
+
+
 	std::string errorMsg;
 	std::string successMsg;
 	// The current status
@@ -94,9 +97,22 @@ struct TSOSCConfigWidget : OpaqueWidget
 	// Callback/event for when a VALID form is submitted.
 	void(*formSubmitted)();
 
-	TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, OSCClient selectedClient);
-	TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, OSCClient selectedClient, std::string ipAddress, uint16_t txPort, uint16_t rxPort);
-	TSOSCConfigWidget(Module* mod, int btnSaveId, int btnDisableId, std::string ipAddress, uint16_t txPort, uint16_t rxPort, bool showClient, OSCClient selectedClient, bool showNamespace, std::string oscNamespace);
+	TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReconnectId, OSCClient selectedClient);
+	TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReconnectId, OSCClient selectedClient, std::string ipAddress, uint16_t txPort, uint16_t rxPort);
+	//------------------------------------------------------------------------------------------------
+	// TSOSCConfigWidget()
+	// @mod: (IN) Module.
+	// @btnSaveId: (IN) ParamId for saving settngs.
+	// @btnAutoReconnectId: (IN) ParamId for setting auto-reconnect.
+	// @ipAddress: (IN) Ip Address.
+	// @txPort: (IN) Output port.
+	// @rxPort: (IN) Input port.
+	// @showClient: (IN) Show client dropdown.
+	// @selectedClient: (IN) Selected client  (if @showClient is true).
+	// @showNamespace: (IN) Show namespace text field.
+	// @oscNamespace; (IN) The current OSC namespace (if @showNamespace is true).
+	//------------------------------------------------------------------------------------------------
+	TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReconnectId, std::string ipAddress, uint16_t txPort, uint16_t rxPort, bool showClient, OSCClient selectedClient, bool showNamespace, std::string oscNamespace);
 
 
 	// If visible, check for btn submit
@@ -132,6 +148,7 @@ struct TSOSCConfigWidget : OpaqueWidget
 		tbTxPort->visible = isVisible;
 		tbRxPort->visible = isVisible;
 		btnClientSelect->visible = isVisible;
+		ckAutoReconnect->visible = isVisible;
 		return;
 	}
 	// Get the selected OSC Client.

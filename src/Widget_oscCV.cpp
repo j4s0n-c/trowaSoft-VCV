@@ -55,7 +55,7 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule)
 	////////////////////////////////////
 	if (!isPreview)
 	{
-		TSOSCConfigWidget* oscConfig = new TSOSCConfigWidget(oscModule, oscCV::ParamIds::OSC_SAVE_CONF_PARAM, oscCV::ParamIds::OSC_DISABLE_PARAM,
+		TSOSCConfigWidget* oscConfig = new TSOSCConfigWidget(oscModule, oscCV::ParamIds::OSC_SAVE_CONF_PARAM, oscCV::ParamIds::OSC_AUTO_RECONNECT_PARAM,
 			oscModule->currentOSCSettings.oscTxIpAddress.c_str(), oscModule->currentOSCSettings.oscTxPort, oscModule->currentOSCSettings.oscRxPort,
 			false, OSCClient::GenericClient, true, TROWA_OSCCV_DEFAULT_NAMESPACE);
 		oscConfig->setVisible(false);
@@ -311,9 +311,6 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule)
 	}
 
 	toggleChannelPathConfig(false);
-
-	//debug("Widget Made");
-
 	return;
 } //end oscCVWidget()
 
@@ -355,6 +352,7 @@ void oscCVWidget::step()
 
 			}
 			this->oscConfigurationScreen->setValues(thisModule->currentOSCSettings.oscTxIpAddress, thisModule->currentOSCSettings.oscTxPort, thisModule->currentOSCSettings.oscRxPort, thisModule->oscNamespace);
+			this->oscConfigurationScreen->ckAutoReconnect->checked = thisModule->oscReconnectAtLoad;
 			//this->oscConfigurationScreen->setSelectedClient(thisModule->oscCurrentClient); // OSC Client
 			this->oscConfigurationScreen->btnActionEnable = !thisModule->oscInitialized;
 
@@ -385,7 +383,6 @@ void oscCVWidget::step()
 		bool isInput = false;
 		for (int c = 0; c < thisModule->numberChannels; c++) {
 			// Input Channel:
-			//int paramId = oscCV::ParamIds::CH_PARAM_START + (c*TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG) * 2;
 			int paramId = oscCV::ParamIds::CH_PARAM_START 
 				+ c*TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
 			if (thisModule->inputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].value)) {
@@ -412,9 +409,6 @@ void oscCVWidget::step()
 		else if (this->oscChannelConfigScreen->visible)
 		{
 			// Check for enable/disable data massaging
-			//if (oscChannelConfigScreen->translateTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM].value)) {
-			//	oscChannelConfigScreen->translateValsEnabled = thisModule->params[oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM].value > 0;
-			//}
 			// Check for Save or Cancel
 			if (oscChannelConfigScreen->saveTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_SAVE_PARAM].value)) {
 				//debug("Save Clicked");
@@ -422,15 +416,14 @@ void oscCVWidget::step()
 				if (oscChannelConfigScreen->saveValues()) {
 					oscChannelConfigScreen->setVisibility(false); // Hide
 					this->toggleChannelPathConfig(true); // Show paths again
-					thisModule->params[oscCV::ParamIds::OSC_CH_SAVE_PARAM].value = 0.0f; // Reset
+					//thisModule->params[oscCV::ParamIds::OSC_CH_SAVE_PARAM].value = 0.0f; // Reset
 				}
 			}
 			else if (oscChannelConfigScreen->cancelTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_CANCEL_PARAM].value)) {
-				//debug("Cancel Clicked");
 				// Just hide and go back to paths
 				oscChannelConfigScreen->setVisibility(false); // Hide
 				this->toggleChannelPathConfig(true); // Show paths again
-				thisModule->params[oscCV::ParamIds::OSC_CH_CANCEL_PARAM].value = 0.0f; // Reset
+				//thisModule->params[oscCV::ParamIds::OSC_CH_CANCEL_PARAM].value = 0.0f; // Reset
 			}
 		}
 
@@ -483,6 +476,7 @@ void oscCVWidget::step()
 					//debug("Setting namespace");
 					thisModule->setOscNamespace(this->oscConfigurationScreen->tbNamespace->text);
 					thisModule->oscCurrentAction = oscCV::OSCAction::Enable;
+					thisModule->oscReconnectAtLoad = this->oscConfigurationScreen->ckAutoReconnect->checked;
 				}
 			} // end if enable osc
 			else
@@ -1338,7 +1332,6 @@ void TSOscCVChannelConfigScreen::step()
 				//debug("Translate button clicked");
 				translateValsEnabled = !translateValsEnabled;
 			}
-			//thisModule->lights[oscCV::LightIds::OSC_CH_TRANSLATE_LIGHT].value = translateValsEnabled ? 1.0 : 0.0;
 		}
 		btnToggleTranslateVals->checked = translateValsEnabled;
 		OpaqueWidget::step(); // Parent
