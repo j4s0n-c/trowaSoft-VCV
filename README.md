@@ -1,6 +1,6 @@
 ﻿# trowaSoft-VCV
 <div>
-<img src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2fdemo_screenshot.jpg" />
+<img src="http://www.geekasaurusrex.net/image.axd?picture=2018%2f6%2f0.6.3_screenshot.png" />
 </div>
 
 trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.x and v0.6.x. 
