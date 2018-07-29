@@ -12,9 +12,7 @@ http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx
 For more information about Rack, please visit:
 https://vcvrack.com/.
 
-If you like the modules and wish to donate, you may do so [here](https://paypal.me/j4s0n). Any donation is much appreciated! Also note though that:
-+ $5 USD buys the 'dev team' a Jack &amp; Diet (programming fuel) at a neighborhood bar.
-+ $10 USD buys the designer a bottle of wine.
+If you like the modules and wish to donate, you may do so [here](https://paypal.me/j4s0n). Any donation is much appreciated!
 
 ## Binaries/Builds
 Any builds that are currently available are at [Github Releases page](https://github.com/j4s0n-c/trowaSoft-VCV/releases) and [geeksaurusrex](http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx). 
