@@ -61,7 +61,7 @@ inline float PatternToVolts(int patternIx)
 // Voltage [-5 to 5] to Octave -1 to 9
 inline int VoltsToOctave(float v)
 {
-	return (int)(v + TROWA_SEQ_ZERO_OCTAVE);
+	return (int)floorf(v + TROWA_SEQ_ZERO_OCTAVE);
 }
 // Note index 0 to 11 (to TROWA_NOTES array).
 inline int VoltsToNoteIx(float v)
@@ -70,7 +70,8 @@ inline int VoltsToNoteIx(float v)
 	//(v - floorf(v))*TROWA_SEQ_NUM_NOTES
 	// (-4.9 - -5) * 12 = 0.1*12 = int(1.2) = 1 [C#]
 	// (-0.33 - -1) * 12 = 0.67*12 = int(8.04) = 8 [G#]
-	return (int)(round((v + TROWA_SEQ_ZERO_OCTAVE)*TROWA_SEQ_NUM_NOTES)) % TROWA_SEQ_NUM_NOTES;
+	// Insure that the result is positive... (add max voltage instead of zero octave)
+	return (int)(round((v + TROWA_SEQ_PATTERN_MAX_V)*TROWA_SEQ_NUM_NOTES)) % TROWA_SEQ_NUM_NOTES;
 }
 // Voltage to frequency (Hz).
 inline float VoltageToFrequency(float v)
