@@ -637,7 +637,7 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 	// Calculate his all the time now instead of just on next step:
 	currentBPM = roundf(clockTime * BPMOptions[selectedBPMNoteIx]->multiplier);
 	playBPMChanged = lastBPM != currentBPM;
-
+	
 	if (running)
 	{
 		if (inputs[EXT_CLOCK_INPUT].active)
@@ -654,12 +654,23 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		{
 			// Internal clock
 			lastStepWasExternalClock = false;
-			float dt = clockTime / engineGetSampleRate(); // Real dt
-			realPhase += dt; // Real Time no matter what
-			if (realPhase >= 1.0)
+			if (resetPaused)
 			{
-				realPhase -= 1.0;
+				realPhase = 0.0f;
 				nextStep = true;
+				resetPaused = false;
+				index = -1;
+				nextIndex = TROWA_INDEX_UNDEFINED; // Reset our jump to index
+			}
+			else
+			{
+				float dt = clockTime / engineGetSampleRate(); // Real dt
+				realPhase += dt; // Real Time no matter what
+				if (realPhase >= 1.0)
+				{
+					realPhase -= 1.0;
+					nextStep = true;
+				}				
 			}
 			//if (nextStep)
 			//{	
@@ -1142,9 +1153,12 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		debug("Reset");
 #endif
 		resetPaused = !running;
-		// [03/30/2018] Delay reset until the next step. (https://github.com/j4s0n-c/trowaSoft-VCV/issues/11)
-		// So it's more like JUMP TO step 0 (waits until the next step).
-		resetQueued = true; // Flag that the reset has been queued.
+		if (running)
+		{
+			// [03/30/2018] Delay reset until the next step. (https://github.com/j4s0n-c/trowaSoft-VCV/issues/11)
+			// So it's more like JUMP TO step 0 (waits until the next step).
+			resetQueued = true; // Flag that the reset has been queued.						
+		}
 	} // end check for reset
 
 	if (resetQueued && nextStep) {
@@ -1201,15 +1215,15 @@ void TSSequencerModuleBase::getStepInputs(/*out*/ bool* pulse, /*out*/ bool* rel
 		oscMutex.unlock();
 	} // end if next step
 
-	// If we were just unpaused and we were reset during the pause, make sure we fire the first step.
-	if (running && !lastRunning)
-	{
-		if (resetPaused)
-		{
-			gatePulse.trigger(TROWA_PULSE_WIDTH);
-		}
-		resetPaused = false;
-	} // end if
+	// // If we were just unpaused and we were reset during the pause, make sure we fire the first step.
+	// if (running && !lastRunning)
+	// {
+		// if (resetPaused)
+		// {
+			// gatePulse.trigger(TROWA_PULSE_WIDTH);
+		// }
+		// resetPaused = false;
+	// } // end if
 
 	// Reset light
 	lights[RESET_LIGHT].value -= lights[RESET_LIGHT].value / lightLambda / engineGetSampleRate();
