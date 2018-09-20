@@ -79,16 +79,16 @@ void TS_Oscillator::deserialize(json_t* rootJ)
 	if (rootJ) {
 		currJ = json_object_get(rootJ, "amplitude_V");
 		if (currJ)
-			ui_amplitude_V = json_real_value(currJ);
+			ui_amplitude_V = json_number_value(currJ);
 		currJ = json_object_get(rootJ, "frequency_Hz");
 		if (currJ)
-			ui_frequency_Hz = json_real_value(currJ);
+			ui_frequency_Hz = json_number_value(currJ);
 		currJ = json_object_get(rootJ, "phaseShift_deg");
 		if (currJ)
-			ui_phaseShift_deg = json_real_value(currJ);
+			ui_phaseShift_deg = json_number_value(currJ);
 		currJ = json_object_get(rootJ, "offset_V");
 		if (currJ)
-			ui_offset_V = json_real_value(currJ);
+			ui_offset_V = json_number_value(currJ);
 		currJ = json_object_get(rootJ, "numWaveforms");
 		if (currJ)
 			numOutputWaveForms = json_integer_value(currJ);
@@ -617,10 +617,10 @@ void TS_OscillatorOutput::deserialize(json_t* rootJ)
 			waveFormType = static_cast<WaveFormType>( json_integer_value(currJ) );
 		currJ = json_object_get(rootJ, "phaseShift_deg");
 		if (currJ)
-			ui_phaseShift_deg = json_real_value(currJ);
+			ui_phaseShift_deg = json_number_value(currJ);
 		currJ = json_object_get(rootJ, "auxParam_norm");
 		if (currJ)
-			auxParam_norm = json_real_value(currJ);
+			auxParam_norm = json_number_value(currJ);
 		currJ = json_object_get(rootJ, "amRingMod");
 		if (currJ)
 			amRingModulation = json_integer_value(currJ) > 0;

@@ -300,14 +300,14 @@ struct TSWaveform
 			{
 				itemJ = json_array_get(waveColorJ, i);
 				if (itemJ)
-					waveColor.rgba[i] = (float)(json_real_value(itemJ));
+					waveColor.rgba[i] = (float)(json_number_value(itemJ));
 				itemJ = NULL;
 			}
 			if (fillColorJ)
 			{
 				itemJ = json_array_get(fillColorJ, i);
 				if (itemJ)
-					fillColor.rgba[i] = (float)(json_real_value(itemJ));
+					fillColor.rgba[i] = (float)(json_number_value(itemJ));
 				itemJ = NULL;
 			}
 		}
@@ -316,14 +316,14 @@ struct TSWaveform
 		{
 			itemJ = json_array_get(waveColorJ, 3);
 			if (itemJ)
-				waveOpacity = (float)(json_real_value(itemJ));
+				waveOpacity = (float)(json_number_value(itemJ));
 			itemJ = NULL;
 		}
 		if (fillColorJ)
 		{
 			itemJ = json_array_get(fillColorJ, 3);
 			if (itemJ)
-				fillOpacity = (float)(json_real_value(itemJ));
+				fillOpacity = (float)(json_number_value(itemJ));
 			itemJ = NULL;
 		}
 		itemJ = json_object_get(rootJ, "fillOn");

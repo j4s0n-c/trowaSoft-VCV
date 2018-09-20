@@ -242,7 +242,7 @@ struct multiScope : Module {
 		{
 			json_t* itemJ = json_array_get(huesJ, wIx);
 			if (itemJ)
-				waveForms[wIx]->setHue((float)json_real_value(itemJ));
+				waveForms[wIx]->setHue((float)json_number_value(itemJ));
 			itemJ = NULL;
 			itemJ = json_array_get(rotModeJ, wIx);
 			if (itemJ)

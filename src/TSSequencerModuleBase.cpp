@@ -1570,7 +1570,7 @@ void TSSequencerModuleBase::fromJson(json_t *rootJ) {
 				{
 					json_t *gateJ = json_array_get(triggersJ, i++);
 					if (gateJ)
-						triggerState[p][t][s] = (float)json_real_value(gateJ);
+						triggerState[p][t][s] = (float)json_number_value(gateJ);
 				} // end for (steps)
 			} // end for (triggers)
 		} // end for (patterns)			

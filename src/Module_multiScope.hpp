@@ -216,11 +216,11 @@ struct multiScope : Module {
 		{
 			json_t* itemJ = json_array_get(huesJ, wIx);
 			if (itemJ)
-				waveForms[wIx]->setHue((float)json_real_value(itemJ));
+				waveForms[wIx]->setHue((float)json_number_value(itemJ));
 			itemJ = NULL;
 			itemJ = json_array_get(fillHuesJ, wIx);
 			if (itemJ)
-				waveForms[wIx]->setFillHue((float)json_real_value(itemJ));
+				waveForms[wIx]->setFillHue((float)json_number_value(itemJ));
 			itemJ = NULL;
 			itemJ = json_array_get(fillOnJ, wIx);
 			if (itemJ)
@@ -257,12 +257,12 @@ struct multiScope : Module {
 			{
 				itemJ = json_array_get(colorArrJ, i);
 				if (itemJ)
-					waveForms[wIx]->waveColor.rgba[i] = (float)json_real_value(itemJ);
+					waveForms[wIx]->waveColor.rgba[i] = (float)json_number_value(itemJ);
 				itemJ = NULL;
 
 				itemJ = json_array_get(fillColorArrJ, i);
 				if (itemJ)
-					waveForms[wIx]->fillColor.rgba[i] = (float)json_real_value(itemJ);
+					waveForms[wIx]->fillColor.rgba[i] = (float)json_number_value(itemJ);
 				itemJ = NULL;
 			}
 			waveForms[wIx]->waveColor.a = 1.0;
@@ -275,7 +275,7 @@ struct multiScope : Module {
 		{
 			json_t* itemJ = json_array_get(bgColorJ, i);
 			if (itemJ)
-				plotBackgroundColor.rgba[i] = (float)(json_real_value(itemJ));
+				plotBackgroundColor.rgba[i] = (float)(json_number_value(itemJ));
 		}
 		//info("BG COLOR loaded from json (rgb): %0.2f, %0.2f, %0.2f", plotBackgroundColor.r, plotBackgroundColor.g, plotBackgroundColor.b);
 		plotBackgroundColor.a = 1.0f;

@@ -761,16 +761,16 @@ void TSOSCCVChannel::deserialize(json_t* rootJ) {
 			convertVals = static_cast<bool>(json_integer_value(currJ));
 		currJ = json_object_get(rootJ, "minV");
 		if (currJ)
-			minVoltage = json_real_value(currJ);
+			minVoltage = json_number_value(currJ);
 		currJ = json_object_get(rootJ, "maxV");
 		if (currJ)
-			maxVoltage = json_real_value(currJ);
+			maxVoltage = json_number_value(currJ);
 		currJ = json_object_get(rootJ, "minOSC");
 		if (currJ)
-			minOscVal = json_real_value(currJ);
+			minOscVal = json_number_value(currJ);
 		currJ = json_object_get(rootJ, "maxOSC");
 		if (currJ)
-			maxOscVal = json_real_value(currJ);
+			maxOscVal = json_number_value(currJ);
 	}
 	return;
 } // end deserialize()
@@ -795,7 +795,7 @@ void TSOSCCVInputChannel::deserialize(json_t* rootJ) {
 		json_t* currJ = NULL;
 		currJ = json_object_get(rootJ, "channelSensitivity");
 		if (currJ)
-			channelSensitivity = json_real_value(currJ);
+			channelSensitivity = json_number_value(currJ);
 	}
 	return;
 } // end deserialize()
