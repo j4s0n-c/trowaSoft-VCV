@@ -48,10 +48,11 @@ using namespace rack;
 
 extern const char * TROWA_NOTES[TROWA_SEQ_NUM_NOTES]; // Our note labels.
 
-// Given some input voltage, convert to our Pattern index [0-63].
+// Given some input voltage, convert to our Pattern [1-64].
+// [2018-11-20] Remove rounding so that each pattern is ~0.32 V.
 inline int VoltsToPattern(float voltsInput)
 {	
-	return (int)clamp((int)(roundf(rescale(voltsInput, (float)TROWA_SEQ_PATTERN_MIN_V, (float)TROWA_SEQ_PATTERN_MAX_V, 1.0f, (float)TROWA_SEQ_NUM_PATTERNS))), 1, TROWA_SEQ_NUM_PATTERNS);
+	return (int)clamp((int)(rescale(voltsInput, (float)TROWA_SEQ_PATTERN_MIN_V, (float)TROWA_SEQ_PATTERN_MAX_V, 1.0f, (float)TROWA_SEQ_NUM_PATTERNS)), 1, TROWA_SEQ_NUM_PATTERNS);
 }
 // Pattern index [0-63] to output voltage.
 inline float PatternToVolts(int patternIx)
