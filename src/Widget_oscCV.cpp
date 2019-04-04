@@ -171,7 +171,7 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule)
 		// OSC Input Path (this is OSC outgoing message, our input)
 		x += dx + tbXOffset;
 		std::string path = (isPreview) ? "/ch/" + std::to_string(r + 1) : oscModule->inputChannels[r].path;
-		TSTextField* txtField = new TSTextField(TSTextField::TextType::Any, 50);
+		TSTextField* txtField = new TSTextField(TSTextField::TextType::Any, TROWA_OSCCV_OSC_PATH_SIZE);
 		txtField->box.size = tbPathSize;
 		txtField->box.pos = Vec(x, y + tbYOffset);
 		txtField->text = path;
@@ -220,7 +220,7 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule)
 		// OSC Output Path (this is OSC incoming message, our output)
 		x = xStart - tbXOffset - tbPathSize.x;
 		std::string path = (isPreview) ? "/ch/" + std::to_string(r + 1) : oscModule->outputChannels[r].path;
-		TSTextField* txtField = new TSTextField(TSTextField::TextType::Any, 50);
+		TSTextField* txtField = new TSTextField(TSTextField::TextType::Any, TROWA_OSCCV_OSC_PATH_SIZE);
 		txtField->box.size = tbPathSize;
 		txtField->box.pos = Vec(x, y + tbYOffset);
 		txtField->text = path;
@@ -655,10 +655,13 @@ void TSOscCVTopDisplay::step() {
 		thisModule = dynamic_cast<oscCV*>(parentWidget->module);
 		connected = thisModule->oscInitialized;
 		if (connected)
+		{
 			thisIp = thisModule->currentOSCSettings.oscTxIpAddress
-			+ std::string(" Tx:") + std::to_string(thisModule->currentOSCSettings.oscTxPort)
-			+ std::string(" Rx:") + std::to_string(thisModule->currentOSCSettings.oscRxPort)
-			+ ((thisModule->oscNamespace.at(0) == '/') ? " " : " /") + thisModule->oscNamespace + " ";
+				+ std::string(" Tx:") + std::to_string(thisModule->currentOSCSettings.oscTxPort)
+				+ std::string(" Rx:") + std::to_string(thisModule->currentOSCSettings.oscRxPort);
+			if (!thisModule->oscNamespace.empty())
+			   thisIp = thisIp + ((thisModule->oscNamespace.at(0) == '/') ? " " : " /") + thisModule->oscNamespace + " ";				
+		}
 	}
 
 

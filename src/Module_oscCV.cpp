@@ -364,7 +364,7 @@ void oscCV::step()
 		this->cleanupOSC(); // Try to clean up OSC
 		break;
 	case OSCAction::Enable:
-		this->cleanupOSC(); // Try to clean up OSC if we already have something
+		this->cleanupOSC(); // Try to clean up OSC if we already have something		
 		this->initOSC(this->oscNewSettings.oscTxIpAddress.c_str(), this->oscNewSettings.oscTxPort, this->oscNewSettings.oscRxPort);
 		//oscStarted = this->oscInitialized;
 		break;
@@ -433,7 +433,14 @@ void oscCV::step()
 							oscStream << osc::BeginBundleImmediate;
 							packetOpened = true;
 						}
-						sprintf(addressBuffer, "/%s%s", oscNamespace.c_str(), inputChannels[c].getPath().c_str());
+						if (oscNamespace.empty()) // Allow empty namespaces
+						{
+							sprintf(addressBuffer, "%s", inputChannels[c].getPath().c_str());														
+						}
+						else
+						{
+							sprintf(addressBuffer, "/%s%s", oscNamespace.c_str(), inputChannels[c].getPath().c_str());							
+						}
 						oscStream << osc::BeginMessage(addressBuffer);
 						if (inputChannels[c].convertVals)
 						{
@@ -460,9 +467,7 @@ void oscCV::step()
 							oscStream << inputChannels[c].val;
 						}
 						oscStream << osc::EndMessage;
-						//oscStream << osc::BeginMessage(addressBuffer)
-						//	<< ((inputChannels[c].convertVals) ? inputChannels[c].translatedVal : inputChannels[c].val)
-						//	<< osc::EndMessage;
+						
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 						debug("SEND OSC[%d]: %s %7.3f", c, addressBuffer, inputChannels[c].getValCV2OSC());
 #endif					
@@ -498,6 +503,7 @@ void oscCV::step()
 			}
 			oscMutex.unlock();
 		} // end if packet opened (close it)
+		
 	} // end Rack Input Ports ==> OSC Output
 
 	//--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--%--
@@ -547,18 +553,17 @@ void oscCV::step()
 // @oscNamespace : (IN) The namespace (without /).
 // Set the OSC namespace (thread safe-ish).
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void oscCV::setOscNamespace(std::string oscNamespace)
+void oscCV::setOscNamespace(std::string oscNs)
 {
 	std::lock_guard<std::mutex> lock(oscMutex);
-	if (oscNamespace[0] == '/')
-		this->oscNamespace = oscNamespace.substr(1);
+	if (!oscNs.empty() && oscNs.at(0) == '/')
+		this->oscNamespace = oscNs.substr(1);
 	else
-		this->oscNamespace = oscNamespace;
+		this->oscNamespace = oscNs;
 	if (this->oscListener != NULL)
 	{
 		try
 		{
-			//debug("Setting listener's namespace: %s", oscNamespace.c_str());
 			this->oscListener->setNamespace(oscNamespace);
 		}
 		catch (const std::exception& e)
@@ -589,8 +594,9 @@ void TSOSCCVSimpleMsgListener::ProcessMessage(const osc::ReceivedMessage& rxMsg,
 		const char* ns = this->oscNamespace.c_str();
 		mutExNamespace.unlock();
 		std::string addr = rxMsg.AddressPattern();
-		int len = strlen(ns);
-		if (std::strcmp(addr.substr(0, len).c_str(), ns) != 0) // Message is not for us
+		int len = (oscNamespace.empty()) ? 0 : oscNamespace.length();
+		// [2019-04-03] Allow empty namespaces
+		if (!oscNamespace.empty() && std::strcmp(addr.substr(0, len).c_str(), ns) != 0) // Message is not for us
 		{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
 			debug("Message is not for our namespace (%s).", ns);

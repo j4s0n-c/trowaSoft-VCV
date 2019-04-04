@@ -178,8 +178,8 @@ struct TSOSCCVChannel {
 	}
 	void setPath(std::string path)
 	{
-		std::lock_guard<std::mutex> lock(mutPath);			
-		if (path[0] != '/')
+		std::lock_guard<std::mutex> lock(mutPath);		
+		if (path.length() > 0 && path.at(0) != '/') 
 			this->path = "/" + path;
 		else
 			this->path = path;
@@ -475,16 +475,17 @@ public:
 	TSOSCCVSimpleMsgListener(std::string oscNs, oscCV* oscModule)
 	{
 		this->oscModule = oscModule;
-		if (oscNs.length() > 0 && oscNs.at(0) != '/')
+		if (!oscNs.empty() && oscNs.at(0) != '/')
 			this->oscNamespace = "/" + oscNs;
 		else
 			this->oscNamespace = oscNs;
+		return;
 	}
 	void setNamespace(std::string oscNs)
 	{
 		//debug("Listener.setNamespace(): %s, first char is %c.", oscNs.c_str(), oscNs.at(0));
 		std::lock_guard<std::mutex> lock(mutExNamespace);
-		if (oscNs.length() > 0 && oscNs.at(0) != '/')
+		if (!oscNs.empty() && oscNs.at(0) != '/')
 			this->oscNamespace = "/" + oscNs;
 		else
 			this->oscNamespace = oscNs;

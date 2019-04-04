@@ -11,6 +11,7 @@ using namespace rack;
 
 #define TROWA_SCROLLING_MSG_TOTAL_SIZE		256
 #define TROWA_OSCCV_NUM_COLORS				  8
+#define TROWA_OSCCV_OSC_PATH_SIZE		    256 // Max path size (was hard coded for TSTextBoxes to 50)
 
 struct oscCV;
 struct TSOscCVTopDisplay;
