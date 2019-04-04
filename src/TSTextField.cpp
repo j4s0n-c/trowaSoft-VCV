@@ -80,7 +80,7 @@ void TSTextField::draw(NVGcontext *vg) {
 
 			displayStr = text;
 			if (nextX > maxTextWidth) {
-				int nChars = maxTextWidth / estLetterSize;
+				int nChars = maxTextWidth / estLetterSize - 1;
 				if (nChars < 1)
 					nChars = 1;
 
