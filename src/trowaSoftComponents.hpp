@@ -1034,6 +1034,10 @@ struct TS_20_BlackEncoder : TS_Knob { //RoundKnob {
 			return;		
 		if (paramQuantity)
 		{
+			oldValue = paramQuantity->getSmoothValue();
+			//if (snap) {
+				snapValue = paramQuantity->getValue();
+			//}
 			float range = rotationRangeMax - rotationRangeMin;
 			// e.mouseRel --> e.mouseDelta?
 			float delta = KNOB_SENSITIVITY * -e.mouseDelta.y * speed * range;
