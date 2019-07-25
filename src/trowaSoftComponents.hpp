@@ -419,6 +419,7 @@ struct TS_PadBtn : SvgSwitch { // MomentarySwitch
 	
 	TS_PadBtn() 
 	{
+		momentary = true;		
 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance,"res/ComponentLibrary/TS_pad_btn_0.svg")));
 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance,"res/ComponentLibrary/TS_pad_btn_1.svg")));
 		sw->wrap();
@@ -433,6 +434,7 @@ struct TS_Pad_Run : SvgSwitch { // MomentarySwitch
 	
 	TS_Pad_Run() 
 	{
+		momentary = true;		
 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance,"res/ComponentLibrary/TS_pad_run_0.svg")));
 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance,"res/ComponentLibrary/TS_pad_run_1.svg")));
 		sw->wrap();
@@ -447,6 +449,7 @@ struct TS_Pad_Reset : SvgSwitch { // MomentarySwitch
 	
 	TS_Pad_Reset() 
 	{
+		momentary = true;
 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance,"res/ComponentLibrary/TS_pad_reset_0.svg")));
 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance,"res/ComponentLibrary/TS_pad_reset_1.svg")));
 		sw->wrap();
