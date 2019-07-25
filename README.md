@@ -3,8 +3,8 @@
 <img src="http://www.geekasaurusrex.net/image.axd?picture=2018%2f6%2f0.6.3_screenshot.png" />
 </div>
 
-trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.x and v0.6.x. 
-Current pack includes [trigSeq &amp; trigSeq64](#trigseq--trigseq64), [voltSeq](#voltseq), [multiWave](#multiwave) (new 2018-06-24), [multiScope](#multiscope), and [cvOSCcv](#cvosccv).
+trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.x, v0.6.x, v1.x. 
+Current pack includes [trigSeq &amp; trigSeq64](#trigseq--trigseq64), [voltSeq](#voltseq), [multiWave](#multiwave), [multiScope](#multiscope), and [cvOSCcv](#cvosccv).
 
 For more information about these modules, please visit:
 http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx.
@@ -18,14 +18,17 @@ If you like the modules and wish to donate, you may do so [here](https://paypal.
 Any builds that are currently available are at [Github Releases page](https://github.com/j4s0n-c/trowaSoft-VCV/releases) and [geeksaurusrex](http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx). 
 Recent builds should also be available in the [VCV plugin manager](https://vcvrack.com/plugins.html).
 
+**VCV Rack v1.x.x**:
+**2019-07-25**: The latest version is [v1.0.0](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v1.0) (for Rack v1.x).
+
 **VCV Rack v0.6.x**:
-**2018-09-20**: The latest version is [v0.6.4](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.6.4) (for Rack v0.6.2).
+2018-09-20: The latest version is [v0.6.4a](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.6.4a) (for Rack v0.6.2).
 
 **VCV Rack v0.5.x**:
 2018-02-17: The last version is [v0.5.5.2](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.5.5.2). No more versions for Rack 0.5.x will be developed.
 
 
-To build for your platform, please visit the [VCV rack documentation](https://github.com/VCVRack/Rack#setting-up-your-development-environment).
+To build for your platform, please visit the [VCV rack documentation](https://vcvrack.com/manual/Building.html).
 
 
 ## Sequencers
@@ -113,7 +116,7 @@ and is new in v0.6.3.
 
 **multiScope** is a visual effects scope, with lissajous mode, that allows three (3) waveforms to be drawn on the same screen/canvas. (code based on [JW Modules FullScope](https://github.com/jeremywen) and [Fundamental Scope](https://github.com/VCVRack/Fundamental))
 
-**WARNING**: New version seems to crash on Mac OS. If anyone more adept at OSX programming wants to figure out why, it would be **MUCH** appreciated. Otherwise, whenever there is time we will try to figure it out, but the multiScope module has been degraded to low priority.
+**v1.0**: Windows, Linux, and **Mac** all have the latest scope now.  For previous versions (<1.0), the Mac version was stuck on the original scope due to crashes and no time for debugging.
 
 + CV Inputs per Channel:
     + **X** - X-value (horizontal component).

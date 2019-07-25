@@ -16,7 +16,8 @@
 // For now, the color picker is disabled in Apple because it will crash Rack & Eat your soul...
 // Linux & Windows seem fine though
 // Now it seems the scope just crashes Rack on OSX no matter what.
-#define ENABLE_BG_COLOR_PICKER			(!(__APPLE__))
+// [2019-07-25] v1.0 Mac doesn't crash with new scope now. Yay!
+#define ENABLE_BG_COLOR_PICKER			1 //(!(__APPLE__))
 
 #define TROWA_SCOPE_NUM_WAVEFORMS	3
 
