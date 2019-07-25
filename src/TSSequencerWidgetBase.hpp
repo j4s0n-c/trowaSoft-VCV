@@ -1,7 +1,7 @@
 #ifndef TROWASOFT_MODULE_TSSEQUENCERWIDGETBASE_HPP
 #define TROWASOFT_MODULE_TSSEQUENCERWIDGETBASE_HPP
-
-#include "rack.hpp"
+#include <exception>
+#include <rack.hpp>
 using namespace rack;
 
 #include "TSSModuleWidgetBase.hpp"
@@ -34,6 +34,10 @@ struct TSSequencerWidgetBase : TSSModuleWidgetBase {
 	// Add base controls.
 	void addBaseControls(bool addGridLines);
 	// Create context menu with common adds to sequencers.
-	Menu *createContextMenu() override;
+	//Menu *createContextMenu() override;
+	/** Override to add context menu entries to your subclass.
+	It is recommended to add a blank ui::MenuEntry first for spacing.
+	*/
+	virtual void appendContextMenu(ui::Menu *menu) override;	
 };
 #endif

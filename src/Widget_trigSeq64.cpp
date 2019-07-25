@@ -1,13 +1,11 @@
 #include <string.h>
 #include <stdio.h>
 #include "trowaSoft.hpp"
-#include "dsp/digital.hpp"
+//#include "dsp/digital.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
 #include "TSSequencerModuleBase.hpp"
 #include "Module_trigSeq.hpp"
-
-
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // trigSeq64Widget()
@@ -16,24 +14,26 @@
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 trigSeq64Widget::trigSeq64Widget(trigSeq* seqModule) : TSSequencerWidgetBase(seqModule)
 {
-	// [02/24/2018] Adjusted for 0.60 differences. Main issue is possiblity of NULL module...
-	bool isPreview = seqModule == NULL; // If this is null, then this isn't a real module instance but a 'Preview'?
+DEBUG("trigSeq64Widget() - Start");
 	maxSteps = N64_NUM_STEPS;
+	// [02/24/2018] Adjusted for 0.60 differences. Main issue is possiblity of NULL module...
+	bool isPreview = this->module == NULL; // If this is null, then this isn't a real module instance but a 'Preview'?	
+	if (!isPreview && seqModule == NULL)
+	{
+		seqModule = dynamic_cast<trigSeq*>(this->module);
+	}
 
-	//trigSeq *module = new trigSeq(N64_NUM_STEPS, N64_NUM_ROWS, N64_NUM_COLS);
-	//setModule(module);
-	
 	//////////////////////////////////////////////
 	// Background
 	//////////////////////////////////////////////	
 	{
-		SVGPanel *panel = new SVGPanel();
+		SvgPanel *panel = new SvgPanel();
 		panel->box.size = box.size;
-		panel->setBackground(SVG::load(assetPlugin(plugin, "res/trigSeq.svg")));
+		panel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/trigSeq.svg")));
 		addChild(panel);
 	}
 	
-	TSSequencerWidgetBase::addBaseControls(true);
+	this->TSSequencerWidgetBase::addBaseControls(true);
 	
 	// (User) Input Pads ==================================================	
 	int y = 115;
@@ -42,7 +42,7 @@ trigSeq64Widget::trigSeq64Widget(trigSeq* seqModule) : TSSequencerWidgetBase(seq
 	Vec padSize = Vec(24, 24);
 	Vec lSize = Vec(padSize.x - 2*dx, padSize.y - 2*dx);
 	int spacing = padSize.x + 5;
-	NVGcolor lightColor = COLOR_TS_RED;
+	NVGcolor lightColor = TSColors::COLOR_TS_RED;
 	int numCols = N64_NUM_COLS;
 	int numRows = N64_NUM_ROWS;
 	int groupId = 0;
@@ -59,15 +59,20 @@ trigSeq64Widget::trigSeq64Widget(trigSeq* seqModule) : TSSequencerWidgetBase(seq
 		for (int c = 0; c < numCols; c++)
 		{			
 			// Pad buttons:
-			TS_PadSwitch* pad = new TS_PadSwitch(padSize);
-			pad->box.pos = Vec(x, y);
+			TS_PadSwitch* pad = dynamic_cast<TS_PadSwitch*>(createParam<TS_PadSwitch>(Vec(x,y), seqModule, TSSequencerModuleBase::CHANNEL_PARAM + id));
+			pad->box.size = padSize;
+			pad->momentary = false;
+			//pad->box.pos = Vec(x, y);
 			pad->btnId = id;
 			pad->groupId = groupId;
-			pad->module = seqModule;
-			pad->paramId = TSSequencerModuleBase::CHANNEL_PARAM + id;
-			pad->setLimits(0, 1);
-			pad->setDefaultValue(0);
-			pad->value = 0;
+			if (pad->paramQuantity)
+			{
+				pad->paramQuantity->minValue = 0;
+				pad->paramQuantity->maxValue = 1;
+				pad->paramQuantity->defaultValue = 0;
+				pad->paramQuantity->setValue(0);
+			
+			}
 			addParam(pad);
 
 			// Lights:
@@ -76,7 +81,7 @@ trigSeq64Widget::trigSeq64Widget(trigSeq* seqModule) : TSSequencerWidgetBase(seq
 				/*lightId*/ TSSequencerModuleBase::PAD_LIGHTS + id, // r * numCols + c
 				/* size */ lSize, /* color */ lightColor));
 			addChild(padLight);
-			if (seqModule != NULL)
+			if (!isPreview)
 			{
 				// Keep a reference to our pad lights so we can change the colors
 				seqModule->padLightPtrs[r][c] = padLight;
@@ -93,5 +98,6 @@ trigSeq64Widget::trigSeq64Widget(trigSeq* seqModule) : TSSequencerWidgetBase(seq
 		seqModule->modeString = seqModule->modeStrings[seqModule->selectedOutputValueMode];
 		seqModule->initialized = true;
 	}
+	DEBUG("trigSeq64Widget() - Finished");	
 	return;
 }

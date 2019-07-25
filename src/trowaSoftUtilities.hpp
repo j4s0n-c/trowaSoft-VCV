@@ -1,14 +1,19 @@
 #ifndef TROWASOFT_UTILITIES_HPP
 #define TROWASOFT_UTILITIES_HPP
 
-#include "rack.hpp"
+#include <rack.hpp>
 using namespace rack;
 
 #include <string.h>
 #include <vector>
 #include <sstream> // std::istringstream
+#include <algorithm> // for tolower() of string
+#include <functional> 
+#include <cctype>
+#include <locale>
 
-#include "util/math.hpp"
+
+#include "math.hpp"
 
 #define TROWA_DEBUG_LVL_HIGH		100
 #define TROWA_DEBUG_LVL_MED			 50
@@ -30,6 +35,8 @@ using namespace rack;
 #define TROWA_SEQ_NOTES_MAX_V		 5 // OK, so back to -5 to +5V (from -4 to +6V), we'll just have a -1 Octave since apparently -1 Octave is a thing (MIDI 0-11)?
 #define TROWA_SEQ_ZERO_OCTAVE		  4 // Octave for voltage 0 -- Was 5, now 4
 #define TROWA_SEQ_NUM_OCTAVES	     10 // Number of total octaves
+#define TROWA_SEQ_MIN_OCTAVE	((TROWA_SEQ_ZERO_OCTAVE - TROWA_SEQ_NUM_OCTAVES/2)) // Min octave (-1)
+#define TROWA_SEQ_MAX_OCTAVE	((TROWA_SEQ_ZERO_OCTAVE + TROWA_SEQ_NUM_OCTAVES/2)) // Max octave (9)
 #define TROWA_MIDI_NOTE_MIDDLE_C	 60 // MIDI note (middle C) - should correspond to C4 (Voltage 0)
 
 #define TROWA_NUM_GLOBAL_EFFECTS	11
@@ -45,6 +52,13 @@ using namespace rack;
 #define TROWA_LABEL_FONT		"res/Fonts/ZeroesThree-Regular.ttf"
 #define TROWA_MONOSPACE_FONT	"res/Fonts/larabieb.ttf"
 #define TROWA_MATH_FONT			"res/Fonts/Math Symbols Normal.ttf"
+
+// Signals (Replace dsp::SchmittTrigger::HIGH, LOW).
+enum TriggerSignal
+{
+	LOW = 0,
+	HIGH = 1
+};
 
 extern const char * TROWA_NOTES[TROWA_SEQ_NUM_NOTES]; // Our note labels.
 
@@ -64,7 +78,12 @@ inline int VoltsToOctave(float v)
 {
 	return (int)floorf(v + TROWA_SEQ_ZERO_OCTAVE);
 }
-// Note index 0 to 11 (to TROWA_NOTES array).
+// Octave -1 to 9 to Volts [-5 to 5]
+inline float OctaveToVolts(int octave)
+{
+	return (float)(octave - TROWA_SEQ_ZERO_OCTAVE);
+}
+// Voltage to Note index 0 to 11 (to TROWA_NOTES array).
 inline int VoltsToNoteIx(float v)
 {
 	// This doesn't work all the time.
@@ -73,6 +92,11 @@ inline int VoltsToNoteIx(float v)
 	// (-0.33 - -1) * 12 = 0.67*12 = int(8.04) = 8 [G#]
 	// Insure that the result is positive... (add max voltage instead of zero octave)
 	return (int)(round((v + TROWA_SEQ_PATTERN_MAX_V)*TROWA_SEQ_NUM_NOTES)) % TROWA_SEQ_NUM_NOTES;
+}
+// Note index 0 to 11 to Voltage
+inline float NoteIxToVolts(int noteIx)
+{
+	return (float)(noteIx) / (float)(TROWA_SEQ_NUM_NOTES);
 }
 // Voltage to frequency (Hz).
 inline float VoltageToFrequency(float v)
@@ -108,6 +132,21 @@ NVGcolor inline ColorInvertToNegative(NVGcolor color)
 
 // Split a string
 std::vector<std::string> str_split(const std::string& s, char delimiter);
+
+// Left trim (in place)
+static inline void ltrim(std::string &s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
+}
+// Right trim (in place)
+static inline void rtrim(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+}
+// Trim in place.
+static inline void trim(std::string &s) {
+    ltrim(s);
+    rtrim(s);
+}
+
 
 struct TSColorHSL {
 	union {
@@ -203,7 +242,7 @@ struct ValueSequencerMode
 		return;
 	}
 
-	
+	// Given the output voltage, return the display string.
 	virtual void GetDisplayString(/*in*/ float val, /*out*/ char* buffer)
 	{
 		float dVal = val;
@@ -218,7 +257,18 @@ struct ValueSequencerMode
 		sprintf(buffer, displayFormatString, dVal);	
 		return;
 	}
-
+	// Given the display string, return the output knob voltage.
+	virtual float GetKnobValueFromString(std::string displayStr)
+	{
+		float dVal = std::stof(displayStr);
+		float val = dVal;
+		if (needsTranslationDisplay)
+		{
+			// Display value back to knob voltage:
+			val = rescale(dVal, minDisplayValue, maxDisplayValue, voltageMin, voltageMax);			
+		}
+		return val;
+	}
 	
 	virtual float GetOutputValue(float val)
 	{
@@ -282,6 +332,70 @@ struct NoteValueSequencerMode : ValueSequencerMode
 			noteIx = 0;
 		sprintf(buffer, "%s%d", TROWA_NOTES[noteIx], octave);
 		return;
+	}
+	// Overriden getting note string to knob voltage.
+	float GetKnobValueFromString(std::string displayStr) override
+	{
+		float val = 0.0f;
+		int notesIx = 0;
+		int octave = TROWA_SEQ_ZERO_OCTAVE;
+		bool noteFound = false;
+		
+		// @diplayStr should be more than one character. 
+		// If we only have the note, then we will default to octave 4.
+		// If we only have the octave, then we will default to C (notesIx 0).
+		std::string strKey = displayStr;
+		std::transform(strKey.begin(), strKey.end(), strKey.begin(), ::toupper);
+
+//DEBUG("Translate Value %s to Voltage...", strKey.c_str());		
+		// Probably note the best parsing, but it should work
+		std::string noteStr = std::string("");
+		std::string octStr = std::string("");		
+		for (int i = 0; i < (int)(strKey.length()); i++)
+		{
+			char n = strKey.at(i);
+			if (std::isalpha(n) || n == '#')
+			{
+				noteStr += n;
+//DEBUG("   str[%d] = %c = Note: %s", i, n, noteStr.c_str());
+			}
+			else if (std::isdigit(n) || n == '-')
+			{
+				octStr += n;
+//DEBUG("   str[%d] = %c = Octave: %s", i, n, octStr.c_str());				
+			}
+		}
+		
+//DEBUG("Search for Note: %s", noteStr.c_str());		
+		while (notesIx < TROWA_SEQ_NUM_NOTES && !noteFound)
+		{
+//DEBUG(" > %s compare %s = %d", noteStr.c_str(), TROWA_NOTES[notesIx], noteStr.compare(TROWA_NOTES[notesIx]));				
+			if (noteStr.compare(TROWA_NOTES[notesIx]) == 0)
+			{
+				noteFound = true;
+			}
+			else
+			{
+				notesIx++;
+			}
+		}
+		if (!octStr.empty())
+		{
+			octave = std::stoi(octStr);
+		}
+		if (!noteFound)
+			notesIx = 0; // Default to C
+		if (octave < TROWA_SEQ_MIN_OCTAVE)
+			octave = TROWA_SEQ_MIN_OCTAVE;
+		else if (octave > TROWA_SEQ_MAX_OCTAVE)
+			octave = TROWA_SEQ_MAX_OCTAVE;
+		
+// DEBUG("Note %s = %5.3f Volts", TROWA_NOTES[notesIx], NoteIxToVolts(notesIx));
+// DEBUG("Octave %d = %5.3f Volts Output", octave, OctaveToVolts(octave));		
+		val = NoteIxToVolts(notesIx) + OctaveToVolts(octave);
+		float kVal = rescale(val, minDisplayValue, maxDisplayValue, voltageMin, voltageMax);
+//DEBUG("Voltage Output %5.3f == %5.3f Knob Voltage", val, kVal);		
+		return kVal;
 	}
 };
 

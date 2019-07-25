@@ -5,8 +5,8 @@
 #include "trowaSoft.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
-#include "util/math.hpp"
-#include "dsp/digital.hpp"
+#include "math.hpp"
+//#include "dsp/digital.hpp"
 
 #define BUFFER_SIZE 					512
 #define TROWA_SCOPE_USE_COLOR_LIGHTS	  0
@@ -38,10 +38,10 @@
 
 //-- From original multiScope ---
 // Hue Knob:
-#define TROWA_SCOPE_HUE_KNOB_MIN	-10	// Not used anymore
-#define TROWA_SCOPE_HUE_KNOB_MAX	 10 // Not used anymore
-#define TROWA_SCOPE_HUE_INPUT_MIN_V	  0 // Not used anymore
-#define TROWA_SCOPE_HUE_INPUT_MAX_V	  5 // Not used anymore
+#define TROWA_SCOPE_HUE_KNOB_MIN	  -10.0f 
+#define TROWA_SCOPE_HUE_KNOB_MAX	   10.0f
+#define TROWA_SCOPE_HUE_INPUT_MIN_V	  0 
+#define TROWA_SCOPE_HUE_INPUT_MAX_V	  5 
 #define TROWA_SCOPE_COLOR_KNOB_Y_OFFSET	0 // 6
 // Opacity:
 #define TROWA_SCOPE_MIN_OPACITY			0.0 // Not used anymore
@@ -60,12 +60,12 @@
 #define TROWA_SCOPE_ROT_KNOB_MAX	 10
 #define TROWA_SCOPE_ROUND_FORMAT	"%.2f"	// Output string format
 #define TROWA_SCOPE_ROUND_VALUE		100		// Rounding
-#define TROWA_SCOPE_ABS_ROT_ON_COLOR			COLOR_TS_BLUE	// Color to signal Absolute Rotation mode is on.
+#define TROWA_SCOPE_ABS_ROT_ON_COLOR			TSColors::COLOR_TS_BLUE	// Color to signal Absolute Rotation mode is on.
 
 // Colors:
-#define TROWA_SCOPE_LINK_XY_SCALE_ON_COLOR		COLOR_MAGENTA
-#define TROWA_SCOPE_INFO_DISPLAY_ON_COLOR		COLOR_TS_ORANGE
-#define TROWA_SCOPE_LISSAJOUS_ON_COLOR			COLOR_YELLOW
+#define TROWA_SCOPE_LINK_XY_SCALE_ON_COLOR		TSColors::COLOR_MAGENTA
+#define TROWA_SCOPE_INFO_DISPLAY_ON_COLOR		TSColors::COLOR_TS_ORANGE
+#define TROWA_SCOPE_LISSAJOUS_ON_COLOR			TSColors::COLOR_YELLOW
 #define TROWA_SCOPE_FILL_ON_COLOR				nvgRGB(0xDD,0xDD,0xDD) // COLOR_WHITE -- Very bright
 
 // Line Thickness
@@ -112,13 +112,13 @@ struct TSWaveform
 	float frameIndex;
 	// Lissajous mode on
 	bool lissajous = true;
-	SchmittTrigger lissajousTrigger;
+	dsp::SchmittTrigger lissajousTrigger;
 
 	// Link X and Y scale ::::::::::::::::::::::::::::::::::::::::::::::
 	// Force aspect ratio lock
 	bool linkXYScales;
 	// Trigger for linkXYScales button
-	SchmittTrigger linkXYScalesTrigger;
+	dsp::SchmittTrigger linkXYScalesTrigger;
 	// Last value for scale when X and Y were synched.
 	float lastXYScaleValue;
 	// Aspect Ratio X/Y:
@@ -154,7 +154,7 @@ struct TSWaveform
 
 
 	// Rotation ::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-	SchmittTrigger rotModeTrigger;
+	dsp::SchmittTrigger rotModeTrigger;
 	// True for absolute angular position, false if constant angular change
 	bool rotMode;
 	// Value from rotation knob
@@ -185,7 +185,7 @@ struct TSWaveform
 	// Fill color::::::::::::::::::::::::
 	// Fill mode is on
 	bool doFill = false;
-	SchmittTrigger fillOnTrigger;
+	dsp::SchmittTrigger fillOnTrigger;
 	// Color to use for fill.
 	NVGcolor fillColor;
 	// Fill hue (0-1)
@@ -248,10 +248,10 @@ struct TSWaveform
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// toJson(void)
+	// dataToJson(void)
 	// Save to json.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	json_t *toJson() {
+	json_t *dataToJson() {
 		// Really should just serialize the TSWaveForm object.
 		json_t* rootJ = json_object();
 		json_t* itemJ;
@@ -283,12 +283,12 @@ struct TSWaveform
 		json_object_set_new(rootJ, "rotMode", json_integer(this->rotMode));
 		json_object_set_new(rootJ, "linkXYScales", json_integer(this->linkXYScales));
 		return rootJ;
-	} // end toJson()
+	} // end dataToJson()
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// fromJson(void)
+	// dataFromJson(void)
 	// Load settings.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void fromJson(json_t *rootJ) {
+	void dataFromJson(json_t *rootJ) {
 		json_t* itemJ;
 		// Colors
 		json_t* waveColorJ = json_object_get(rootJ, "waveColor");
@@ -351,7 +351,7 @@ struct TSWaveform
 			itemJ = NULL;
 		}
 		return;
-	} // end fromJson()
+	} // end dataFromJson()
 };
 
 

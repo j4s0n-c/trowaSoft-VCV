@@ -4,12 +4,12 @@
 // Multi-oscillator (digital) for drawing.
 //----------------------------------------------------------------------
 
-#include "rack.hpp"
+#include <rack.hpp>
 using namespace rack;
 #include "trowaSoft.hpp"
-#include "dsp/digital.hpp"
+//#include "dsp/digital.hpp"
 
-#define DEBUG 1
+#define DEBUG_MOSC 1
 
 
 // Model for trowa multiOscillator
@@ -131,13 +131,13 @@ struct TS_OscillatorOutput {
 	// [Ramp] Or >= 0.5f for positive Ramp, < 0.5f for negative Ramp.
 	float auxParam_norm = 0.5;
 	// For cycling through waveform types (btn).
-	SchmittTrigger waveFormTrigger;
+	dsp::SchmittTrigger waveFormTrigger;
 	// Digital (false) or Ring Mod (true)
 	bool amRingModulation = false;
 	// For AM mode (btn). Digital (false) or Ring Mod (true).
-	SchmittTrigger amRingModulationTrigger;
+	dsp::SchmittTrigger amRingModulationTrigger;
 
-#if DEBUG
+#if DEBUG_MOSC
 	// For debugging:
 	float lastPhi_deg = 0.0f;
 #endif
@@ -157,14 +157,14 @@ struct TS_OscillatorOutput {
 	{
 		return auxParam_norm >= 0.5f;
 	}
-	//--------------------------------------------------------
-	// getRectPulseWidth()
-	// @returns: Pulse width.
-	//--------------------------------------------------------
-	bool getRectPulseWidth()
-	{
-		return auxParam_norm;
-	}
+	// //--------------------------------------------------------
+	// // getRectPulseWidth()
+	// // @returns: Pulse width.
+	// //--------------------------------------------------------
+	// bool getRectPulseWidth()
+	// {
+		// return auxParam_norm;
+	// }
 
 	//--------------------------------------------------------
 	// initialize()
@@ -316,9 +316,9 @@ struct TS_Oscillator {
 	TS_RingMod ringModulator;
 
 	// For synch button detection
-	SchmittTrigger synchTrigger;
+	dsp::SchmittTrigger synchTrigger;
 	// Sync out
-	PulseGenerator synchPulse;
+	dsp::PulseGenerator synchPulse;
 	//// If this oscillator should sync with another, the source oscillator index.
 	//int syncSrcOscillatorIx = -1;
 	//// If this step, the oscillator is restarted either by sync input or by reaching the end.
@@ -428,6 +428,7 @@ struct multiOscillator : Module {
 	// If this has it controls configured.
 	bool isInitialized = false;
 	const float lightLambda = 0.005f;
+	bool isFirstRun = true;
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// multiOscillator()
@@ -443,6 +444,13 @@ struct multiOscillator : Module {
 		return;
 	}
 	~multiOscillator();
+	
+	// Conversions:
+	static float Frequency2KnobVoltage(float frequency_Hz);
+	static float KnobVoltage2Frequency(float knobVal);
+	static float KnobVoltage2PhaseShift(float knobVal);
+	static float PhaseShift2KnobVoltage(float phi_deg);
+	
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// findSyncedOscillators(void)
@@ -455,7 +463,7 @@ struct multiOscillator : Module {
 	// initializeOscillators(void)
 	// Set oscillators to default values.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void initialOscillators() {
+	void initializeOscillators() {
 		for (int i = 0; i < numberOscillators; i++)
 		{
 			oscillators[i].initialize();
@@ -463,20 +471,21 @@ struct multiOscillator : Module {
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// step(void)
-	// Process.
+	// process()
+	// (Formerly step(void)).
+	// Process the step.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void step() override;
+	void process(const ProcessArgs &args) override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// reset(void)
 	// Initialize values.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void reset() override;
+	void onReset() override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// randomize(void)
 	// Randomize button stuff.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void randomize() override
+	void onRandomize() override
 	{
 		for (int i = 0; i < numberOscillators; i++)
 		{
@@ -488,13 +497,13 @@ struct multiOscillator : Module {
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// toJson(void)
+	// dataToJson(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	json_t *toJson() override;
+	json_t *dataToJson() override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// fromJson(void)
+	// dataFromJson(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void fromJson(json_t *rootJ) override;
+	void dataFromJson(json_t *rootJ) override;
 
 };
 

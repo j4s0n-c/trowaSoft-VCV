@@ -1,14 +1,14 @@
 #ifndef TROWASOFT_HPP
 #define TROWASOFT_HPP
 
-#include "rack.hpp"
+#include <rack.hpp>
 using namespace rack;
 
 #define TROWA_PLUGIN_NAME	"trowaSoft"
-extern Plugin *plugin;
+extern Plugin *pluginInstance;
 
 // An internal version number (integer) value. Simple int value for quick/dirty easy comparison.
-#define TROWA_INTERNAL_VERSION_INT		13  // 13: 0.6.5
+#define TROWA_INTERNAL_VERSION_INT		14  // 14: 1.0.0
 
 // 7: 0.5.5.2
 // 8: 0.6.5.2dev - For Rack 0.6.0dev
@@ -17,55 +17,17 @@ extern Plugin *plugin;
 //11: 0.6.3
 //12: 0.6.4
 //13: 0.6.5
+//14: 1.0.0
 
 //#include "TSSModuleWidgetBase.hpp"
-#include "TSSequencerWidgetBase.hpp"
-#include "Module_trigSeq.hpp"
-#include "Module_voltSeq.hpp"
+// #include "TSSequencerWidgetBase.hpp"
+// #include "Module_trigSeq.hpp"
+// #include "Module_voltSeq.hpp"
 
 /////////////////////////////////////////////////////////////////////////////////
 // Module Widgets
 /////////////////////////////////////////////////////////////////////////////////
 
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// trigSeqWidget
-// Widget for the trowaSoft pad / trigger sequencer.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-struct trigSeqWidget : TSSequencerWidgetBase {
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// trigSeqWidget()
-	// Widget for the trowaSoft 16-step pad / trigger sequencer.
-	// @seqModule : (IN) Pointer to the sequencer module.
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	trigSeqWidget(trigSeq* seqModule);
-};
 
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// voltSeqWidget
-// Widget for the trowaSoft knob / voltage sequencer.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-struct voltSeqWidget : TSSequencerWidgetBase {
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// voltSeqWidget()
-	// Widget for the trowaSoft 16-step voltage/knobby sequencer.
-	// @seqModule : (IN) Pointer to the sequencer module.
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	voltSeqWidget(voltSeq* seqModule);
-	// Create context menu with shifting.
-	Menu *createContextMenu() override;
-};
-
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// trigSeq64Widget
-// Widget for the trowaSoft 64-step sequencer.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-struct trigSeq64Widget : TSSequencerWidgetBase {
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// trigSeq64Widget()
-	// Widget for the trowaSoft 64-step sequencer.
-	// @seqModule : (IN) Pointer to the sequencer module.
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	trigSeq64Widget(trigSeq* seqModule);
-};
 
 #endif

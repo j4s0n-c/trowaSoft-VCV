@@ -1,9 +1,9 @@
 ﻿#include <string.h>
 #include <stdio.h>
-#include "widgets.hpp"
-using namespace rack;
+//#include "widgets.hpp"
 #include "trowaSoft.hpp"
-#include "dsp/digital.hpp"
+using namespace rack;
+//#include "dsp/digital.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
 #include "TSSequencerModuleBase.hpp"
@@ -14,7 +14,7 @@ using namespace rack;
 // Instantiate a trowaSoft Sequencer widget. v0.60 must have module as param.
 // @seqModule : (IN) Pointer to the sequencer module.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-TSSequencerWidgetBase::TSSequencerWidgetBase(TSSequencerModuleBase* seqModule) : TSSModuleWidgetBase(seqModule)
+TSSequencerWidgetBase::TSSequencerWidgetBase(TSSequencerModuleBase* seqModule) : TSSModuleWidgetBase(seqModule, /*randomizeParameters*/ false)
 {
 	box.size = Vec(26 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT);
 	return;
@@ -26,10 +26,11 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 {
 	TSSequencerModuleBase *thisModule = NULL;
 	if (this->module != NULL)
+	{
 		thisModule = dynamic_cast<TSSequencerModuleBase*>(this->module);
+	}
 	bool isPreview = thisModule == NULL;
-
-
+		
 	////////////////////////////////////
 	// DISPLAY
 	////////////////////////////////////
@@ -45,14 +46,13 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	// Should be a popup but J just wants it of the screen.
 	////////////////////////////////////
 	if (!isPreview)
-	{
+	{		
 		TSOSCConfigWidget* oscConfig = new TSOSCConfigWidget(thisModule, TSSequencerModuleBase::ParamIds::OSC_SAVE_CONF_PARAM, TSSequencerModuleBase::ParamIds::OSC_AUTO_RECONNECT_PARAM,
 			thisModule->oscCurrentClient,
 			thisModule->currentOSCSettings.oscTxIpAddress.c_str(), thisModule->currentOSCSettings.oscTxPort, thisModule->currentOSCSettings.oscRxPort);
 		oscConfig->setVisible(false);
 		oscConfig->box.pos = display->box.pos;
 		oscConfig->box.size = display->box.size;
-		//oscConfig->module = thisModule;
 		this->oscConfigurationScreen = oscConfig;
 		addChild(oscConfig);
 	}
@@ -69,68 +69,74 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 		addChild(area);
 	}
 	// Screws:
-	addChild(Widget::create<ScrewBlack>(Vec(0, 0)));
-	addChild(Widget::create<ScrewBlack>(Vec(box.size.x - 15, 0)));
-	addChild(Widget::create<ScrewBlack>(Vec(0, box.size.y - 15)));
-	addChild(Widget::create<ScrewBlack>(Vec(box.size.x - 15, box.size.y - 15)));
+	addChild(createWidget<ScrewBlack>(Vec(0, 0)));
+	addChild(createWidget<ScrewBlack>(Vec(box.size.x - 15, 0)));
+	addChild(createWidget<ScrewBlack>(Vec(0, box.size.y - 15)));
+	addChild(createWidget<ScrewBlack>(Vec(box.size.x - 15, box.size.y - 15)));
 
 	// Inputs ==================================================	
 	// Run (Toggle)
 	Vec btnSize = Vec(50,22);
-	addParam(ParamWidget::create<TS_PadBtn>(Vec(15, 320), thisModule, TSSequencerModuleBase::ParamIds::RUN_PARAM, 0.0, 1.0, 0.0));
+	addParam(createParam<TS_PadBtn>(Vec(15, 320), thisModule, TSSequencerModuleBase::ParamIds::RUN_PARAM));//, 0.0, 1.0, 0.0));
 	TS_LightString* item = dynamic_cast<TS_LightString*>(TS_createColorValueLight<TS_LightString>(/*pos */ Vec(15, 320), 
 		/*thisModule*/ thisModule,
 		/*lightId*/ TSSequencerModuleBase::LightIds::RUNNING_LIGHT,
-		/* size */ btnSize, /* color */ COLOR_WHITE));
+		/* size */ btnSize, /* color */ TSColors::COLOR_WHITE));
 	item->lightString = "RUN";
 	addChild(item);
 	
 	// Reset (Momentary)
-	addParam(ParamWidget::create<TS_PadBtn>(Vec(15, 292), thisModule, TSSequencerModuleBase::ParamIds::RESET_PARAM, 0.0, 1.0, 0.0));
+	addParam(createParam<TS_PadBtn>(Vec(15, 292), thisModule, TSSequencerModuleBase::ParamIds::RESET_PARAM));//, 0.0, 1.0, 0.0));
 	item = dynamic_cast<TS_LightString*>(TS_createColorValueLight<TS_LightString>(/*pos */ Vec(15, 292), 
 		/*thisModule*/ thisModule,
 		/*lightId*/ TSSequencerModuleBase::LightIds::RESET_LIGHT,	
-		/* size */ btnSize, /* color */ COLOR_WHITE));
+		/* size */ btnSize, /* color */ TSColors::COLOR_WHITE));
 	item->lightString = "RESET";
 	addChild(item);
-	
+
 	// Paste button:
-	addParam(ParamWidget::create<TS_PadBtn>(Vec(15, 115), thisModule, TSSequencerModuleBase::ParamIds::PASTE_PARAM, 0.0, 1.0, 0.0));
-	thisModule->pasteLight = dynamic_cast<TS_LightString*>(TS_createColorValueLight<TS_LightString>(/*pos */ Vec(15, 115), 
+	addParam(createParam<TS_PadBtn>(Vec(15, 115), thisModule, TSSequencerModuleBase::ParamIds::PASTE_PARAM));//, 0.0, 1.0, 0.0));
+	item = dynamic_cast<TS_LightString*>(TS_createColorValueLight<TS_LightString>(/*pos */ Vec(15, 115), 
 		/*thisModule*/ thisModule,
 		/*lightId*/ TSSequencerModuleBase::LightIds::PASTE_LIGHT,
-		/* size */ btnSize, /* color */ COLOR_WHITE));
-	thisModule->pasteLight->lightString = "PASTE";
-	addChild(thisModule->pasteLight);
+		/* size */ btnSize, /* color */ TSColors::COLOR_WHITE));
+	item->lightString = "PASTE";
+	if (!isPreview)
+		thisModule->pasteLight = item;
+	addChild(item);
 		
 	// Top Knobs : Keep references for later
 	int knobRow = 79;
 	int knobStart = 27;
 	int knobSpacing = 61;
 
-	RoundSmallBlackKnob* outKnobPtr = NULL;
-
+	TS_RoundBlackKnob* outKnobPtr = NULL;
+	
 	// Pattern Playback Select  (Knob)
-	outKnobPtr = dynamic_cast<RoundSmallBlackKnob*>(ParamWidget::create<RoundSmallBlackKnob>(Vec(knobStart, knobRow), thisModule, TSSequencerModuleBase::ParamIds::SELECTED_PATTERN_PLAY_PARAM, /*min*/ 0.0, /*max*/ TROWA_SEQ_NUM_PATTERNS - 1, /*default value*/ 0.0));
+	outKnobPtr = dynamic_cast<TS_RoundBlackKnob*>(createParam<TS_RoundBlackKnob>(Vec(knobStart, knobRow), thisModule, TSSequencerModuleBase::ParamIds::SELECTED_PATTERN_PLAY_PARAM));//, /*min*/ 0.0, /*max*/ TROWA_SEQ_NUM_PATTERNS - 1, /*default value*/ 0.0));
 	if (!isPreview)
 		thisModule->controlKnobs[TSSequencerModuleBase::KnobIx::PlayPatternKnob] = outKnobPtr;
+	outKnobPtr->allowRandomize = false;
 	addParam(outKnobPtr);
 	
 	// Clock BPM (Knob)
-	outKnobPtr = dynamic_cast<RoundSmallBlackKnob*>(ParamWidget::create<RoundSmallBlackKnob>(Vec(knobStart + (knobSpacing * 1), knobRow), thisModule, TSSequencerModuleBase::ParamIds::BPM_PARAM, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX, (TROWA_SEQ_BPM_KNOB_MAX + TROWA_SEQ_BPM_KNOB_MIN) / 2));
+	outKnobPtr = dynamic_cast<TS_RoundBlackKnob*>(createParam<TS_RoundBlackKnob>(Vec(knobStart + (knobSpacing * 1), knobRow), thisModule, TSSequencerModuleBase::ParamIds::BPM_PARAM));//, TROWA_SEQ_BPM_KNOB_MIN, TROWA_SEQ_BPM_KNOB_MAX, (TROWA_SEQ_BPM_KNOB_MAX + TROWA_SEQ_BPM_KNOB_MIN) / 2));
 	if (!isPreview)
 		thisModule->controlKnobs[TSSequencerModuleBase::KnobIx::BPMKnob] = outKnobPtr;
+	outKnobPtr->allowRandomize = false;	
 	addParam(outKnobPtr);
 	
 	// Steps (Knob)
-	outKnobPtr = dynamic_cast<RoundSmallBlackKnob*>(ParamWidget::create<RoundSmallBlackKnob>(Vec(knobStart + (knobSpacing * 2), knobRow), thisModule, TSSequencerModuleBase::ParamIds::STEPS_PARAM, 1.0, this->maxSteps, this->maxSteps));
+	outKnobPtr = dynamic_cast<TS_RoundBlackKnob*>(createParam<TS_RoundBlackKnob>(Vec(knobStart + (knobSpacing * 2), knobRow), thisModule, TSSequencerModuleBase::ParamIds::STEPS_PARAM));//, 1.0, this->maxSteps, this->maxSteps));
 	if (!isPreview)
 		thisModule->controlKnobs[TSSequencerModuleBase::KnobIx::StepLengthKnob] = outKnobPtr;
+	outKnobPtr->allowRandomize = false;	
 	addParam(outKnobPtr);
 
 	// Output Mode (Knob)
-	outKnobPtr = dynamic_cast<RoundSmallBlackKnob*>(ParamWidget::create<RoundSmallBlackKnob>(Vec(knobStart + (knobSpacing * 3), knobRow), thisModule, 
-		TSSequencerModuleBase::ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM, 0, TROWA_SEQ_NUM_MODES - 1, TSSequencerModuleBase::ValueMode::VALUE_TRIGGER));
+	outKnobPtr = dynamic_cast<TS_RoundBlackKnob*>(createParam<TS_RoundBlackKnob>(Vec(knobStart + (knobSpacing * 3), knobRow), thisModule, 
+		TSSequencerModuleBase::ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM));//, 0, TROWA_SEQ_NUM_MODES - 1, TSSequencerModuleBase::ValueMode::VALUE_TRIGGER));
+	outKnobPtr->allowRandomize = false;		
 	outKnobPtr->minAngle = -0.6*M_PI;
 	outKnobPtr->maxAngle = 0.6*M_PI;
 	if (!isPreview)
@@ -138,13 +144,15 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	addParam(outKnobPtr);
 	
 	// Pattern Edit Select (Knob)
-	outKnobPtr = dynamic_cast<RoundSmallBlackKnob*>(ParamWidget::create<RoundSmallBlackKnob>(Vec(knobStart + (knobSpacing * 4), knobRow), thisModule, TSSequencerModuleBase::ParamIds::SELECTED_PATTERN_EDIT_PARAM, /*min*/ 0.0, /*max*/ TROWA_SEQ_NUM_PATTERNS - 1, /*default value*/ 0));
+	outKnobPtr = dynamic_cast<TS_RoundBlackKnob*>(createParam<TS_RoundBlackKnob>(Vec(knobStart + (knobSpacing * 4), knobRow), thisModule, TSSequencerModuleBase::ParamIds::SELECTED_PATTERN_EDIT_PARAM));//, /*min*/ 0.0, /*max*/ TROWA_SEQ_NUM_PATTERNS - 1, /*default value*/ 0));
+	outKnobPtr->allowRandomize = false;	
 	if (!isPreview)
 		thisModule->controlKnobs[TSSequencerModuleBase::KnobIx::EditPatternKnob] = outKnobPtr;
 	addParam(outKnobPtr);
 	
 	// Selected Gate/Voice/Channel (Knob)
-	outKnobPtr = dynamic_cast<RoundSmallBlackKnob*>(ParamWidget::create<RoundSmallBlackKnob>(Vec(knobStart + (knobSpacing * 5), knobRow), thisModule, TSSequencerModuleBase::ParamIds::SELECTED_CHANNEL_PARAM, /*min*/ 0.0, /*max*/ TROWA_SEQ_NUM_CHNLS - 1, /*default value*/ 0));
+	outKnobPtr = dynamic_cast<TS_RoundBlackKnob*>(createParam<TS_RoundBlackKnob>(Vec(knobStart + (knobSpacing * 5), knobRow), thisModule, TSSequencerModuleBase::ParamIds::SELECTED_CHANNEL_PARAM));//, /*min*/ 0.0, /*max*/ TROWA_SEQ_NUM_CHNLS - 1, /*default value*/ 0));
+	outKnobPtr->allowRandomize = false;	
 	if (!isPreview)
 		thisModule->controlKnobs[TSSequencerModuleBase::KnobIx::EditChannelKnob] = outKnobPtr;
 	addParam(outKnobPtr);
@@ -159,39 +167,39 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	if (isPreview || thisModule->allowOSC)
 	{
 		Vec btnSize = Vec(ledSize.x - 2, ledSize.y - 2);
-		btn = dynamic_cast<LEDButton*>(ParamWidget::create<LEDButton>(Vec(x, y), module, TSSequencerModuleBase::ParamIds::OSC_SHOW_CONF_PARAM, 0, 1, 0));
+		btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(x, y), module, TSSequencerModuleBase::ParamIds::OSC_SHOW_CONF_PARAM));//, 0, 1, 0));
 		btn->box.size = btnSize;
 		addParam(btn);
-		addChild(TS_createColorValueLight<ColorValueLight>(Vec(x, y), module, TSSequencerModuleBase::LightIds::OSC_CONFIGURE_LIGHT, ledSize, COLOR_WHITE));
+		addChild(TS_createColorValueLight<ColorValueLight>(Vec(x, y), module, TSSequencerModuleBase::LightIds::OSC_CONFIGURE_LIGHT, ledSize, TSColors::COLOR_WHITE));
 		addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + 2, y + 2), module, TSSequencerModuleBase::LightIds::OSC_ENABLED_LIGHT, Vec(ledSize.x - 4, ledSize.y - 4), TSOSC_STATUS_COLOR));
 	}
 
 	ColorValueLight* lightPtr = NULL;
 
 	// COPY: Pattern Copy button:
-	btn = dynamic_cast<LEDButton*>(ParamWidget::create<LEDButton>(Vec(knobStart + (knobSpacing * 4) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::COPY_PATTERN_PARAM, 0, 1, 0));
+	btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(knobStart + (knobSpacing * 4) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::COPY_PATTERN_PARAM));//, 0, 1, 0));
 	btn->box.size = ledSize;
 	addParam(btn);
-	lightPtr = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 4) + dx, knobRow), module, TSSequencerModuleBase::LightIds::COPY_PATTERN_LIGHT, ledSize, COLOR_WHITE));
+	lightPtr = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 4) + dx, knobRow), module, TSSequencerModuleBase::LightIds::COPY_PATTERN_LIGHT, ledSize, TSColors::COLOR_WHITE));
 	if (!isPreview)
 		thisModule->copyPatternLight = lightPtr;
 	addChild(lightPtr);
 
 	// COPY: Gate Copy button:
-	btn = dynamic_cast<LEDButton*>(ParamWidget::create<LEDButton>(Vec(knobStart + (knobSpacing * 5) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::COPY_CHANNEL_PARAM, 0, 1, 0));
+	btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(knobStart + (knobSpacing * 5) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::COPY_CHANNEL_PARAM));//, 0, 1, 0));
 	btn->box.size = ledSize;
 	addParam(btn);
-	lightPtr = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 5) + dx, knobRow), module, TSSequencerModuleBase::LightIds::COPY_CHANNEL_LIGHT, ledSize, COLOR_WHITE));
+	lightPtr = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 5) + dx, knobRow), module, TSSequencerModuleBase::LightIds::COPY_CHANNEL_LIGHT, ledSize, TSColors::COLOR_WHITE));
 	if (!isPreview)
 		thisModule->copyGateLight = lightPtr;
 	addChild(lightPtr);
 
 	// CHANGE BPM CALC NOTE (1/4, 1/8, 1/8T, 1/16)
 	//SELECTED_BPM_MULT_IX_PARAM
-	btn = dynamic_cast<LEDButton*>(ParamWidget::create<LEDButton>(Vec(knobStart + (knobSpacing * 1) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::SELECTED_BPM_MULT_IX_PARAM, 0, 1, 0));
+	btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(knobStart + (knobSpacing * 1) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::SELECTED_BPM_MULT_IX_PARAM));//, 0, 1, 0));
 	btn->box.size = ledSize;
 	addParam(btn);
-	addChild(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 1) + dx, knobRow), module, TSSequencerModuleBase::LightIds::SELECTED_BPM_MULT_IX_LIGHT, ledSize, COLOR_WHITE));
+	addChild(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 1) + dx, knobRow), module, TSSequencerModuleBase::LightIds::SELECTED_BPM_MULT_IX_LIGHT, ledSize, TSColors::COLOR_WHITE));
 	
 	// Input Jacks:
 	int xStart = 10;
@@ -212,7 +220,7 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	
 	// Reset 
 	addInput(TS_createInput<TS_Port>(Vec(xStart, portStart + (ySpacing * 4)), thisModule, TSSequencerModuleBase::InputIds::RESET_INPUT));
-		
+
 	// Outputs ==================================================
 	// Loop through each channel/voice/gate
 	y = 115;
@@ -223,21 +231,23 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	float add = 0;
 	Vec outputLightSize = Vec(jackDiameter + add, jackDiameter + add);
 
-	NVGcolor* channelColors = NULL;
-	NVGcolor colors[TROWA_SEQ_NUM_CHNLS] {
-		COLOR_TS_RED, COLOR_DARK_ORANGE, COLOR_YELLOW, COLOR_TS_GREEN,
-		COLOR_CYAN, COLOR_TS_BLUE, COLOR_PURPLE, COLOR_PINK,
-		COLOR_TS_RED, COLOR_DARK_ORANGE, COLOR_YELLOW, COLOR_TS_GREEN,
-		COLOR_CYAN, COLOR_TS_BLUE, COLOR_PURPLE, COLOR_PINK
-	};
+	const NVGcolor* channelColors = NULL;
+	// NVGcolor colors[TROWA_SEQ_NUM_CHNLS] = {
+		// COLOR_TS_RED, COLOR_DARK_ORANGE, COLOR_YELLOW, COLOR_TS_GREEN,
+		// COLOR_CYAN, COLOR_TS_BLUE, COLOR_PURPLE, COLOR_PINK,
+		// COLOR_TS_RED, COLOR_DARK_ORANGE, COLOR_YELLOW, COLOR_TS_GREEN,
+		// COLOR_CYAN, COLOR_TS_BLUE, COLOR_PURPLE, COLOR_PINK
+	// };
 	if (!isPreview)
 	{
 		channelColors = thisModule->voiceColors;
 	}
 	else
 	{
-		channelColors = colors; // Point to our default array
+		channelColors = TSColors::CHANNEL_COLORS; // Point to our default array
 	}
+	DEBUG("TSSequencerWidgetBase::addBaseControls() - Adding outputs");
+	
 	for (int r = 0; r < 8; r++)
 	{
 		for (int c = 0; c < 2; c++)
@@ -249,6 +259,7 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 				/*thisModule*/ thisModule, 
 				/*lightId*/ TSSequencerModuleBase::LightIds::CHANNEL_LIGHTS+v,
 				/*size*/ outputLightSize, /*lightColor*/ channelColors[v], /*backColor*/ channelColors[v]));
+			/// TODO: If # Channels is ever greater than 16, then, change this (if we used CHANNEL_COLORS).
 
 			if (!isPreview)
 				thisModule->lights[TSSequencerModuleBase::LightIds::CHANNEL_LIGHTS + v].value = 0;
@@ -258,9 +269,6 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 		y += 28; // Next row
 		x = 314;
 	} // end loop through NxM grid
-
-
-	//debug("Base Controls added.");
 	return;
 } // end addBaseControls()
 
@@ -274,7 +282,7 @@ void TSSequencerWidgetBase::step()
 
 	TSSequencerModuleBase* thisModule = dynamic_cast<TSSequencerModuleBase*>(module);
 
-	if (thisModule->oscConfigTrigger.process(thisModule->params[TSSequencerModuleBase::ParamIds::OSC_SHOW_CONF_PARAM].value))
+	if (thisModule->oscConfigTrigger.process(thisModule->params[TSSequencerModuleBase::ParamIds::OSC_SHOW_CONF_PARAM].getValue()))
 	{
 		thisModule->oscShowConfigurationScreen = !thisModule->oscShowConfigurationScreen;
 		thisModule->lights[TSSequencerModuleBase::LightIds::OSC_CONFIGURE_LIGHT].value = (thisModule->oscShowConfigurationScreen) ? 1.0 : 0.0;
@@ -302,7 +310,7 @@ void TSSequencerWidgetBase::step()
 			if (thisModule->oscError)
 			{
 				this->oscConfigurationScreen->errorMsg = "Error connecting to " + thisModule->currentOSCSettings.oscTxIpAddress;
-			}
+			}			
 			this->oscConfigurationScreen->setVisible(true);
 		}
 		else
@@ -313,7 +321,7 @@ void TSSequencerWidgetBase::step()
 	if (thisModule->oscShowConfigurationScreen)
 	{
 		// Check for enable/disable
-		if (thisModule->oscConnectTrigger.process(thisModule->params[TSSequencerModuleBase::ParamIds::OSC_SAVE_CONF_PARAM].value))
+		if (thisModule->oscConnectTrigger.process(thisModule->params[TSSequencerModuleBase::ParamIds::OSC_SAVE_CONF_PARAM].getValue()))
 		{
 			if (oscConfigurationScreen->btnActionEnable)
 			{
@@ -322,7 +330,7 @@ void TSSequencerWidgetBase::step()
 				if (!this->oscConfigurationScreen->isValidIpAddress())
 				{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-					debug("IP Address is not valid.");
+					DEBUG("IP Address is not valid.");
 #endif
 					this->oscConfigurationScreen->errorMsg = "Invalid IP Address.";
 					this->oscConfigurationScreen->tbIpAddress->requestFocus();
@@ -330,7 +338,7 @@ void TSSequencerWidgetBase::step()
 				else if (!this->oscConfigurationScreen->isValidTxPort())
 				{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-					debug("Tx Port is not valid.");
+					DEBUG("Tx Port is not valid.");
 #endif
 					this->oscConfigurationScreen->errorMsg = "Invalid Output Port (0-" + std::to_string(0xFFFF) + ").";
 					this->oscConfigurationScreen->tbTxPort->requestFocus();
@@ -339,7 +347,7 @@ void TSSequencerWidgetBase::step()
 				else if (!this->oscConfigurationScreen->isValidRxPort())
 				{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-					debug("Rx Port is not valid.");
+					DEBUG("Rx Port is not valid.");
 #endif
 					this->oscConfigurationScreen->errorMsg = "Invalid Input Port (0-" + std::to_string(0xFFFF) + ").";
 					this->oscConfigurationScreen->tbRxPort->requestFocus();
@@ -348,7 +356,7 @@ void TSSequencerWidgetBase::step()
 				{
 					// Try to connect
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-					debug("Save OSC Configuration clicked, save information for module.");
+					DEBUG("Save OSC Configuration clicked, save information for module.");
 #endif
 					this->oscConfigurationScreen->errorMsg = "";
 					thisModule->oscNewSettings.oscTxIpAddress = this->oscConfigurationScreen->tbIpAddress->text.c_str();
@@ -363,7 +371,7 @@ void TSSequencerWidgetBase::step()
 			{
 				// Disable OSC ------------------------------------------------------------------
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-				debug("Disable OSC clicked.");
+				DEBUG("Disable OSC clicked.");
 #endif
 				this->oscConfigurationScreen->errorMsg = "";
 				thisModule->oscCurrentAction = TSSequencerModuleBase::OSCAction::Disable;
@@ -425,7 +433,7 @@ struct seqRandomSubMenuItem : MenuItem {
 		sequencerModule = NULL;
 	}
 
-	void onAction(EventAction &e) override {
+	void onAction(const event::Action &e) override {
 		if (this->Target == ShiftType::AllPatterns)
 		{
 			sequencerModule->randomize(TROWA_INDEX_UNDEFINED, TROWA_SEQ_COPY_CHANNELIX_ALL, useStucturedRandom);
@@ -496,9 +504,10 @@ struct seqRandomMenuItem : MenuItem {
 // createContextMenu()
 // Create context menu with more random options for sequencers.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-Menu *TSSequencerWidgetBase::createContextMenu()
+//Menu *TSSequencerWidgetBase::createContextMenu()
+void TSSequencerWidgetBase::appendContextMenu(ui::Menu *menu)
 {
-	Menu *menu = ModuleWidget::createContextMenu();
+	//Menu *menu = ModulecreateWidgetContextMenu();
 
 	MenuLabel *spacerLabel = new MenuLabel();
 	menu->addChild(spacerLabel);
@@ -511,5 +520,5 @@ Menu *TSSequencerWidgetBase::createContextMenu()
 	menu->addChild(modeLabel); //menu->pushChild(modeLabel);
 	menu->addChild(new seqRandomMenuItem("> All Steps Random", false, sequencerModule));
 	menu->addChild(new seqRandomMenuItem("> Structured Random", true, sequencerModule));
-	return menu;
+	return;
 }

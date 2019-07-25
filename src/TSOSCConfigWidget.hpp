@@ -1,19 +1,18 @@
 #ifndef  TSOSCCONFIGWIDGET_HPP
 #define TSOSCCONFIGWIDGET_HPP
 
-#include "rack.hpp"
+#include <rack.hpp>
 using namespace rack;
 
-extern Plugin *plugin;
+extern Plugin *pluginInstance;
 #include "componentlibrary.hpp"
-#include "widgets.hpp"
-#include "dsp/digital.hpp"
+#include <widget/Widget.hpp> //#include "widgets.hpp"
+#include <dsp/digital.hpp>
 #include <string.h>
 #include <stdlib.h>
 #include "TSTextField.hpp"
 #include "trowaSoftComponents.hpp"
 #include "TSOSCCommon.hpp"
-//#include "TSSequencerModuleBase.hpp"
 
 #define TSOSC_NUM_TXTFIELDS		3
 #define TSOSC_STATUS_COLOR		nvgRGB(0x00, 0xff, 0xff)
@@ -35,9 +34,9 @@ struct TSOSCClientSelectBtn : ChoiceButton {
 
 	TSOSCClientSelectBtn();
 	void step() override;
-	void onAction(EventAction &e) override;
+	void onAction(const event::Action &e) override;
 	// Draw if visible
-	void draw(NVGcontext *vg) override;
+	void draw(const DrawArgs &args) override;
 };
 // An OSC client option in dropdown.
 struct TSOSCClientItem : MenuItem {
@@ -48,7 +47,7 @@ struct TSOSCClientItem : MenuItem {
 		parentButton = parent;
 		return;
 	}
-	void onAction(EventAction &e) override;
+	void onAction(const event::Action &e) override;
 };
 
 
@@ -71,7 +70,7 @@ struct TSOSCConfigWidget : OpaqueWidget
 	bool btnActionEnable = true;
 	// Auto-reconnect toggle (auto-reconnect on loading).
 	TS_ScreenCheckBox* ckAutoReconnect;
-	SchmittTrigger autoReconnectTrigger;
+	dsp::SchmittTrigger autoReconnectTrigger;
 
 
 	std::string errorMsg;
@@ -119,7 +118,7 @@ struct TSOSCConfigWidget : OpaqueWidget
 	void step() override;
 
 	// Draw if visible
-	void draw(NVGcontext *vg) override;
+	void draw(const DrawArgs &args) override;
 	// Callback for tabbing between our text boxes.
 	void onTabField(int id);
 	// Callback for shift-tabbing between our text boxes.
@@ -144,9 +143,13 @@ struct TSOSCConfigWidget : OpaqueWidget
 	// Sets the visibility
 	void setVisible(bool isVisible) {
 		visible = isVisible;
-		tbIpAddress->visible = isVisible;
-		tbTxPort->visible = isVisible;
-		tbRxPort->visible = isVisible;
+		// tbIpAddress->visible = isVisible;
+		// tbTxPort->visible = isVisible;
+		// tbRxPort->visible = isVisible;
+		tbIpAddress->setVisible(isVisible);
+		tbTxPort->setVisible(isVisible);
+		tbRxPort->setVisible(isVisible);
+		
 		btnClientSelect->visible = isVisible;
 		ckAutoReconnect->visible = isVisible;
 		return;

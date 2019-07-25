@@ -29,9 +29,9 @@ void TSParamTextField::saveValue()
 {
 	isEditing = 2; // Wait 2 cycles before setting knob -> text again in step()
 	char buffer[50] = { 0 };
-	if (control != NULL)
+	if (control != NULL && control->paramQuantity != NULL)
 	{
-		float controlVal = control->value;
+		float controlVal = control->paramQuantity->getValue();
 		if (isValid()) {
 			// Set the value on the control:
 			float val = (text.length() > 0) ? std::stof(text.c_str()) : 0.0f;
@@ -39,17 +39,17 @@ void TSParamTextField::saveValue()
 				controlVal = text2KnobVal(val);
 			else
 				controlVal = val;
-			if (controlVal < control->minValue)
+			if (controlVal < control->paramQuantity->getMinValue())
 			{
-				val = (knob2TextVal == NULL) ? control->minValue : knob2TextVal(control->minValue);
-				controlVal = control->minValue;
+				val = (knob2TextVal == NULL) ? control->paramQuantity->getMinValue() : knob2TextVal(control->paramQuantity->getMinValue());
+				controlVal = control->paramQuantity->getMinValue();
 			}
-			else if (controlVal > control->maxValue)
+			else if (controlVal > control->paramQuantity->getMaxValue())
 			{
-				val = (knob2TextVal == NULL) ? control->maxValue : knob2TextVal(control->maxValue);
-				controlVal = control->maxValue;
+				val = (knob2TextVal == NULL) ? control->paramQuantity->getMaxValue() : knob2TextVal(control->paramQuantity->getMaxValue());
+				controlVal = control->paramQuantity->getMaxValue();
 			}
-			control->setValue(controlVal);
+			control->paramQuantity->setValue(controlVal);
 			if (isBufferedCtrl && isDirty != NULL)
 			{
 				*isDirty = true; // Set dirty flag to redraw
@@ -69,13 +69,14 @@ void TSParamTextField::saveValue()
 // onAction()
 // Save value if valid.
 //-----------------------------------------------------------------------------------------------
-void TSParamTextField::onAction(EventAction &e)
+void TSParamTextField::onAction(const event::Action &e)
 {
-	//debug("onAction() - visible = %d!", visible);
+	//DEBUG("onAction() - visible = %d!", visible);
 	if (visible)
 	{
 		saveValue();
-		e.consumed = true;
+		//e.consumed = true;
+		e.consume(this);
 	}
 	return;
 }
@@ -83,14 +84,16 @@ void TSParamTextField::onAction(EventAction &e)
 // onDefocus()
 // Validate input, set control value to match, format the text field number.
 //-----------------------------------------------------------------------------------------------
-void TSParamTextField::onDefocus(EventDefocus &e)
+void TSParamTextField::onDeselect(const event::Deselect &e)
 {
+DEBUG("TSParamTextField::onDeselect(%d)", id);
 	saveValue();
 	if (autoHideMode == AutoHideMode::AutoHideOnDefocus) {
 		visible = false;
 	}
 	isEditing = 2; // Wait one cycle before setting knob -> text again in step()
-	e.consumed = true;
+	//e.consumed = true;
+	e.consume(this);
 	return; 
 } // end onDefocus()
 //-----------------------------------------------------------------------------------------------
@@ -99,19 +102,20 @@ void TSParamTextField::onDefocus(EventDefocus &e)
 //-----------------------------------------------------------------------------------------------
 void TSParamTextField::step()
 {
-	if (control != NULL && !isEditing)
+	if (control != NULL && !isEditing && control->paramQuantity != NULL)
 	{
-		if (control->value != lastControlVal)
+		float val = control->paramQuantity->getValue();
+		if (val != lastControlVal)
 		{
 			char buffer[50] = { 0 };
 
 			if (knob2TextVal != NULL)
-				sprintf(buffer, formatString, knob2TextVal(control->value));
+				sprintf(buffer, formatString, knob2TextVal(val));
 			else
-				sprintf(buffer, formatString, control->value);
+				sprintf(buffer, formatString, val);
 			text = buffer;
 
-			lastControlVal = control->value;
+			lastControlVal = val;
 		}
 	}
 	else if (isEditing < 3 && isEditing > 0)
@@ -127,16 +131,16 @@ void TSParamTextField::setText(float val)
 {
 	char buffer[50] = { 0 };
 	float controlVal = val;
-	if (control != NULL)
+	if (control != NULL && control->paramQuantity != NULL)
 	{
 		if (text2KnobVal != NULL)
 			controlVal = text2KnobVal(val);
 		else
 			controlVal = val;
-		if (controlVal < control->minValue)
-			val = (knob2TextVal == NULL) ? control->minValue : knob2TextVal(control->minValue);
-		else if (controlVal > control->maxValue)
-			val = (knob2TextVal == NULL) ? control->maxValue : knob2TextVal(control->maxValue);
+		if (controlVal < control->paramQuantity->getMinValue())
+			val = (knob2TextVal == NULL) ? control->paramQuantity->getMinValue() : knob2TextVal(control->paramQuantity->getMinValue());
+		else if (controlVal > control->paramQuantity->getMaxValue())
+			val = (knob2TextVal == NULL) ? control->paramQuantity->getMaxValue() : knob2TextVal(control->paramQuantity->getMaxValue());
 	}
 	// Format the text
 	sprintf(buffer, formatString, val);

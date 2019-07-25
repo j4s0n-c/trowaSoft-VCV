@@ -2,16 +2,20 @@
 #define MODULE_VOLTSEQ_HPP
 #include <string.h>
 #include <stdio.h>
-#include "dsp/digital.hpp"
+//#include "dsp/digital.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
 #include "TSSequencerModuleBase.hpp"
+#include "TSSequencerWidgetBase.hpp"
+#include "TSParamQuantity.hpp"
 
 #define voltSeq_STEP_KNOB_MIN	  -10.0  // Minimum value from our knobs
 #define voltSeq_STEP_KNOB_MAX	   10.0  // Maximum value from our knobs
 
 // voltSeq model.
 extern Model *modelVoltSeq;
+
+extern ValueSequencerMode* voltSeq_DEFAULT_VALUE_MODE;
 
 //===============================================================================
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -55,28 +59,9 @@ struct voltSeq : TSSequencerModuleBase
 			/*roundDisplay*/ 0, /*roundOutput*/ 0,
 			/*zeroValue*/ voltSeq_STEP_KNOB_MIN)			
 	};
-	voltSeq(int numSteps, int numRows, int numCols) : TSSequencerModuleBase(numSteps, numRows, numCols, /*default val*/ 0.0) // Now default to 0 instead of -10
-	{
-		selectedOutputValueMode = VALUE_VOLT;
-		lastOutputValueMode = selectedOutputValueMode;
-		modeStrings[0] = "VOLT";
-		modeStrings[1] = "NOTE";
-		modeStrings[2] = "PATT";
-		numStructuredRandomPatterns = TROWA_SEQ_NUM_RANDOM_PATTERNS; // voltSeq can use the full range of random patterns.
-
-		knobStepMatrix = new TS_LightedKnob**[numRows];
-		for (int r = 0; r < numRows; r++)
-		{
-			knobStepMatrix[r] = new TS_LightedKnob*[numCols];
-		}		
-
-		oscLastSentVals = new float[numSteps];
-		for (int s = 0; s < numSteps; s++)
-		{
-			oscLastSentVals[s] = voltSeq_STEP_KNOB_MIN - 1.0;
-		}
-		return;
-	}
+	
+	voltSeq(int numSteps, int numRows, int numCols);
+	
 	voltSeq() : voltSeq(TROWA_SEQ_NUM_STEPS, TROWA_SEQ_STEP_NUM_ROWS, TROWA_SEQ_STEP_NUM_ROWS)
 	{
 		return;
@@ -94,11 +79,11 @@ struct voltSeq : TSSequencerModuleBase
 		delete [] oscLastSentVals;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// fromJson(void)
+	// dataFromJson(void)
 	// Read in our junk from json.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void fromJson(json_t *rootJ) override {
-		TSSequencerModuleBase::fromJson(rootJ);
+	void dataFromJson(json_t *rootJ) override {
+		TSSequencerModuleBase::dataFromJson(rootJ);
 
 		//// Check for old version and try to do graceful conversion from -5 to +5V 
 		//// in Note Mode to -4 to +6V
@@ -118,16 +103,22 @@ struct voltSeq : TSSequencerModuleBase
 	// @pattern: (IN) The pattern to edit (0 to TROWA_SEQ_NUM_PATTERNS - 1).
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void setStepValue(int step, float val, int channel, int pattern) override;
-	void step() override;
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// process()
+	// [Previously step(void)]
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	void process(const ProcessArgs &args) override;
 	// Only randomize the current gate/trigger steps.
-	void randomize() override;
+	void onRandomize() override;
+	// Configure the value mode parameters on the steps.
+	void configValueModeParam();
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// getRandomValue()
 	// Get a random value for a step in this sequencer.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	float getRandomValue() override {
-		return voltSeq_STEP_KNOB_MIN + randomUniform()*(voltSeq_STEP_KNOB_MAX - voltSeq_STEP_KNOB_MIN);
+		return voltSeq_STEP_KNOB_MIN + random::uniform()*(voltSeq_STEP_KNOB_MAX - voltSeq_STEP_KNOB_MIN);
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// onShownStepChange()
@@ -135,14 +126,12 @@ struct voltSeq : TSSequencerModuleBase
 	// For voltSeq to adjust the knobs so we dont' read the old knob values again.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void onShownStepChange(int step, float val) override {
-		this->params[CHANNEL_PARAM + step].value = val;
+		this->params[CHANNEL_PARAM + step].setValue(val);
 		int r = step / numRows;
 		int c = step % numRows;
 		knobStepMatrix[r][c]->setKnobValue(val);
 		return;
 	}
-
-
 	// Get the toggle step value
 	float getToggleStepValue(int step, float val, int channel, int pattern) override;
 	// Calculate a representation of all channels for this step
@@ -156,6 +145,42 @@ struct voltSeq : TSSequencerModuleBase
 	void shiftValues(/*in*/ int patternIx, /*in*/ int channelIx, /*in*/ float volts);
 };
 
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// ParamQuantity for our value modes.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+struct TS_ValueSequencerParamQuantity : TS_ParamQuantity {
+	// Most of this functionality was already done in ValueSequencerMode back in v0.5 or whatever, so use it.
+	ValueSequencerMode* valueMode;	
+	char buffer[50];
+	TS_ValueSequencerParamQuantity() : TS_ParamQuantity()
+	{
+		return;
+	}
+	void setValueMode(ValueSequencerMode* vMode);
+	// Returns a string representation of the display value 
+	std::string getDisplayValueString() override;
+	// Given the string make it the float voltage.
+	void setDisplayValueString(std::string s) override;
+};
+
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// voltSeqWidget
+// Widget for the trowaSoft knob / voltage sequencer.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+struct voltSeqWidget : TSSequencerWidgetBase {
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// voltSeqWidget()
+	// Widget for the trowaSoft 16-step voltage/knobby sequencer.
+	// @seqModule : (IN) Pointer to the sequencer module.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	voltSeqWidget(voltSeq* seqModule);
+	// Create context menu with shifting.
+	//Menu *createContextMenu() override;
+	/** Override to add context menu entries to your subclass.
+	It is recommended to add a blank ui::MenuEntry first for spacing.
+	*/
+	void appendContextMenu(ui::Menu *menu) override;
+};
 
 
 #endif // end if not defined

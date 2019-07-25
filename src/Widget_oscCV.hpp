@@ -1,11 +1,11 @@
 #ifndef WIDGET_OSCCV_HPP
 #define WIDGET_OSCCV_HPP
 
-#include "widgets.hpp"
+#include <widget/Widget.hpp> //#include "widgets.hpp"
 #include "TSSModuleWidgetBase.hpp"
 #include "TSOSCConfigWidget.hpp"
 #include "Module_oscCV.hpp"
-#include "rack.hpp"
+#include <rack.hpp>
 #include <vector>
 using namespace rack;
 
@@ -92,16 +92,16 @@ struct TSOscCVLabels : TransparentWidget {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSOscCVLabels()
 	{
-		font = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 12;
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
-	// @vg : (IN) NVGcontext to draw on
+	// @args.vg : (IN) NVGcontext to draw on
 	// Draw labels on our widget.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ NVGcontext *vg) override;
+	void draw(/*in*/ const DrawArgs &args) override;
 }; // end TSOscCVLabels
 
 // Button to chose OSC data type
@@ -126,7 +126,7 @@ struct TSOscCVDataTypeSelectBtn : ChoiceButton {
 	TSOscCVChannelConfigScreen* parentScreen = NULL;
 
 	TSOscCVDataTypeSelectBtn(int numVals, int* itemVals, std::string* itemStrs, int selVal) {
-		font = Font::load(assetPlugin(plugin, TROWA_MONOSPACE_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
 		fontSize = 14.0f;
 		backgroundColor = FORMS_DEFAULT_BG_COLOR;
 		color = FORMS_DEFAULT_TEXT_COLOR;
@@ -167,11 +167,11 @@ struct TSOscCVDataTypeSelectBtn : ChoiceButton {
 		return;
 	}
 	void step() override {
-		text = stringEllipsize(itemStrs[selectedIndex], showNumChars);
+		text = string::ellipsize(itemStrs[selectedIndex], showNumChars);
 	}
-	void onAction(EventAction &e) override;
+	void onAction(const event::Action &e) override;
 	// Draw if visible
-	void draw(NVGcontext *vg) override;
+	void draw(const DrawArgs &args) override;
 };
 // An OSC client option in dropdown.
 struct TSOscCVDataTypeItem : MenuItem {
@@ -184,7 +184,7 @@ struct TSOscCVDataTypeItem : MenuItem {
 		this->index = index;
 		return;
 	}
-	void onAction(EventAction &e) override {
+	void onAction(const event::Action &e) override {
 		parentButton->setSelectedIndex(index);
 	}
 };
@@ -231,14 +231,14 @@ struct TSOscCVChannelConfigScreen : OpaqueWidget {
 	//HideableLEDButton* btnToggleTranslateVals;
 	TS_ScreenCheckBox* btnToggleTranslateVals;
 	//ColorValueLight* lightTranslateVals;
-	SchmittTrigger translateTrigger;
+	dsp::SchmittTrigger translateTrigger;
 
 	// Save button
 	TS_ScreenBtn* btnSave;
 	// Cancel button
 	TS_ScreenBtn* btnCancel;
-	SchmittTrigger saveTrigger;
-	SchmittTrigger cancelTrigger;
+	dsp::SchmittTrigger saveTrigger;
+	dsp::SchmittTrigger cancelTrigger;
 
 	// Pointer to the current channel information.
 	TSOSCCVChannel* currentChannelPtr = NULL;
@@ -266,23 +266,23 @@ struct TSOscCVChannelConfigScreen : OpaqueWidget {
 	// Set visible or not.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void setVisibility(bool visible) {
-		//debug("setVisibility(%d)", visible);
+		//DEBUG("setVisibility(%d)", visible);
 		this->visible = visible;
 		try
 		{
-			//debug("setVisibility(%d) - btn", visible);
+			//DEBUG("setVisibility(%d) - btn", visible);
 			if (btnToggleTranslateVals)
 				btnToggleTranslateVals->visible = visible;
-			//debug("setVisibility(%d) - light", visible);
+			//DEBUG("setVisibility(%d) - light", visible);
 			//if (lightTranslateVals)
 			//	lightTranslateVals->visible = visible;
-			//debug("setVisibility(%d) - dropdown", visible);
+			//DEBUG("setVisibility(%d) - dropdown", visible);
 			this->btnSelectDataType->visible = visible;
 
-			//debug("setVisibility(%d) - buttons", visible);
+			//DEBUG("setVisibility(%d) - buttons", visible);
 			btnSave->visible = visible;
 			btnCancel->visible = visible;
-			//debug("setVisibility(%d) - text boxes", visible);
+			//DEBUG("setVisibility(%d) - text boxes", visible);
 			for (int i = 0; i < TextBoxIx::NumTextBoxes; i++)
 			{
 				tbNumericBounds[i]->visible = visible;
@@ -290,9 +290,9 @@ struct TSOscCVChannelConfigScreen : OpaqueWidget {
 		}
 		catch (const std::exception& e)
 		{
-			warn("Error %s.", e.what());
+			WARN("Error %s.", e.what());
 		}
-		//debug("setVisibility(%d) - Done", visible);
+		//DEBUG("setVisibility(%d) - Done", visible);
 		return;
 	} // end setVisibility()
 
@@ -349,9 +349,9 @@ struct TSOscCVChannelConfigScreen : OpaqueWidget {
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
-	// @vg : (IN) NVGcontext to draw on
+	// @args.vg : (IN) NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ NVGcontext *vg) override;
+	void draw(/*in*/ const DrawArgs &args) override;
 };
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -385,8 +385,8 @@ struct TSOscCVTopDisplay : TransparentWidget {
 	TSOscCVTopDisplay(oscCVWidget* widget)
 	{
 		parentWidget = widget;
-		font = Font::load(assetPlugin(plugin, TROWA_DIGITAL_FONT));
-		labelFont = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 12;
 		memset(messageStr, '\0', sizeof(char)*TROWA_DISP_MSG_SIZE);
 		memset(scrollingMsg, '\0', sizeof(char)*TROWA_SCROLLING_MSG_TOTAL_SIZE);
@@ -401,9 +401,9 @@ struct TSOscCVTopDisplay : TransparentWidget {
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
-	// @vg : (IN) NVGcontext to draw on
+	// @args.vg : (IN) NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ NVGcontext *vg) override;
+	void draw(/*in*/ const DrawArgs &args) override;
 
 }; // end struct TSOscCVTopDisplay
 
@@ -436,8 +436,8 @@ struct TSOscCVMiddleDisplay : TransparentWidget {
 	TSOscCVMiddleDisplay(oscCVWidget* widget)
 	{
 		parentWidget = widget;
-		font = Font::load(assetPlugin(plugin, TROWA_DIGITAL_FONT));
-		labelFont = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 12;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -465,19 +465,19 @@ struct TSOscCVMiddleDisplay : TransparentWidget {
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
-	// @vg : (IN) NVGcontext to draw on
+	// @args.vg : (IN) NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ NVGcontext *vg) override;
+	void draw(/*in*/ const DrawArgs &args) override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// drawChannelChart()
 	// Draw the channel data.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void drawChannelChart(/*in*/ NVGcontext *vg, /*in*/ TSOSCCVChannel* channelData,  /*in*/ int x, /*in*/ int y, /*in*/ int width, /*in*/ int height, /*in*/ NVGcolor lineColor);
+	void drawChannelChart(/*in*/ const DrawArgs &args, /*in*/ TSOSCCVChannel* channelData,  /*in*/ int x, /*in*/ int y, /*in*/ int width, /*in*/ int height, /*in*/ NVGcolor lineColor);
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// drawChannelBar()
 	// Draw the channel data.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void drawChannelBar(/*in*/ NVGcontext *vg, /*in*/ TSOSCCVChannel* channelData,  /*in*/ int x, /*in*/ int y, /*in*/ int width, /*in*/ int height, /*in*/ NVGcolor lineColor);
+	void drawChannelBar(/*in*/ const DrawArgs &args, /*in*/ TSOSCCVChannel* channelData,  /*in*/ int x, /*in*/ int y, /*in*/ int width, /*in*/ int height, /*in*/ NVGcolor lineColor);
 
 }; // end struct TSOscCVMiddleDisplay
 

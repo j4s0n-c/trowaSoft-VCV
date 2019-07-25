@@ -1,13 +1,37 @@
 #include "Module_multiOscillator.hpp"
-#include "util/math.hpp"
+#include "math.hpp"
 #include "Widget_multiOscillator.hpp"
+#include "TSParamQuantity.hpp"
 
 
 // Model for trowa multiOscillator
-Model* modelMultiOscillator = Model::create<multiOscillator, multiOscillatorWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "multiWave", /*name*/ "multiWave", /*Tags*/ OSCILLATOR_TAG, RING_MODULATOR_TAG);
+Model* modelMultiOscillator = createModel<multiOscillator, multiOscillatorWidget>(/*slug*/ "multiWave");
 
 
 const char* multiOscillator::WaveFormAbbr[WaveFormType::NUM_WAVEFORMS] = { "SIN", "TRI", "SAW", "SQR" };
+
+// Conversion:
+float multiOscillator::KnobVoltage2Frequency(float knobVal) {
+#if TROWA_MOSC_FREQ_KNOB_NEEDS_CONVERSION
+	return rescale(knobVal, TROWA_MOSC_F_KNOB_MIN_V, TROWA_MOSC_F_KNOB_MAX_V, MOSC_FREQ_MIN_HZ, MOSC_FREQ_MAX_HZ);
+#else
+	return knobVal;
+#endif
+}
+float multiOscillator::Frequency2KnobVoltage(float frequency_Hz) {
+#if TROWA_MOSC_FREQ_KNOB_NEEDS_CONVERSION
+	return rescale(frequency_Hz, MOSC_FREQ_MIN_HZ, MOSC_FREQ_MAX_HZ, TROWA_MOSC_F_KNOB_MIN_V, TROWA_MOSC_F_KNOB_MAX_V);
+#else
+	return frequency_Hz;
+#endif
+}
+float multiOscillator::KnobVoltage2PhaseShift(float knobVal) {
+	return rescale(knobVal, TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, MOSC_PHASE_SHIFT_MIN_DEG, MOSC_PHASE_SHIFT_MAX_DEG);
+}
+float multiOscillator::PhaseShift2KnobVoltage(float phi_deg) {
+	return rescale(phi_deg, MOSC_PHASE_SHIFT_MIN_DEG, MOSC_PHASE_SHIFT_MAX_DEG, TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V);
+}
+
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 //::::::::::::: TS_Oscillator :::::::::::::::::::::::::::::
@@ -134,10 +158,10 @@ bool TS_Oscillator::calculatePhase(float dt, bool doSync)
 	{
 		// VCO clamps this, not sure if we need to
 		float dPhase = clamp(frequency_Hz * dt, 0.f, 0.5f);
-		phase = eucmod(phase + dPhase, 1.0f);
+		phase = eucMod(phase + dPhase, 1.0f);
 	}
 	float prevSPhi = shiftedPhase;
-	shiftedPhase = eucmod(phase + phaseShift_norm, 1.0f);
+	shiftedPhase = eucMod(phase + phaseShift_norm, 1.0f);
 	if (!waveReset)
 		waveReset = prevSPhi > shiftedPhase;
 	return waveReset;
@@ -151,7 +175,7 @@ bool TS_Oscillator::calculatePhase(float dt, bool doSync)
 //--------------------------------------------------------
 float TS_Oscillator::calcSin(float phaseShift_n)
 {
-	return amplitude_V * sinf(eucmod(1.0f + shiftedPhase + phaseShift_n, 1.0f) * 2.0f * NVG_PI) + offset_V;
+	return amplitude_V * sinf(eucMod(1.0f + shiftedPhase + phaseShift_n, 1.0f) * 2.0f * NVG_PI) + offset_V;
 } // end calcSin()
 //--------------------------------------------------------
 // calcRect()
@@ -163,7 +187,7 @@ float TS_Oscillator::calcSin(float phaseShift_n)
 float TS_Oscillator::calcRect(float phaseShift_n, float pulseWidth_n)
 {
 	float val = 0.0f;
-	if (eucmod(1.0f + shiftedPhase + phaseShift_n, 1.0f) < pulseWidth_n)
+	if (eucMod(1.0f + shiftedPhase + phaseShift_n, 1.0f) < pulseWidth_n)
 		val = amplitude_V;
 	else
 		val = -amplitude_V;
@@ -177,7 +201,7 @@ float TS_Oscillator::calcRect(float phaseShift_n, float pulseWidth_n)
 //--------------------------------------------------------
 float TS_Oscillator::calcTri(float phaseShift_n)
 {
-	float p_n = eucmod(1.0f + shiftedPhase + phaseShift_n, 1.0f);
+	float p_n = eucMod(1.0f + shiftedPhase + phaseShift_n, 1.0f);
 	float val = 0.0f;
 	if (p_n < 0.25f)
 		val = 4.0f * p_n; // 0 to 1 (positive slope)
@@ -196,7 +220,7 @@ float TS_Oscillator::calcTri(float phaseShift_n)
 //--------------------------------------------------------
 float TS_Oscillator::calcSaw(float phaseShift_n, bool posRamp)
 {
-	float p_n = eucmod(1.0f + shiftedPhase + phaseShift_n, 1.0f);
+	float p_n = eucMod(1.0f + shiftedPhase + phaseShift_n, 1.0f);
 	float val = 0.0f;
 	float a_v = 2 * amplitude_V;
 	if (posRamp)
@@ -271,27 +295,131 @@ float TS_Oscillator::calcSaw()
 // multiOscillator()
 // Create a module with numOscillators oscillators.
 // @numOscillators: (IN) Number of oscillators
-// @numOscillatorOutputs: (IN) Number of oscillators.
+// @numOscillatorOutputs: (IN) Number of oscillators output signals (channels per oscillator).
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-multiOscillator::multiOscillator(int numOscillators, int numOscillatorOutputs) :
-	Module(NUM_PARAMS + numOscillators * (TS_Oscillator::OSCWF_NUM_PARAMS + numOscillatorOutputs * TS_OscillatorOutput::OUT_NUM_PARAMS),
+multiOscillator::multiOscillator(int numOscillators, int numOscillatorOutputs) : Module()
+{
+	config(NUM_PARAMS + numOscillators * (TS_Oscillator::OSCWF_NUM_PARAMS + numOscillatorOutputs * TS_OscillatorOutput::OUT_NUM_PARAMS),
 		   NUM_INPUTS + numOscillators * (TS_Oscillator::OSCWF_NUM_INPUTS + numOscillatorOutputs * TS_OscillatorOutput::OUT_NUM_INPUTS),
 		   NUM_OUTPUTS + numOscillators * (TS_Oscillator::OSCWF_NUM_OUTPUTS + numOscillatorOutputs * TS_OscillatorOutput::OUT_NUM_OUTPUTS),
-		   NUM_LIGHTS + numOscillators * (TS_Oscillator::OSCWF_NUM_LIGHTS + numOscillatorOutputs * TS_OscillatorOutput::BaseLightIds::OUT_NUM_LIGHTS))
-{
+		   NUM_LIGHTS + numOscillators * (TS_Oscillator::OSCWF_NUM_LIGHTS + numOscillatorOutputs * TS_OscillatorOutput::BaseLightIds::OUT_NUM_LIGHTS));
+		   
 	this->numberOscillators = numOscillators;
 	this->oscillators = new TS_Oscillator[numberOscillators];
 	this->numOscillatorOutputs = numOscillatorOutputs;
+	this->isFirstRun = true;
+
+	//--------------------------
+	// * Configure Parameters *
+	//--------------------------	
+	// [v1.0] Parameters must be configured here now instead of in Widget objects...
+	// Global: 
+	//configParam(/*paramId*/ , /*minVal*/, /*maxVal*/, /*defVal*/, /*label*/, /*unit*/, /*displayBase*/, /*displayMultiplier*/, /*displayOffset*/)
+	configParam( /*id*/ ParamIds::SYNC_PARAM, /*min*/ 0, /*max*/ 10, /*def*/ 0); // Currently not really used
+	
+	// Each oscillator:
+	// // A_V: Amplitude (Volts). Should not be = 0 (pointless) and max +/-12 V.
+	// OSCWF_AMPLITUDE_PARAM,
+	// // f_Hz: Frequency (Hz)
+	// OSCWF_FREQUENCY_PARAM,
+	// // Phi_degrees: Phase Shift (degrees) [0-360]
+	// OSCWF_PHASE_SHIFT_PARAM,
+	// // y0_V : Offset (Volts). +/- 10 V?
+	// OSCWF_OFFSET_PARAM,
+	// // Sync/Restart waveform.
+	// OSCWF_SYNC_PARAM,	
+	const int numKnobVals = 5;
+	// MinV, MaxV, DefV, DisplayBase, DisplayMult, DisplayOffset	
+	float knobVals[][6] = {
+		{ MOSC_AMPLITUDE_MIN_V, MOSC_AMPLITUDE_MAX_V, MOSC_AMPLITUDE_DEFAULT_V, /*displayBase*/ 0, /*displayMult*/ 1, /*displayOffset*/ 0 }, // Amplitude
+		{ TROWA_MOSC_F_KNOB_MIN_V, TROWA_MOSC_F_KNOB_MAX_V, Frequency2KnobVoltage(MOSC_FREQ_DEFAULT_HZ), /*displayBase*/ 0, /*displayMult*/ 1, /*displayOffset*/ 0 }, // Frequency
+		{ TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, PhaseShift2KnobVoltage(MOSC_PHASE_SHIFT_DEFAULT_DEG),
+			/*displayBase*/ 0, 
+			/*displayMult*/ (MOSC_PHASE_SHIFT_MAX_DEG - MOSC_PHASE_SHIFT_MIN_DEG)/(TROWA_MOSC_KNOB_MAX_V - TROWA_MOSC_KNOB_MIN_V), // 36
+			/*displayOffset*/ 0  }, // Phi
+		{ MOSC_OFFSET_MIN_V, MOSC_OFFSET_MAX_V, MOSC_OFFSET_DEFAULT_V, /*displayBase*/ 0, /*displayMult*/ 1, /*displayOffset*/ 0 }, // Offset
+		{ 0, 1, 0, /*displayBase*/ 0, /*displayMult*/ 1, /*displayOffset*/ 0} // Sync
+	};
+	const char* knobLabels[numKnobVals] = { "Amplitude", "Frequency", "Phase Shift", "Offset", "Sync" };
+	const char* knobUnits[numKnobVals] = { "V", "Hz", "°", "V", "" };
+		
+	// Each oscillator output:
+	// // What type of oscillator (SIN, SQU, TRI, SAW). [Voltage Range: +/- 10V]
+	// OUT_OSC_TYPE_PARAM,
+	// // Secondary parameter (i.e. Pulse width for Rectangle, Ramp slope sign for Saw).
+	// OUT_AUX_PARAM,
+	// // Phi_degrees: Phase Shift (degrees) [-360 to 360].
+	// OUT_PHASE_SHIFT_PARAM,
+	// // Mix of the raw with the AM signal. 1.0 is all AM; 0.0 is all raw.
+	// OUT_AM_MIX_PARAM,
+	// // Toggle (Digital or Ring Modulation)
+	// OUT_AM_TYPE_PARAM,
+	// // Number of params for an oscillator.
+	// OUT_NUM_PARAMS	
+	const int outputNumParamVals = 5;
+	// MinV, MaxV, DefV, DisplayBase, DisplayMult, DisplayOffset
+	// WaveFormType : Enumeration
+	float outputParamVals[][6] = {
+		{ 0, WaveFormType::NUM_WAVEFORMS -1, 0, /*displayBase*/ 0, /*displayMult*/ 1, /*displayOffset*/ 0 }, // Waveform Type TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V,  TROWA_MOSC_KNOB_MIN_V
+		{ TROWA_MOSC_KNOB_AUX_MIN_V, TROWA_MOSC_KNOB_AUX_MAX_V, 0.5f*(TROWA_MOSC_KNOB_AUX_MIN_V+ TROWA_MOSC_KNOB_AUX_MAX_V), 
+			/*displayBase*/ 0, /*displayMult*/ 100.f/TROWA_MOSC_KNOB_AUX_MAX_V, /*displayOffset*/ 0}, // Aux
+		{ TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, PhaseShift2KnobVoltage(MOSC_PHASE_SHIFT_DEFAULT_DEG),
+			/*displayBase*/ 0, 
+			/*displayMult*/ (MOSC_PHASE_SHIFT_MAX_DEG - MOSC_PHASE_SHIFT_MIN_DEG)/(TROWA_MOSC_KNOB_MAX_V - TROWA_MOSC_KNOB_MIN_V), // 36
+			/*displayOffset*/ 0 }, // Phi
+		{ TROWA_MOSC_MIX_MIN_V, TROWA_MOSC_MIX_MAX_V,  TROWA_MOSC_MIX_DEF_V, /*displayBase*/ 0, /*displayMult*/ 100.f, /*displayOffset*/ 0  }, // Mod Mix 
+		{ 0, 1, 0, /*displayBase*/ 0, /*displayMult*/ 1, /*displayOffset*/ 0} // OUT_AM_TYPE_PARAM (button)
+	};
+	const char* outputParamLabels[outputNumParamVals] = { "Waveform", "Aux", "Phase Shift", "Mod Mix", "Dig/Ring" };
+	const char* outputParamUnits[outputNumParamVals] = { "", " N/A", "°", "%", "" };
+	
+		
 	for (int i = 0; i < numOscillators; i++)
 	{
+		//--------------------------
+		// * Initialize objects *
+		//--------------------------
 		oscillators[i] = TS_Oscillator(numOscillatorOutputs);
-	}
-	//this->theOscillator = new TS_Oscillator(numOscillatorOutputs);
-	initialOscillators();
+		//---------------------------
+		// * Initialize parameters *
+		//---------------------------		
+		// Oscillator parameters:
+		int baseParamId = multiOscillator::ParamIds::OSC_PARAM_START + i * (TS_Oscillator::BaseParamIds::OSCWF_NUM_PARAMS + numOscillatorOutputs * TS_OscillatorOutput::BaseParamIds::OUT_NUM_PARAMS);
+		for (int paramId = 0; paramId < numKnobVals; paramId++)
+		{
+			//configParam(/*paramId*/ , /*minVal*/, /*maxVal*/, /*defVal*/, /*label*/, /*unit*/, /*displayBase*/, /*displayMultiplier*/, /*displayOffset*/)
+			configParam( /*id*/ baseParamId + paramId, /*min*/ knobVals[paramId][0], /*max*/ knobVals[paramId][1], /*def*/ knobVals[paramId][2],
+				/*label*/ knobLabels[paramId], /*unit*/ knobUnits[paramId], /*displayBase*/ knobVals[paramId][3], /*displayMult*/ knobVals[paramId][4], /*displayOffset*/ knobVals[paramId][5]);
+		}
+		// Oscillator Output parameters:
+		for (int j = 0; j < numOscillatorOutputs; j++)
+		{
+			int bParamId = baseParamId + TS_Oscillator::BaseParamIds::OSCWF_NUM_PARAMS + j*TS_OscillatorOutput::BaseParamIds::OUT_NUM_PARAMS;
+			// First one is waveform type
+			configParam<TS_ParamQuantityEnum>(bParamId, /*min*/ outputParamVals[0][0], /*max*/ outputParamVals[0][1], /*def*/ outputParamVals[0][2], 
+					/*label*/ outputParamLabels[0], /*unit*/ outputParamUnits[0], /*displayBase*/ outputParamVals[0][3], /*displayMult*/ outputParamVals[0][4], /*displayOffset*/ outputParamVals[0][5]);
+			dynamic_cast<TS_ParamQuantityEnum*>(this->paramQuantities[bParamId])->valMult = 1;
+			for (int w = 0; w < WaveFormType::NUM_WAVEFORMS; w++)
+			{
+				dynamic_cast<TS_ParamQuantityEnum*>(this->paramQuantities[bParamId])->addToEnumMap(w, WaveFormAbbr[w]);				
+			}
+
+			for (int paramId = 1; paramId < outputNumParamVals; paramId++)
+			{
+				configParam( /*id*/ bParamId + paramId, /*min*/ outputParamVals[paramId][0], /*max*/ outputParamVals[paramId][1], /*def*/ outputParamVals[paramId][2],
+					/*label*/ outputParamLabels[paramId], /*unit*/ outputParamUnits[paramId], /*displayBase*/ outputParamVals[paramId][3], /*displayMult*/ outputParamVals[paramId][4], /*displayOffset*/ outputParamVals[paramId][5]);
+			}
+		} // end loop through an oscillator's output
+	} // end loop through oscillators
+	
+	//--------------------------
+	// * Initialize objects *
+	//--------------------------	
+	initializeOscillators();	
 	return;
 }
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// Clean up or ram.
+// Clean up our ram.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 multiOscillator::~multiOscillator()
 {
@@ -305,7 +433,7 @@ multiOscillator::~multiOscillator()
 // reset(void)
 // Initialize values.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void multiOscillator::reset()
+void multiOscillator::onReset()
 {
 	for (int i = 0; i < numberOscillators; i++)
 	{
@@ -314,9 +442,9 @@ void multiOscillator::reset()
 	return;
 }
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// toJson(void)
+// dataToJson(void)
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-json_t *multiOscillator::toJson()
+json_t *multiOscillator::dataToJson()
 {
 	json_t* rootJ = json_object();
 	// version
@@ -332,11 +460,11 @@ json_t *multiOscillator::toJson()
 	}
 	json_object_set_new(rootJ, "oscillators", oscillatorsJ);
 	return rootJ;
-} // end toJson()
+} // end dataToJson()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// fromJson(void)
+// dataFromJson(void)
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-void multiOscillator::fromJson(json_t *rootJ)
+void multiOscillator::dataFromJson(json_t *rootJ)
 {
 	json_t* currJ = NULL;
 	int nOscillators = numberOscillators;
@@ -363,17 +491,24 @@ void multiOscillator::fromJson(json_t *rootJ)
 		}
 	} // end loop through osccilators
 	return;
-} // end fromJson()
+} // end dataFromJson()
 
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// step(void)
-// Process
+// process()
+// (Formerly step(void)).
+// Process the step.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void multiOscillator::step()
+void multiOscillator::process(const ProcessArgs &args)
 {
-	float dt = engineGetSampleTime();
-
+	float dt = args.sampleTime;// engineGetSampleTime();
+	bool setParameterConfigs = false;
+	if (isFirstRun)
+	{
+		setParameterConfigs = true;
+		isFirstRun = false;
+	}
+	
 	// Get Oscillator CV and User Inputs
 	for (int osc = 0; osc < numberOscillators; osc++)
 	{
@@ -392,7 +527,7 @@ void multiOscillator::step()
 			lights[baseLightId + TS_Oscillator::BaseLightIds::OSCWF_SYNC_LED].value -= lights[baseLightId + TS_Oscillator::BaseLightIds::OSCWF_SYNC_LED].value / lightLambda * dt;
 		else if (lights[baseLightId + TS_Oscillator::BaseLightIds::OSCWF_SYNC_LED].value < 0)
 			lights[baseLightId + TS_Oscillator::BaseLightIds::OSCWF_SYNC_LED].value = 0;
-		if (theOscillator->synchTrigger.process(params[baseParamId + TS_Oscillator::BaseParamIds::OSCWF_SYNC_PARAM].value + inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_SYNC_INPUT].value))
+		if (theOscillator->synchTrigger.process(params[baseParamId + TS_Oscillator::BaseParamIds::OSCWF_SYNC_PARAM].getValue() + inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_SYNC_INPUT].getVoltage()))
 		{
 			lights[baseLightId + TS_Oscillator::BaseLightIds::OSCWF_SYNC_LED].value = 1.0f;
 			sync = true;
@@ -402,40 +537,40 @@ void multiOscillator::step()
 		// Values In (Add Input + Knob)
 		//------------------------------
 		// *> Amplitude (V):
-		theOscillator->ui_amplitude_V = params[baseParamId + TS_Oscillator::BaseParamIds::OSCWF_AMPLITUDE_PARAM].value;
+		theOscillator->ui_amplitude_V = params[baseParamId + TS_Oscillator::BaseParamIds::OSCWF_AMPLITUDE_PARAM].getValue();
 		float a = theOscillator->ui_amplitude_V;
-		if (inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_AMPLITUDE_INPUT].active)
-			a += inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_AMPLITUDE_INPUT].value;
+		if (inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_AMPLITUDE_INPUT].isConnected())
+			a += inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_AMPLITUDE_INPUT].getVoltage();
 		theOscillator->amplitude_V = a;
 
 		// *> Frequency (Hz):
 		// User Knob:
 #if TROWA_MOSC_FREQ_KNOB_NEEDS_CONVERSION
-		theOscillator->ui_frequency_Hz = rescale(params[baseParamId + TS_Oscillator::BaseParamIds::OSCWF_FREQUENCY_PARAM].value, TROWA_MOSC_F_KNOB_MIN_V, TROWA_MOSC_F_KNOB_MAX_V, MOSC_FREQ_MIN_HZ, MOSC_FREQ_MAX_HZ);
+		theOscillator->ui_frequency_Hz = rescale(params[baseParamId + TS_Oscillator::BaseParamIds::OSCWF_FREQUENCY_PARAM].getValue(), TROWA_MOSC_F_KNOB_MIN_V, TROWA_MOSC_F_KNOB_MAX_V, MOSC_FREQ_MIN_HZ, MOSC_FREQ_MAX_HZ);
 #else
-		theOscillator->ui_frequency_Hz = params[baseParamId + TS_Oscillator::BaseParamIds::OSCWF_FREQUENCY_PARAM].value;
+		theOscillator->ui_frequency_Hz = params[baseParamId + TS_Oscillator::BaseParamIds::OSCWF_FREQUENCY_PARAM].getValue();
 #endif
 		float f = theOscillator->ui_frequency_Hz;
 		// Add Input:
-		if (inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_FREQUENCY_INPUT].active) {
+		if (inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_FREQUENCY_INPUT].isConnected()) {
 			// CV frequency
-			f = clamp(f + VoltageToFrequency(inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_FREQUENCY_INPUT].value), MOSC_FREQ_MIN_HZ, MOSC_FREQ_MAX_HZ);
+			f = clamp(f + VoltageToFrequency(inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_FREQUENCY_INPUT].getVoltage()), MOSC_FREQ_MIN_HZ, MOSC_FREQ_MAX_HZ);
 		}
 		theOscillator->frequency_Hz = f; // Actual Frequency
 
 		// *> Phase Shift (deg): 
-		theOscillator->ui_phaseShift_deg = rescale(params[baseParamId + TS_Oscillator::BaseParamIds::OSCWF_PHASE_SHIFT_PARAM].value, TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, MOSC_PHASE_SHIFT_MIN_DEG, MOSC_PHASE_SHIFT_MAX_DEG);
+		theOscillator->ui_phaseShift_deg = rescale(params[baseParamId + TS_Oscillator::BaseParamIds::OSCWF_PHASE_SHIFT_PARAM].getValue(), TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, MOSC_PHASE_SHIFT_MIN_DEG, MOSC_PHASE_SHIFT_MAX_DEG);
 		float phi = theOscillator->ui_phaseShift_deg;
-		if (inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_PHASE_SHIFT_INPUT].active) {
-			phi += rescale(inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_PHASE_SHIFT_INPUT].value, TROWA_MOSC_INPUT_MIN_V, TROWA_MOSC_INPUT_MAX_V, MOSC_PHASE_SHIFT_MIN_DEG, MOSC_PHASE_SHIFT_MAX_DEG);
+		if (inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_PHASE_SHIFT_INPUT].isConnected()) {
+			phi += rescale(inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_PHASE_SHIFT_INPUT].getVoltage(), TROWA_MOSC_INPUT_MIN_V, TROWA_MOSC_INPUT_MAX_V, MOSC_PHASE_SHIFT_MIN_DEG, MOSC_PHASE_SHIFT_MAX_DEG);
 		}
 		theOscillator->setPhaseShift_deg(phi);
 
 		// *> Offset (V):
-		theOscillator->ui_offset_V = params[baseParamId + TS_Oscillator::BaseParamIds::OSCWF_OFFSET_PARAM].value;
+		theOscillator->ui_offset_V = params[baseParamId + TS_Oscillator::BaseParamIds::OSCWF_OFFSET_PARAM].getValue();
 		float c = theOscillator->ui_offset_V;
-		if (inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_OFFSET_INPUT].active)
-			c += inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_OFFSET_INPUT].value;
+		if (inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_OFFSET_INPUT].isConnected())
+			c += inputs[baseInputId + TS_Oscillator::BaseInputIds::OSCWF_OFFSET_INPUT].getVoltage();
 		theOscillator->offset_V = c;
 
 		//------------------------------
@@ -450,7 +585,7 @@ void multiOscillator::step()
 		{
 			theOscillator->synchPulse.trigger(1e-4); // 1e-3
 		}
-		outputs[baseOutputId + TS_Oscillator::BaseOutputIds::OSCWF_SYNC_OUTPUT].value = (theOscillator->synchPulse.process(dt)) ? 10.0f : 0.0f;
+		outputs[baseOutputId + TS_Oscillator::BaseOutputIds::OSCWF_SYNC_OUTPUT].setVoltage((theOscillator->synchPulse.process(dt)) ? 10.0f : 0.0f);
 
 		//------------------------------
 		// Each output channel
@@ -461,58 +596,80 @@ void multiOscillator::step()
 		baseLightId += TS_Oscillator::BaseLightIds::OSCWF_NUM_LIGHTS;
 		for (int i = 0; i < theOscillator->numOutputWaveForms; i++)
 		{
-			float type = clamp((int)rescale(params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_OSC_TYPE_PARAM].value, TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, 0, WaveFormType::NUM_WAVEFORMS), 0, WaveFormType::NUM_WAVEFORMS - 1);
+			//float type = clamp((int)rescale(params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_OSC_TYPE_PARAM].getValue(), TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, 0, WaveFormType::NUM_WAVEFORMS), 0, WaveFormType::NUM_WAVEFORMS - 1);
+			// [v1.0]- No longer -10 to 10 V from knob. Now just 0 to NUM_WAVEFORMS
+			WaveFormType lastType = theOscillator->outputWaveforms[i].waveFormType;
+			float type = (int) params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_OSC_TYPE_PARAM].getValue();
 			theOscillator->outputWaveforms[i].ui_waveFormType = static_cast<WaveFormType>(type);
-			if (inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_OSC_TYPE_INPUT].active) {
-				type = clamp((int)rescale(inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_OSC_TYPE_INPUT].value,
+			if (inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_OSC_TYPE_INPUT].isConnected()) {
+				type = clamp((int)rescale(inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_OSC_TYPE_INPUT].getVoltage(),
 					TROWA_MOSC_TYPE_INPUT_MIN_V, TROWA_MOSC_TYPE_INPUT_MAX_V, 0, WaveFormType::NUM_WAVEFORMS), 0, WaveFormType::NUM_WAVEFORMS - 1);
 			}
 			theOscillator->outputWaveforms[i].waveFormType = static_cast<WaveFormType>(type);
+			// Change the built-in param quantity labels for the 'Aux' based on waveform type:
+			if (lastType != theOscillator->outputWaveforms[i].waveFormType || setParameterConfigs)
+			{
+				switch (theOscillator->outputWaveforms[i].waveFormType)
+				{
+					case WAVEFORM_SAW:
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->label = std::string("Slope");
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->unit = std::string("");
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->displayMultiplier = 2.f/TROWA_MOSC_KNOB_AUX_MAX_V;
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->displayOffset = -1.0f; // -1 to 1
+						break;
+					case WAVEFORM_SQR:
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->label = std::string("Pulse Width");
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->unit = std::string("%");
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->displayMultiplier = 100.f/TROWA_MOSC_KNOB_AUX_MAX_V;
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->displayOffset = 0.0f; // 0 to 100
+						break;
+					case WAVEFORM_SIN:
+					case WAVEFORM_TRI:
+					default:
+						// No AUX
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->label = std::string("Aux");
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->unit = std::string(" N/A");
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->displayMultiplier = 100.f/TROWA_MOSC_KNOB_AUX_MAX_V;
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->displayOffset = 0.0f; // 0 to 100, doesn't really matter			
+						break;
+				} // end switch	
+			}
 
 			// *> Phase shift for this output
-			float phi = rescale(params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_PHASE_SHIFT_PARAM].value,
+			float phi = rescale(params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_PHASE_SHIFT_PARAM].getValue(),
 				TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V,
 				MOSC_PHASE_SHIFT_MIN_DEG, MOSC_PHASE_SHIFT_MAX_DEG);
 			theOscillator->outputWaveforms[i].ui_phaseShift_deg = phi;
-			if (inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_PHASE_SHIFT_INPUT].active) {
-				phi += rescale(inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_PHASE_SHIFT_INPUT].value,
+			if (inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_PHASE_SHIFT_INPUT].isConnected()) {
+				phi += rescale(inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_PHASE_SHIFT_INPUT].getVoltage(),
 					TROWA_MOSC_INPUT_MIN_V, TROWA_MOSC_INPUT_MAX_V, MOSC_PHASE_SHIFT_MIN_DEG, MOSC_PHASE_SHIFT_MAX_DEG);
 			}
 			theOscillator->outputWaveforms[i].setPhaseShift_deg(phi);
 
 			// *> Aux parameter: (Currently only rect/square and saw/ramp)
 			float aux = 0.5f;
-			//switch (theOscillator->outputWaveforms[i].waveFormType)
-			//{
-			//case WaveFormType::WAVEFORM_SQR:
-			//case WaveFormType::WAVEFORM_SAW:
-			//	aux = rescale(params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM].value, TROWA_MOSC_AUX_MIN_V, TROWA_MOSC_AUX_MAX_V, 0.0f, 1.0f);
-			//	break;
-			//default:
-			//	break;
-			//}
-			if (inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_AUX_INPUT].active) {
-				aux = clamp(rescale(inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_AUX_INPUT].value, TROWA_MOSC_AUX_MIN_V, TROWA_MOSC_AUX_MAX_V, 0.f, 1.f), 0.f, 1.f);
+			if (inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_AUX_INPUT].isConnected()) {
+				aux = clamp(rescale(inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_AUX_INPUT].getVoltage(), TROWA_MOSC_AUX_MIN_V, TROWA_MOSC_AUX_MAX_V, 0.f, 1.f), 0.f, 1.f);
 			}
 			else
 			{
-				aux = rescale(params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM].value, TROWA_MOSC_KNOB_AUX_MIN_V, TROWA_MOSC_KNOB_AUX_MAX_V, 0.0f, 1.0f);
+				aux = rescale(params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM].getValue(), TROWA_MOSC_KNOB_AUX_MIN_V, TROWA_MOSC_KNOB_AUX_MAX_V, 0.0f, 1.0f);
 			}
 			theOscillator->outputWaveforms[i].auxParam_norm = aux;
 
 			// *> AM Type (digital = false, ring = true)
-			if (theOscillator->outputWaveforms[i].amRingModulationTrigger.process(params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM].value))
+			if (theOscillator->outputWaveforms[i].amRingModulationTrigger.process(params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM].getValue()))
 			{
 				theOscillator->outputWaveforms[i].amRingModulation = !theOscillator->outputWaveforms[i].amRingModulation;
-				//info("[Ch %d] AM Button Click id %d. Ring Mod = %d.", i + 1, baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM, theOscillator->outputWaveforms[i].amRingModulation);
+				//INFO("[Ch %d] AM Button Click id %d. Ring Mod = %d.", i + 1, baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM, theOscillator->outputWaveforms[i].amRingModulation);
 			}
 			lights[baseLightId + TS_OscillatorOutput::BaseLightIds::OUT_AM_MODE_LED].value = (theOscillator->outputWaveforms[i].amRingModulation) ? 1.0f : 0.0f;
 
 			//------------------------------------------
 			// Calculate an output/outputs
 			//------------------------------------------
-			if (outputs[baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_RAW_SIGNAL].active ||
-				(outputs[baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL].active && inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_AM_INPUT].active))
+			if (outputs[baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_RAW_SIGNAL].isConnected() ||
+				(outputs[baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL].isConnected() && inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_AM_INPUT].isConnected()))
 			{
 				// Calculate the RAW output:
 				float rawOutput = 0.0f;
@@ -534,14 +691,14 @@ void multiOscillator::step()
 				default:
 					break;
 				}
-				outputs[baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_RAW_SIGNAL].value = rawOutput;
+				outputs[baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_RAW_SIGNAL].setVoltage(rawOutput);
 
 				// Calculate AM output:
-				if (outputs[baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL].active)
+				if (outputs[baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL].isConnected())
 				{
 					float modOutput = 0.f;
-					float modulator = inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_AM_INPUT].value;
-					float modWeight = params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_MIX_PARAM].value; //rescale(params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_MIX_PARAM].value, TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, 0.f, 1.f)
+					float modulator = inputs[baseInputId + TS_OscillatorOutput::BaseInputIds::OUT_AM_INPUT].getVoltage();
+					float modWeight = params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_MIX_PARAM].getValue(); //rescale(params[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_MIX_PARAM].getValue(), TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, 0.f, 1.f)
 					if (theOscillator->outputWaveforms[i].amRingModulation)
 					{
 						// Ring modulation
@@ -552,7 +709,7 @@ void multiOscillator::step()
 						// Digital modulation (just mulitply)
 						modOutput = modulator * rawOutput;
 					}
-					outputs[baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL].value = modWeight * modOutput + (1.0f - modWeight)*rawOutput;
+					outputs[baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL].setVoltage(modWeight * modOutput + (1.0f - modWeight)*rawOutput);
 				} // end calculate the multiplied signal
 			} // end calculate the raw signal
 
@@ -563,7 +720,7 @@ void multiOscillator::step()
 		} // end loop through output signals/channels
 	} // end loop through oscillators
 	return;
-} // end step()
+} // end process()
 
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -617,7 +774,7 @@ void TS_OscillatorOutput::deserialize(json_t* rootJ)
 			waveFormType = static_cast<WaveFormType>( json_integer_value(currJ) );
 		currJ = json_object_get(rootJ, "phaseShift_deg");
 		if (currJ)
-			ui_phaseShift_deg = json_number_value(currJ);
+			ui_phaseShift_deg = json_number_value(currJ);	
 		currJ = json_object_get(rootJ, "auxParam_norm");
 		if (currJ)
 			auxParam_norm = json_number_value(currJ);

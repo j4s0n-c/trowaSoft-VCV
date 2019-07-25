@@ -1,7 +1,7 @@
 #ifndef TROWASOFT_MODULE_TSSEQUENCERBASE_HPP
 #define TROWASOFT_MODULE_TSSEQUENCERBASE_HPP
 
-#include "rack.hpp"
+#include <rack.hpp>
 using namespace rack;
 
 #include <thread> // std::thread
@@ -10,8 +10,6 @@ using namespace rack;
 #include <vector>
 #include <string.h>
 #include <stdio.h>
-//#include "trowaSoft.hpp"
-#include "dsp/digital.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
 #include <chrono>
@@ -22,6 +20,7 @@ using namespace rack;
 #include "TSOSCCommunicator.hpp"
 #include "TSOSCSequencerOutputMessages.hpp"
 #include "TSSequencerWidgetBase.hpp"
+#include "TSParamQuantity.hpp"
 
 #include "../lib/oscpack/osc/OscOutboundPacketStream.h"
 #include "../lib/oscpack/ip/UdpSocket.h"
@@ -37,16 +36,6 @@ using namespace rack;
 #define N64_NUM_COLS	 (N64_NUM_STEPS/N64_NUM_ROWS)
 
 
-// Default OSC outgoing address (Tx). 127.0.0.1.
-#define OSC_ADDRESS_DEF		"127.0.0.1"
-// Default OSC outgoing port (Tx). 7000.
-#define OSC_OUTPORT_DEF		7000
-// Default OSC incoming port (Rx). 7001.
-#define OSC_INPORT_DEF		7001
-// Default namespace for OSC
-#define OSC_DEFAULT_NS				"/tsseq"
-#define OSC_OUTPUT_BUFFER_SIZE		(1024*TROWA_SEQ_MAX_NUM_STEPS)
-#define OSC_ADDRESS_BUFFER_SIZE		50
 // If we should update the current step pointer to OSC (turn off prev step, highlight current step).
 // This gets slow though during testing.
 #define OSC_UPDATE_CURRENT_STEP_LED		1
@@ -70,6 +59,9 @@ using namespace rack;
 
 #define TROWA_SEQ_NUM_RANDOM_PATTERNS			27
 #define TROWA_SEQ_BOOLEAN_NUM_RANDOM_PATTERNS	 7	// Num of patterns that actually apply to a boolean sequencer. List should always be sorted by #Unique Values. Only #Unique vals 1-2 should be chosen.
+
+#define TROWA_SEQ_BUFF_SIZE		100
+
 // Random Structure
 // From feature request: https ://github.com/j4s0n-c/trowaSoft-VCV/issues/10
 struct RandStructure {
@@ -95,7 +87,7 @@ struct TSSequencerModuleBase : Module {
 		STEPS_PARAM,
 		SELECTED_PATTERN_PLAY_PARAM,  // What pattern we are playing
 		SELECTED_PATTERN_EDIT_PARAM,  // What pattern we are editing
-		SELECTED_CHANNEL_PARAM,	 // Which gate is selected for editing		
+		SELECTED_CHANNEL_PARAM,	 // Which channel is selected for editing		
 		SELECTED_OUTPUT_VALUE_MODE_PARAM,     // Which value mode we are doing	
 		SWING_ADJ_PARAM, // Amount of swing adjustment (-0.1 to 0.1)
 		COPY_PATTERN_PARAM, // Copy the current editing Pattern
@@ -135,8 +127,8 @@ struct TSSequencerModuleBase : Module {
 		OSC_ENABLED_LIGHT, // Light for OSC enabled and currently running/active.
 		CHANNEL_LIGHTS, // Channel output lights.		
 		PAD_LIGHTS = CHANNEL_LIGHTS + TROWA_SEQ_NUM_CHNLS, // Lights for the steps/pads for the currently editing Channel
-														   // Not the number of lights yet, add the # of steps (maxSteps)
-														   NUM_LIGHTS = PAD_LIGHTS // Add the number of steps separately...
+		// Not the number of lights yet, add the # of steps (maxSteps)
+		NUM_LIGHTS = PAD_LIGHTS // Add the number of steps separately...
 	};
 
 	// The random structures/patterns
@@ -151,9 +143,9 @@ struct TSSequencerModuleBase : Module {
 	bool resetQueued = false;
 	// If this module is running.
 	bool running = true;
-	SchmittTrigger clockTrigger; 		// for external clock
-	SchmittTrigger runningTrigger;		// Detect running btn press
-	SchmittTrigger resetTrigger;		// Detect reset btn press
+	dsp::SchmittTrigger clockTrigger; 		// for external clock
+	dsp::SchmittTrigger runningTrigger;		// Detect running btn press
+	dsp::SchmittTrigger resetTrigger;		// Detect reset btn press
 	float realPhase = 0.0;
 	// Index into the sequence (step)
 	int index = 0;
@@ -170,7 +162,7 @@ struct TSSequencerModuleBase : Module {
 		CONTINUOUS = 2,
 	};
 	GateMode gateMode = TRIGGER;
-	PulseGenerator gatePulse;
+	dsp::PulseGenerator gatePulse;
 
 	enum ValueMode : short {
 		VALUE_TRIGGER = 0,
@@ -195,7 +187,7 @@ struct TSSequencerModuleBase : Module {
 	int numCols = 4;
 	// Step data for each pattern and channel.
 	float * triggerState[TROWA_SEQ_NUM_PATTERNS][TROWA_SEQ_NUM_CHNLS];
-	SchmittTrigger* gateTriggers;
+	dsp::SchmittTrigger* gateTriggers;
 
 	// Knob indices for top control knobs.
 	enum KnobIx {
@@ -215,7 +207,7 @@ struct TSSequencerModuleBase : Module {
 		NumKnobs
 	};
 	// References to input knobs (top row of knobs)
-	SVGKnob* controlKnobs[NumKnobs];
+	TS_RoundBlackKnob* controlKnobs[NumKnobs];
 
 	// Another flag to reload the matrix.
 	bool reloadEditMatrix = false;
@@ -260,10 +252,10 @@ struct TSSequencerModuleBase : Module {
 	float gateLightsOut[TROWA_SEQ_NUM_CHNLS];
 	// Colors for each channel
 	NVGcolor voiceColors[TROWA_SEQ_NUM_CHNLS] = {
-		COLOR_TS_RED, COLOR_DARK_ORANGE, COLOR_YELLOW, COLOR_TS_GREEN,
-		COLOR_CYAN, COLOR_TS_BLUE, COLOR_PURPLE, COLOR_PINK,
-		COLOR_TS_RED, COLOR_DARK_ORANGE, COLOR_YELLOW, COLOR_TS_GREEN,
-		COLOR_CYAN, COLOR_TS_BLUE, COLOR_PURPLE, COLOR_PINK
+		TSColors::COLOR_TS_RED, TSColors::COLOR_DARK_ORANGE, TSColors::COLOR_YELLOW, TSColors::COLOR_TS_GREEN,
+		TSColors::COLOR_CYAN, TSColors::COLOR_TS_BLUE, TSColors::COLOR_PURPLE, TSColors::COLOR_PINK,
+		TSColors::COLOR_TS_RED, TSColors::COLOR_DARK_ORANGE, TSColors::COLOR_YELLOW, TSColors::COLOR_TS_GREEN,
+		TSColors::COLOR_CYAN, TSColors::COLOR_TS_BLUE, TSColors::COLOR_PURPLE, TSColors::COLOR_PINK
 	};
 
 	// Swing ////////////////////////////////
@@ -279,9 +271,9 @@ struct TSSequencerModuleBase : Module {
 	int copySourceChannelIx = TROWA_SEQ_COPY_CHANNELIX_ALL;
 	// Copy buffer
 	float* copyBuffer[TROWA_SEQ_NUM_CHNLS];
-	SchmittTrigger copyPatternTrigger;
-	SchmittTrigger copyGateTrigger;
-	SchmittTrigger pasteTrigger;
+	dsp::SchmittTrigger copyPatternTrigger;
+	dsp::SchmittTrigger copyGateTrigger;
+	dsp::SchmittTrigger pasteTrigger;
 	/// TODO: Maybe eventually separate UI controls from module (UI changes in Widget not Module).
 	// Light for paste button
 	TS_LightString* pasteLight;
@@ -293,7 +285,7 @@ struct TSSequencerModuleBase : Module {
 	// BPM Calculation //////////////
 	// Index into the array BPMOptions
 	int selectedBPMNoteIx = 1; // 1/8th
-	SchmittTrigger selectedBPMNoteTrigger;
+	dsp::SchmittTrigger selectedBPMNoteTrigger;
 
 	// External Messages ///////////////////////////////////////////////
 	// Message queue for external (to Rack) control messages
@@ -321,9 +313,9 @@ struct TSSequencerModuleBase : Module {
 	// Current OSC IP address and port settings.
 	TSOSCConnectionInfo currentOSCSettings = { OSC_ADDRESS_DEF,  OSC_OUTPORT_DEF , OSC_INPORT_DEF };
 	// OSC Configure trigger
-	SchmittTrigger oscConfigTrigger;
-	SchmittTrigger oscConnectTrigger;
-	SchmittTrigger oscDisconnectTrigger;
+	dsp::SchmittTrigger oscConfigTrigger;
+	dsp::SchmittTrigger oscConnectTrigger;
+	dsp::SchmittTrigger oscDisconnectTrigger;
 	// Show the OSC configuration screen or not.
 	bool oscShowConfigurationScreen = false;
 	// Flag to reconnect at load. IFF true and oscInitialized is also true.
@@ -390,7 +382,7 @@ struct TSSequencerModuleBase : Module {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	~TSSequencerModuleBase();
 	// Get the inputs for this step.
-	void getStepInputs(bool* pulse, bool* reloadMatrix, bool* valueModeChanged);
+	void getStepInputs(const ProcessArgs &args, bool* pulse, bool* reloadMatrix, bool* valueModeChanged);
 	// Paste the clipboard pattern and/or specific gate to current selected pattern and/or gate.
 	bool paste();
 	// Copy the contents:
@@ -418,12 +410,13 @@ struct TSSequencerModuleBase : Module {
 	// reset(void)
 	// Reset ALL step values to default.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void reset() override;
+	void onReset() override;
+	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// randomize(void)
 	// Only randomize the current gate/trigger steps.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void randomize() override
+	void onRandomize() override
 	{
 		randomize(currentPatternEditingIx, currentChannelEditingIx, false);
 		return;
@@ -443,7 +436,7 @@ struct TSSequencerModuleBase : Module {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	virtual float getRandomValue() {
 		// Default are boolean sequencers
-		return randomUniform() > 0.5;
+		return random::uniform() > 0.5;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// onShownStepChange()
@@ -464,21 +457,21 @@ struct TSSequencerModuleBase : Module {
 		copySourcePatternIx = -1;
 		copySourceChannelIx = TROWA_SEQ_COPY_CHANNELIX_ALL; // Which trigger we are copying, -1 for all		
 		lights[COPY_CHANNEL_LIGHT].value = 0;
-		pasteLight->setColor(COLOR_WHITE); // Return the paste light to white
+		pasteLight->setColor(TSColors::COLOR_WHITE); // Return the paste light to white
 		lights[COPY_PATTERN_LIGHT].value = 0;
 		lights[PASTE_LIGHT].value = 0;
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// toJson(void)
+	// dataToJson(void)
 	// Save our junk to json.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	json_t *toJson() override;
+	json_t *dataToJson() override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// fromJson(void)
+	// dataFromJson(void)
 	// Read in our junk from json.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	virtual void fromJson(json_t *rootJ) override;
+	virtual void dataFromJson(json_t *rootJ) override;
 }; // end struct TSSequencerModuleBase
 
 //===============================================================================
@@ -498,8 +491,8 @@ struct TSSeqDisplay : TransparentWidget {
 	// TSSeqDisplay(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSSeqDisplay() {
-		font = Font::load(assetPlugin(plugin, TROWA_DIGITAL_FONT));
-		labelFont = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 12;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -508,9 +501,9 @@ struct TSSeqDisplay : TransparentWidget {
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
-	// @vg : (IN) NVGcontext to draw on
+	// @args.vg : (IN) NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ NVGcontext *vg) override {
+	void draw(/*in*/ const DrawArgs &args) override {
 		bool isPreview = module == NULL; // May get a NULL module for preview
 
 		// Background Colors:
@@ -518,13 +511,13 @@ struct TSSeqDisplay : TransparentWidget {
 		NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
 
 		// Screen:
-		nvgBeginPath(vg);
-		nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(vg, backgroundColor);
-		nvgFill(vg);
-		nvgStrokeWidth(vg, 1.0);
-		nvgStrokeColor(vg, borderColor);
-		nvgStroke(vg);
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+		nvgFillColor(args.vg, backgroundColor); 
+		nvgFill(args.vg);
+		nvgStrokeWidth(args.vg, 1.0);
+		nvgStrokeColor(args.vg, borderColor);
+		nvgStroke(args.vg);
 
 		if (!showDisplay)
 			return;
@@ -534,7 +527,7 @@ struct TSSeqDisplay : TransparentWidget {
 		int currentGate = 1;
 		int currentNSteps = 16;
 		float currentBPM = 120;
-		NVGcolor currColor = COLOR_RED;
+		NVGcolor currColor = TSColors::COLOR_TS_RED;
 
 		if (!isPreview)
 		{
@@ -547,9 +540,9 @@ struct TSSeqDisplay : TransparentWidget {
 		}
 
 		// Default Font:
-		nvgFontSize(vg, fontSize);
-		nvgFontFaceId(vg, font->handle);
-		nvgTextLetterSpacing(vg, 2.5);
+		nvgFontSize(args.vg, fontSize);
+		nvgFontFaceId(args.vg, font->handle);
+		nvgTextLetterSpacing(args.vg, 2.5);
 
 		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
 
@@ -559,30 +552,30 @@ struct TSSeqDisplay : TransparentWidget {
 		int x = 0;
 		int spacing = 61;
 
-		nvgTextAlign(vg, NVG_ALIGN_CENTER);
+		nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
 
 		// Current Playing Pattern
-		nvgFillColor(vg, textColor);
+		nvgFillColor(args.vg, textColor);
 		x = 5 + 21;
-		nvgFontSize(vg, fontSize); // Small font
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgText(vg, x, y1, "PATT", NULL);
+		nvgFontSize(args.vg, fontSize); // Small font
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgText(args.vg, x, y1, "PATT", NULL);
 		sprintf(messageStr, "%02d", currPlayPattern);
-		nvgFontSize(vg, fontSize * 1.5);	// Large font
-		nvgFontFaceId(vg, font->handle);
-		nvgText(vg, x + dx, y2, messageStr, NULL);
-
+		nvgFontSize(args.vg, fontSize * 1.5);	// Large font
+		nvgFontFaceId(args.vg, font->handle);
+		nvgText(args.vg, x + dx, y2, messageStr, NULL);
+		
 		// Current Playing Speed
-		nvgFillColor(vg, textColor);
+		nvgFillColor(args.vg, textColor);
 		x += spacing;
-		nvgFontSize(vg, fontSize); // Small font
-		nvgFontFaceId(vg, labelFont->handle);
+		nvgFontSize(args.vg, fontSize); // Small font
+		nvgFontFaceId(args.vg, labelFont->handle);
 		if (isPreview)
 			sprintf(messageStr, "BPM/%s", BPMOptions[1]->label);
 		else
 			sprintf(messageStr, "BPM/%s", BPMOptions[module->selectedBPMNoteIx]->label);
-		nvgText(vg, x, y1, messageStr, NULL);
-		if (module->lastStepWasExternalClock)
+		nvgText(args.vg, x, y1, messageStr, NULL);
+		if (!isPreview && module->lastStepWasExternalClock)
 		{
 			sprintf(messageStr, "%s", "CLK");
 		}
@@ -590,113 +583,117 @@ struct TSSeqDisplay : TransparentWidget {
 		{
 			sprintf(messageStr, "%03.0f", currentBPM);
 		}
-		nvgFontFaceId(vg, font->handle);
-		nvgFontSize(vg, fontSize * 1.5); // Large font		
-		nvgText(vg, x + dx, y2, messageStr, NULL);
+		nvgFontFaceId(args.vg, font->handle);
+		nvgFontSize(args.vg, fontSize * 1.5); // Large font		
+		nvgText(args.vg, x + dx, y2, messageStr, NULL);
 
 
 		// Current Playing # Steps
-		nvgFillColor(vg, textColor);
+		nvgFillColor(args.vg, textColor);
 		x += spacing;
-		nvgFontSize(vg, fontSize); // Small font
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgText(vg, x, y1, "LENG", NULL);
+		nvgFontSize(args.vg, fontSize); // Small font
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgText(args.vg, x, y1, "LENG", NULL);
 		sprintf(messageStr, "%02d", currentNSteps);
-		nvgFontSize(vg, fontSize * 1.5);	// Large font
-		nvgFontFaceId(vg, font->handle);
-		nvgText(vg, x + dx, y2, messageStr, NULL);
+		nvgFontSize(args.vg, fontSize * 1.5);	// Large font
+		nvgFontFaceId(args.vg, font->handle);
+		nvgText(args.vg, x + dx, y2, messageStr, NULL);
 
 		// Current Mode:
-		nvgFillColor(vg, nvgRGB(0xda, 0xda, 0xda));
+		nvgFillColor(args.vg, nvgRGB(0xda, 0xda, 0xda));
 		x += spacing + 5;
-		nvgFontSize(vg, fontSize); // Small font
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgText(vg, x, y1, "MODE", NULL);
-		nvgFontSize(vg, fontSize);	// Small font
-		if (module->modeString != NULL)
+		nvgFontSize(args.vg, fontSize); // Small font
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgText(args.vg, x, y1, "MODE", NULL);
+		nvgFontSize(args.vg, fontSize);	// Small font
+		nvgFontFaceId(args.vg, font->handle);		
+		if (!isPreview && module->modeString != NULL)
 		{
-			nvgFontFaceId(vg, font->handle);
-			//nvgText(vg, x + dx -6, y2, module->modeString, NULL);					
-			nvgText(vg, x + dx, y2, module->modeString, NULL);
+			//nvgText(args.vg, x + dx -6, y2, module->modeString, NULL);					
+			nvgText(args.vg, x + dx, y2, module->modeString, NULL);
+		}
+		else {
+			nvgText(args.vg, x + dx, y2, "TRIG", NULL);			
 		}
 
-		nvgTextAlign(vg, NVG_ALIGN_CENTER);
+		nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
 
 		// Current Edit Pattern
-		nvgFillColor(vg, textColor);
+		nvgFillColor(args.vg, textColor);
 		x += spacing;
-		nvgFontSize(vg, fontSize); // Small font
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgText(vg, x, y1, "PATT", NULL);
+		nvgFontSize(args.vg, fontSize); // Small font
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgText(args.vg, x, y1, "PATT", NULL);
 		sprintf(messageStr, "%02d", currEditPattern);
-		nvgFontSize(vg, fontSize * 1.5);	// Large font
-		nvgFontFaceId(vg, font->handle);
-		nvgText(vg, x + dx, y2, messageStr, NULL);
+		nvgFontSize(args.vg, fontSize * 1.5);	// Large font
+		nvgFontFaceId(args.vg, font->handle);
+		nvgText(args.vg, x + dx, y2, messageStr, NULL);
 
 		// Current Edit Gate/Trigger
-		nvgFillColor(vg, currColor); // Match the Gate/Trigger color
+		nvgFillColor(args.vg, currColor); // Match the Gate/Trigger color
 		x += spacing;
-		nvgFontSize(vg, fontSize); // Small font
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgText(vg, x, y1, "CHNL", NULL);
+		nvgFontSize(args.vg, fontSize); // Small font
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgText(args.vg, x, y1, "CHNL", NULL);
 		sprintf(messageStr, "%02d", currentGate);
-		nvgFontSize(vg, fontSize * 1.5);	// Large font
-		nvgFontFaceId(vg, font->handle);
-		nvgText(vg, x + dx, y2, messageStr, NULL);
+		nvgFontSize(args.vg, fontSize * 1.5);	// Large font
+		nvgFontFaceId(args.vg, font->handle);
+		nvgText(args.vg, x + dx, y2, messageStr, NULL);
 
 		// [[[[[[[[[[[[[[[[ EDIT Box Group ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
-		nvgTextAlign(vg, NVG_ALIGN_LEFT);
+		nvgTextAlign(args.vg, NVG_ALIGN_LEFT);
 		NVGcolor groupColor = nvgRGB(0xDD, 0xDD, 0xDD);
-		nvgFillColor(vg, groupColor);
+		nvgFillColor(args.vg, groupColor);
 		int labelX = 297;
 		x = labelX; // 289
-		nvgFontSize(vg, fontSize - 5); // Small font
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgText(vg, x, 8, "EDIT", NULL);
+		nvgFontSize(args.vg, fontSize - 5); // Small font
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgText(args.vg, x, 8, "EDIT", NULL);
 
 		// Edit Label Line ---------------------------------------------------------------
-		nvgBeginPath(vg);
+		nvgBeginPath(args.vg);
 		// Start top to the left of the text "Edit"
 		int y = 5;
-		nvgMoveTo(vg, /*start x*/ x - 3, /*start y*/ y);// Starts new sub-path with specified point as first point.s
+		nvgMoveTo(args.vg, /*start x*/ x - 3, /*start y*/ y);// Starts new sub-path with specified point as first point.s
 		x = 256;// x - 35;//xOffset + 3 * spacing - 3 + 60;
-		nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go to Left (Line Start)
+		nvgLineTo(args.vg, /*x*/ x, /*y*/ y); // Go to Left (Line Start)
 
 		x = labelX + 22;
 		y = 5;
-		nvgMoveTo(vg, /*x*/ x, /*y*/ y); // Right of "Edit"
+		nvgMoveTo(args.vg, /*x*/ x, /*y*/ y); // Right of "Edit"
 		x = box.size.x - 6;
-		nvgLineTo(vg, /*x*/ x, /*y*/ y); // RHS of box
+		nvgLineTo(args.vg, /*x*/ x, /*y*/ y); // RHS of box
 
-		nvgStrokeWidth(vg, 1.0);
-		nvgStrokeColor(vg, groupColor);
-		nvgStroke(vg);
+		nvgStrokeWidth(args.vg, 1.0);
+		nvgStrokeColor(args.vg, groupColor);
+		nvgStroke(args.vg);
 
 		// [[[[[[[[[[[[[[[[ PLAYBACK Box Group ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
 		groupColor = nvgRGB(0xEE, 0xEE, 0xEE);
-		nvgFillColor(vg, groupColor);
+		nvgFillColor(args.vg, groupColor);
 		labelX = 64;
 		x = labelX;
-		nvgFontSize(vg, fontSize - 5); // Small font
-		nvgText(vg, x, 8, "PLAYBACK", NULL);
+		nvgFontSize(args.vg, fontSize - 5); // Small font
+		nvgText(args.vg, x, 8, "PLAYBACK", NULL);
 
 		// Play Back Label Line ---------------------------------------------------------------
-		nvgBeginPath(vg);
+		nvgBeginPath(args.vg);
 		// Start top to the left of the text "Play"
 		y = 5;
-		nvgMoveTo(vg, /*start x*/ x - 3, /*start y*/ y);// Starts new sub-path with specified point as first point.s
+		nvgMoveTo(args.vg, /*start x*/ x - 3, /*start y*/ y);// Starts new sub-path with specified point as first point.s
 		x = 6;
-		nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go to the left
+		nvgLineTo(args.vg, /*x*/ x, /*y*/ y); // Go to the left
 
 		x = labelX + 52;
 		y = 5;
-		nvgMoveTo(vg, /*x*/ x, /*y*/ y); // To the Right of "Playback"
+		nvgMoveTo(args.vg, /*x*/ x, /*y*/ y); // To the Right of "Playback"
 		x = 165; //x + 62 ;
-		nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go Right 
+		nvgLineTo(args.vg, /*x*/ x, /*y*/ y); // Go Right 
 
-		nvgStrokeWidth(vg, 1.0);
-		nvgStrokeColor(vg, groupColor);
-		nvgStroke(vg);
+		nvgStrokeWidth(args.vg, 1.0);
+		nvgStrokeColor(args.vg, groupColor);
+		nvgStroke(args.vg);
+		
 		return;
 	} // end draw()
 }; // end struct TSSeqDisplay
@@ -715,24 +712,24 @@ struct TSSeqLabelArea : TransparentWidget {
 	// TSSeqLabelArea()
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSSeqLabelArea() {
-		font = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 13;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
-	// @vg : (IN) NVGcontext to draw on
+	// @args.vg : (IN) NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void draw(NVGcontext *vg) override {
+	void draw(const DrawArgs &args) override {
 		// Default Font:
-		nvgFontSize(vg, fontSize);
-		nvgFontFaceId(vg, font->handle);
-		nvgTextLetterSpacing(vg, 1);
+		nvgFontSize(args.vg, fontSize);
+		nvgFontFaceId(args.vg, font->handle);
+		nvgTextLetterSpacing(args.vg, 1);
 
 		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-		nvgFillColor(vg, textColor);
-		nvgFontSize(vg, fontSize);
+		nvgFillColor(args.vg, textColor);
+		nvgFontSize(args.vg, fontSize);
 
 		/// MAKE LABELS HERE
 		int x = 45;
@@ -740,75 +737,75 @@ struct TSSeqLabelArea : TransparentWidget {
 		int dy = 28;
 
 		// Selected Pattern Playback:
-		nvgText(vg, x, y, "PAT", NULL);
+		nvgText(args.vg, x, y, "PAT", NULL);
 
 		// Clock		
 		y += dy;
-		nvgText(vg, x, y, "BPM ", NULL);
+		nvgText(args.vg, x, y, "BPM ", NULL);
 
 		// Steps
 		y += dy;
-		nvgText(vg, x, y, "LNG", NULL);
+		nvgText(args.vg, x, y, "LNG", NULL);
 
 		// Ext Clock 
 		y += dy;
-		nvgText(vg, x, y, "CLK", NULL);
+		nvgText(args.vg, x, y, "CLK", NULL);
 
 		// Reset
 		y += dy;
-		nvgText(vg, x, y, "RST", NULL);
+		nvgText(args.vg, x, y, "RST", NULL);
 
 		// Outputs
-		nvgFontSize(vg, fontSize * 0.95);
+		nvgFontSize(args.vg, fontSize * 0.95);
 		x = 320;
 		y = 350;
-		nvgText(vg, x, y, "OUTPUTS", NULL);
+		nvgText(args.vg, x, y, "OUTPUTS", NULL);
 
 		// TINY btn labels
-		nvgFontSize(vg, fontSize * 0.6);
+		nvgFontSize(args.vg, fontSize * 0.6);
 		// OSC Labels
 		y = 103;
-		if (module->allowOSC)
+		if (module == NULL || module->allowOSC)
 		{
 			x = 240;
-			nvgText(vg, x, y, "OSC", NULL);
+			nvgText(args.vg, x, y, "OSC", NULL);
 		}
 		// Copy button labels:
 		x = 302;
-		nvgText(vg, x, y, "CPY", NULL);
+		nvgText(args.vg, x, y, "CPY", NULL);
 		x = 362;
-		nvgText(vg, x, y, "CPY", NULL);
+		nvgText(args.vg, x, y, "CPY", NULL);
 		// BPM divisor/note label:
 		x = 118;
-		nvgText(vg, x, y, "DIV", NULL);
+		nvgText(args.vg, x, y, "DIV", NULL);
 
 
 		if (drawGridLines)
 		{
 			NVGcolor gridColor = nvgRGB(0x44, 0x44, 0x44);
-			nvgBeginPath(vg);
+			nvgBeginPath(args.vg);
 			x = 80;
 			y = 228;
-			nvgMoveTo(vg, /*start x*/ x, /*start y*/ y);// Starts new sub-path with specified point as first point
+			nvgMoveTo(args.vg, /*start x*/ x, /*start y*/ y);// Starts new sub-path with specified point as first point
 			x += 225;
-			nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go to the left
+			nvgLineTo(args.vg, /*x*/ x, /*y*/ y); // Go to the left
 
-			nvgStrokeWidth(vg, 1.0);
-			nvgStrokeColor(vg, gridColor);
-			nvgStroke(vg);
+			nvgStrokeWidth(args.vg, 1.0);
+			nvgStrokeColor(args.vg, gridColor);
+			nvgStroke(args.vg);
 
 
 			// Vertical
-			nvgBeginPath(vg);
+			nvgBeginPath(args.vg);
 			x = 192;
 			y = 116;
-			nvgMoveTo(vg, /*start x*/ x, /*start y*/ y);// Starts new sub-path with specified point as first point
+			nvgMoveTo(args.vg, /*start x*/ x, /*start y*/ y);// Starts new sub-path with specified point as first point
 			y += 225;
-			nvgLineTo(vg, /*x*/ x, /*y*/ y); // Go to the left			
+			nvgLineTo(args.vg, /*x*/ x, /*y*/ y); // Go to the left			
 
-			nvgStrokeWidth(vg, 1.0);
-			nvgStrokeColor(vg, gridColor);
-			nvgStroke(vg);
+			nvgStrokeWidth(args.vg, 1.0);
+			nvgStrokeColor(args.vg, gridColor);
+			nvgStroke(args.vg);
 
 		}
 

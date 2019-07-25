@@ -10,7 +10,7 @@
 #include "trowaSoft.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
-#include "dsp/digital.hpp"
+#include "TSColors.hpp"
 
 #define TROWA_SCOPE_NUM_WAVEFORMS	3
 
@@ -59,10 +59,10 @@
 #define TROWA_SCOPE_ROT_KNOB_MAX	 10
 #define TROWA_SCOPE_ROUND_FORMAT	"%.2f"	// Output string format
 #define TROWA_SCOPE_ROUND_VALUE		100		// Rounding
-#define TROWA_SCOPE_ABS_ROT_ON_COLOR			COLOR_TS_BLUE	// Color to signal Absolution Rotation mode is on.
-#define TROWA_SCOPE_LINK_XY_SCALE_ON_COLOR		COLOR_MAGENTA
-#define TROWA_SCOPE_INFO_DISPLAY_ON_COLOR		COLOR_TS_ORANGE
-#define TROWA_SCOPE_LISSAJOUS_ON_COLOR			COLOR_YELLOW
+#define TROWA_SCOPE_ABS_ROT_ON_COLOR			TSColors::COLOR_TS_BLUE	// Color to signal Absolution Rotation mode is on.
+#define TROWA_SCOPE_LINK_XY_SCALE_ON_COLOR		TSColors::COLOR_MAGENTA
+#define TROWA_SCOPE_INFO_DISPLAY_ON_COLOR		TSColors::COLOR_TS_ORANGE
+#define TROWA_SCOPE_LISSAJOUS_ON_COLOR			TSColors::COLOR_YELLOW
 
 // multiScope model.
 extern Model *modelMultiScope;
@@ -82,15 +82,15 @@ struct TSWaveform
 	float frameIndex;
 
 	bool lissajous = true;
-	SchmittTrigger lissajousTrigger;
+	dsp::SchmittTrigger lissajousTrigger;
 
 	// Link X and Y scale ::::::::::::::::::::::::::::::::::::::::::::::
 	bool linkXYScales; // Just forces scaleX = scaleY (only 1:1 aspect ratio).
-	SchmittTrigger linkXYScalesTrigger;
+	dsp::SchmittTrigger linkXYScalesTrigger;
 	float lastXYScaleValue; // Last value when they are synched
 
 	// Rotation ::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-	SchmittTrigger rotModeTrigger;
+	dsp::SchmittTrigger rotModeTrigger;
 	// True for absolute angular position, false if constant angular change
 	bool rotMode;
 	float rotKnobValue; // Value from rotation knob
@@ -191,19 +191,23 @@ struct multiScope : Module {
 	bool initialized = false;
 	bool firstLoad = true;
 
-	SchmittTrigger infoDisplayOnTrigger;
+	dsp::SchmittTrigger infoDisplayOnTrigger;
 
 	// Information about what we are plotting. In future may become dynamically allocated.
 	TSWaveform* waveForms[TROWA_SCOPE_NUM_WAVEFORMS];
 
 	multiScope();
 	~multiScope();
-	void step() override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// toJson(void)
+	// process()
+	// [Previously step(void)]
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	void process(const ProcessArgs &args) override;
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// dataToJson(void)
 	// Save to json.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	json_t *toJson() override {
+	json_t *dataToJson() override {
 		json_t *rootJ = json_object();
 		json_t *huesJ = json_array();
 		json_t *linkXYScalesJ = json_array();
@@ -230,10 +234,10 @@ struct multiScope : Module {
 		return rootJ;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// fromJson(void)
+	// dataFromJson(void)
 	// Load settings.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void fromJson(json_t *rootJ) override {
+	void dataFromJson(json_t *rootJ) override {
 		json_t *huesJ = json_object_get(rootJ, "hues");
 		json_t *rotModeJ = json_object_get(rootJ, "rotMode");
 		json_t *linkXYScalesJ = json_object_get(rootJ, "linkXYScales");
@@ -264,7 +268,7 @@ struct multiScope : Module {
 		return;
 	}
 
-	void reset()  override {
+	void onReset()  override {
 		for (int wIx = 0; wIx < TROWA_SCOPE_NUM_WAVEFORMS; wIx++)
 		{
 			waveForms[wIx]->lissajous = true;
@@ -287,37 +291,38 @@ struct TSScopeDisplay : TransparentWidget {
 
 	TSScopeDisplay() {
 		visible = true;
-		font = Font::load(assetPlugin(plugin, TROWA_DIGITAL_FONT));
-		labelFont = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 12;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
 	}
 
-	void draw(NVGcontext *vg) override {
+	void draw(const DrawArgs &args) override {
 		if (!visible)
 			return; // Don't draw anything if we are not visible.
+		bool isPreview = module == NULL; // May have NULL module? Make sure we don't just eat it.
 
-		nvgSave(vg);
+		nvgSave(args.vg);
 		Rect b = Rect(Vec(0, 0), box.size);
-		nvgScissor(vg, b.pos.x, b.pos.y, b.size.x, b.size.y);
+		nvgScissor(args.vg, b.pos.x, b.pos.y, b.size.x, b.size.y);
 
 		// Default Font:
-		nvgFontSize(vg, fontSize);
-		nvgTextLetterSpacing(vg, 1);
+		nvgFontSize(args.vg, fontSize);
+		nvgTextLetterSpacing(args.vg, 1);
 
 		// Background Colors:
 		NVGcolor backgroundColor = nvgRGBA(0x20, 0x20, 0x20, 0x80);
 		NVGcolor borderColor = nvgRGBA(0x10, 0x10, 0x10, 0x80);
 
 		// Screen:
-		nvgBeginPath(vg);
-		nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(vg, backgroundColor);
-		nvgFill(vg);
-		nvgStrokeWidth(vg, 1.0);
-		nvgStrokeColor(vg, borderColor);
-		nvgStroke(vg);
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+		nvgFillColor(args.vg, backgroundColor);
+		nvgFill(args.vg);
+		nvgStrokeWidth(args.vg, 1.0);
+		nvgStrokeColor(args.vg, borderColor);
+		nvgStroke(args.vg);
 
 		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
 
@@ -330,109 +335,121 @@ struct TSScopeDisplay : TransparentWidget {
 		int dx = 59; //41 // 37; // 35
 		int dy = 16; //14
 
-		//nvgFontSize(vg, fontSize); // Small font
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgFillColor(vg, textColor);
+		//nvgFontSize(args.vg, fontSize); // Small font
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgFillColor(args.vg, textColor);
 		// Row Labels 
-		nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+		nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 		y = yStart + 5;
 		for (int wIx = 0; wIx < TROWA_SCOPE_NUM_WAVEFORMS; wIx++)
 		{
-			NVGcolor currColor = module->waveForms[wIx]->waveColor;
-			nvgFillColor(vg, currColor);
+			NVGcolor currColor = (isPreview) ? TSColors::COLOR_RED  : module->waveForms[wIx]->waveColor;
+			nvgFillColor(args.vg, currColor);
 			sprintf(messageStr, "S%d", wIx + 1);
-			nvgText(vg, 5, y, messageStr, NULL);
+			nvgText(args.vg, 5, y, messageStr, NULL);
 			y += dy;
 		}
 		
 		// Column Labels:		
-		nvgTextAlign(vg, NVG_ALIGN_RIGHT);
-		nvgFillColor(vg, textColor);
+		nvgTextAlign(args.vg, NVG_ALIGN_RIGHT);
+		nvgFillColor(args.vg, textColor);
 
 		// Column 1 (Labels)
 		y = yStart;
 		xStart = 35; // 40
 		x = xStart + dx / 2.0;
-		nvgText(vg, x, y, "X Offset", NULL);
+		nvgText(args.vg, x, y, "X Offset", NULL);
 
 		x += dx;
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgText(vg, x, y, "X Scale", NULL);
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgText(args.vg, x, y, "X Scale", NULL);
 
 		x += dx;
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgText(vg, x, y, "Y Offset", NULL);
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgText(args.vg, x, y, "Y Offset", NULL);
 
 		x += dx;
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgText(vg, x, y, "Y Scale", NULL);
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgText(args.vg, x, y, "Y Scale", NULL);
 
 		// Rotation (wider)
 		x += dx + dxRotation;
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgText(vg, x, y, "Rotate", NULL);
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgText(args.vg, x, y, "Rotate", NULL);
 
 		// Values:
 		y = yStart + 5;
-		nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
+		nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
 		NVGcolor absRotColor = TROWA_SCOPE_ABS_ROT_ON_COLOR;
 		absRotColor.a = 0.50;
 		for (int wIx = 0; wIx < TROWA_SCOPE_NUM_WAVEFORMS; wIx++)
 		{
 			// NVGcolor currColor = module->waveForms[wIx]->waveColor;
-			nvgFillColor(vg, textColor);
+			nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
+			float val = 0.0f;
 
 			// X Offset
 			x = xStart + dx / 2.0;
-			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, module->params[multiScope::X_POS_PARAM + wIx].value);
-			nvgText(vg, x, y, messageStr, NULL);
+			val = (isPreview) ? 0.0f  : module->params[multiScope::X_POS_PARAM + wIx].getValue();
+			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, val);
+			nvgText(args.vg, x, y, messageStr, NULL);
 
 			// X Gain
 			x += dx;
-			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, module->params[multiScope::X_SCALE_PARAM + wIx].value);
-			nvgText(vg, x, y, messageStr, NULL);
+			val = (isPreview) ? 1.0f  : module->params[multiScope::X_SCALE_PARAM + wIx].getValue();
+			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, val);
+			nvgText(args.vg, x, y, messageStr, NULL);
 
 			// Y Offset
 			x += dx;
-			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, module->params[multiScope::Y_POS_PARAM + wIx].value);
-			nvgText(vg, x, y, messageStr, NULL);
+			val = (isPreview) ? 0.0f  : module->params[multiScope::Y_POS_PARAM + wIx].getValue();
+			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, val);
+			nvgText(args.vg, x, y, messageStr, NULL);
 
 			// Y Gain
 			x += dx;
-			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, module->params[multiScope::Y_SCALE_PARAM + wIx].value);
-			nvgText(vg, x, y, messageStr, NULL);
+			val = (isPreview) ? 1.0f  : module->params[multiScope::Y_SCALE_PARAM + wIx].getValue();
+			sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, val);
+			nvgText(args.vg, x, y, messageStr, NULL);
 
 			// Rotation
 			x += dx + dxRotation;
 			float v = 0.0;
-			if (module->waveForms[wIx]->rotMode)
+			if (!isPreview && module->waveForms[wIx]->rotMode)
 			{
 				// Absolute
-				v = module->waveForms[wIx]->rotAbsValue;
+				v = (isPreview) ? 0.0  : module->waveForms[wIx]->rotAbsValue;
 				// Background:
-				nvgBeginPath(vg);
-				nvgRoundedRect(vg, x - dx - 3, y - 2, dx + 5, fontSize + 2, 2);
-				nvgFillColor(vg, absRotColor);
-				nvgFill(vg);
+				nvgBeginPath(args.vg);
+				nvgRoundedRect(args.vg, x - dx + 2, y - 2, dx + dxRotation - 2, fontSize + 2, 2);
+				nvgFillColor(args.vg, absRotColor);
+				nvgFill(args.vg);
 
 				// Text will be black for this
-				nvgFillColor(vg, COLOR_BLACK);
+				nvgFillColor(args.vg, TSColors::COLOR_BLACK);
 				sprintf(messageStr, "%.1f", v * 180.0 / NVG_PI);
 			}
 			else
 			{
 				// Differential
-				v = module->waveForms[wIx]->rotDiffValue;
+				v = (isPreview) ? 0.0  : module->waveForms[wIx]->rotDiffValue;
 				sprintf(messageStr, "%+.1f", v * 180.0 / NVG_PI);
 			}
-			nvgText(vg, x, y, messageStr, NULL);
+			nvgText(args.vg, x, y, messageStr, NULL);
+
+			// Effect
+			x += (dx + dxEffect)/2.0;
+			nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+			nvgFillColor(args.vg, textColor);
+			int gIx = (isPreview) ? 0  : module->waveForms[wIx]->gEffectIx;
+			nvgText(args.vg, x, y, SCOPE_GLOBAL_EFFECTS[gIx]->label, NULL);
 
 			// Advance y to next 
 			y += dy;
 		} // end loop through wave forms
 
-		nvgResetScissor(vg);
-		nvgRestore(vg);
+		nvgResetScissor(args.vg);
+		nvgRestore(args.vg);
 		return;
 	}
 }; // end TSScopeDisplay
@@ -454,33 +471,33 @@ struct multiScopeDisplay : TransparentWidget {
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// drawWaveform()
-	// @vg : (IN) NVGcontext
+	// @args.vg : (IN) NVGcontext
 	// @valX: (IN) Pointer to x values.
 	// @valY: (IN) Pointer to y values.
 	// @rotRate: (IN) Rotation rate in radians
 	// @flipX: (IN) Flip along x (at x=0)
 	// @flipY: (IN) Flip along y
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void drawWaveform(NVGcontext *vg, float *valX, float *valY, bool* penOn, float rotRate, bool flipX, bool flipY) {
+	void drawWaveform(const DrawArgs &args, float *valX, float *valY, bool* penOn, float rotRate, bool flipX, bool flipY) {
 		if (!valX)
 			return;
-		nvgSave(vg);
+		nvgSave(args.vg);
 		Rect b = Rect(Vec(0, 0), box.size);
-		nvgScissor(vg, b.pos.x, b.pos.y, b.size.x, b.size.y);
-		nvgTranslate(vg, box.size.x / 2.0, box.size.y / 2.0);
-		nvgRotate(vg, rot += rotRate);
+		nvgScissor(args.vg, b.pos.x, b.pos.y, b.size.x, b.size.y);
+		nvgTranslate(args.vg, box.size.x / 2.0, box.size.y / 2.0);
+		nvgRotate(args.vg, rot += rotRate);
 		if (flipX || flipY)
 		{			
 			// Sets the transform to scale matrix.
 			// void nvgTransformScale(float* dst, float sx, float sy);
-			nvgScale(vg, ((flipX) ? -1 : 1), (flipY) ? -1 : 1); // flip
+			nvgScale(args.vg, ((flipX) ? -1 : 1), (flipY) ? -1 : 1); // flip
 		}
 
 		// Draw maximum display left to right
-		nvgBeginPath(vg);
-		nvgLineCap(vg, NVG_ROUND);
-		nvgMiterLimit(vg, 2.0);
-		nvgStrokeWidth(vg, 3.0);
+		nvgBeginPath(args.vg);
+		nvgLineCap(args.vg, NVG_ROUND);
+		nvgMiterLimit(args.vg, 2.0);
+		nvgStrokeWidth(args.vg, 3.0);
 		bool lastPointStarted = false;
 		float xOffset = -box.size.x / 2.0; // Fill our screen
 		float yOffset = -box.size.y / 2.0; 
@@ -503,41 +520,41 @@ struct multiScopeDisplay : TransparentWidget {
 
 				if (!lastPointStarted)
 				{
-					nvgMoveTo(vg, p.x, p.y);
+					nvgMoveTo(args.vg, p.x, p.y);
 				}
 				else
 				{
-					nvgLineTo(vg, p.x, p.y);
+					nvgLineTo(args.vg, p.x, p.y);
 				}
 				lastPointStarted = true;
 				//if (firstIx < 0 || (i > 0 && !penOn[i - 1]))
 				//	firstIx = i;
 				//if (i == firstIx)
-				//	nvgMoveTo(vg, p.x, p.y);
+				//	nvgMoveTo(args.vg, p.x, p.y);
 				//else
-				//	nvgLineTo(vg, p.x, p.y);
+				//	nvgLineTo(args.vg, p.x, p.y);
 			}
 			else
 			{
 				lastPointStarted = false;
 			}
 		} // end loop through buffer
-		nvgLineCap(vg, NVG_ROUND);
-		nvgMiterLimit(vg, 2.0);
-		nvgStrokeWidth(vg, 3.0);
-		//nvgGlobalCompositeOperation(vg, NVG_LIGHTER);
-		nvgStroke(vg);
-		nvgResetScissor(vg);
-		nvgRestore(vg);
+		nvgLineCap(args.vg, NVG_ROUND);
+		nvgMiterLimit(args.vg, 2.0);
+		nvgStrokeWidth(args.vg, 3.0);
+		//nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
+		nvgStroke(args.vg);
+		nvgResetScissor(args.vg);
+		nvgRestore(args.vg);
 	} // end drawWaveform()
 
-	void draw(NVGcontext *vg) override {
-		if (!module->initialized)
+	void draw(const DrawArgs &args) override {
+		if (module == NULL || !module->initialized)
 			return;
-		float gainX = ((int)(module->params[multiScope::X_SCALE_PARAM + wIx].value * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
-		float gainY = ((int)(module->params[multiScope::Y_SCALE_PARAM + wIx].value * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
-		float offsetX = ((int)(module->params[multiScope::X_POS_PARAM + wIx].value * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
-		float offsetY = ((int)(module->params[multiScope::Y_POS_PARAM + wIx].value * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
+		float gainX = ((int)(module->params[multiScope::X_SCALE_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
+		float gainY = ((int)(module->params[multiScope::Y_SCALE_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
+		float offsetX = ((int)(module->params[multiScope::X_POS_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
+		float offsetY = ((int)(module->params[multiScope::Y_POS_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
 
 		TSWaveform* waveForm = module->waveForms[wIx];
 		float valuesX[BUFFER_SIZE];
@@ -559,7 +576,7 @@ struct multiScopeDisplay : TransparentWidget {
 		NVGcolor waveColor = waveForm->waveColor;
 		float rotRate = 0;
 		waveColor.a = waveForm->waveOpacity;
-		nvgStrokeColor(vg, waveColor); // Color has already been calculated by main module
+		nvgStrokeColor(args.vg, waveColor); // Color has already been calculated by main module
 		if (waveForm->rotMode)
 		{
 			// Absolute position:
@@ -572,9 +589,9 @@ struct multiScopeDisplay : TransparentWidget {
 		}
 		if (waveForm->lissajous) {
 			// X x Y
-			if (module->inputs[multiScope::X_INPUT + wIx].active || module->inputs[multiScope::Y_INPUT + wIx].active) {
+			if (module->inputs[multiScope::X_INPUT + wIx].isConnected() || module->inputs[multiScope::Y_INPUT + wIx].isConnected()) {
 				module->lights[multiScope::COLOR_LED + wIx].value = 1.0; // Actively drawing
-				drawWaveform(vg, valuesX, valuesY, penOn, rotRate, false, false);// module->mirrorX[wIx], module->mirrorY[wIx]);
+				drawWaveform(args.vg, valuesX, valuesY, penOn, rotRate, false, false);// module->mirrorX[wIx], module->mirrorY[wIx]);
 			}
 			else
 			{
@@ -583,12 +600,12 @@ struct multiScopeDisplay : TransparentWidget {
 		}
 		else {
 			// Y
-			if (module->inputs[multiScope::Y_INPUT + wIx].active) {
-				drawWaveform(vg, valuesY, NULL, penOn, rotRate, false, false);
+			if (module->inputs[multiScope::Y_INPUT + wIx].isConnected()) {
+				drawWaveform(args.vg, valuesY, NULL, penOn, rotRate, false, false);
 			}
 			// X
-			if (module->inputs[multiScope::X_INPUT + wIx].active) {
-				drawWaveform(vg, valuesX, NULL, penOn, rotRate, false, false);
+			if (module->inputs[multiScope::X_INPUT + wIx].isConnected()) {
+				drawWaveform(args.vg, valuesX, NULL, penOn, rotRate, false, false);
 			}
 		}
 		return;
@@ -606,7 +623,7 @@ struct TSScopeLabelArea : TransparentWidget {
 	char messageStr[TROWA_DISP_MSG_SIZE];
 
 	TSScopeLabelArea() {
-		font = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -622,12 +639,12 @@ struct TSScopeLabelArea : TransparentWidget {
 	// @startHue: (IN) Starting hue.
 	// @endHue: (IN) Ending hue.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void drawColorGradientArc(NVGcontext* vg, float cx, float cy, float radius, float thickness, float start_radians, float end_radians, float startHue, float endHue)
+	void drawColorGradientArc(const DrawArgs &args, float cx, float cy, float radius, float thickness, float start_radians, float end_radians, float startHue, float endHue)
 	{
 		NVGcolor startColor = HueToColorGradient(startHue);
 		NVGcolor endColor = HueToColorGradient(endHue);
-		nvgBeginPath(vg);
-		nvgArc(vg, /*cx*/ cx, /*cy*/ cy, radius - thickness/2.0,
+		nvgBeginPath(args.vg);
+		nvgArc(args.vg, /*cx*/ cx, /*cy*/ cy, radius - thickness/2.0,
 			/*a0*/ start_radians, /*a1*/ end_radians, /*dir*/ NVG_CW);
 
 		// Creates and returns a linear gradient. Parameters (sx,sy)-(ex,ey) specify the start and end coordinates
@@ -638,10 +655,10 @@ struct TSScopeLabelArea : TransparentWidget {
 		float sy = cy + radius * sin(start_radians);
 		float ex = cx + radius * cos(end_radians) + 1;
 		float ey = cy + radius * sin(end_radians) + 1;
-		NVGpaint paint = nvgLinearGradient(vg, sx, sy, ex, ey, startColor, endColor);
-		nvgStrokeWidth(vg, thickness);
-		nvgStrokePaint(vg, paint);
-		nvgStroke(vg);
+		NVGpaint paint = nvgLinearGradient(args.vg, sx, sy, ex, ey, startColor, endColor);
+		nvgStrokeWidth(args.vg, thickness);
+		nvgStrokePaint(args.vg, paint);
+		nvgStroke(args.vg);
 		return;
 	} // end drawColorGradientArc()
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -655,7 +672,7 @@ struct TSScopeLabelArea : TransparentWidget {
 	// @startHue: (IN) Starting hue.
 	// @endHue: (IN) Ending hue.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void drawColorGradientArc(NVGcontext* vg, float cx, float cy, float radius, float thickness)
+	void drawColorGradientArc(const DrawArgs &args, float cx, float cy, float radius, float thickness)
 	{
 		const float startAngle = 0.67*NVG_PI;
 		const float endAngle = 2.33*NVG_PI;
@@ -667,7 +684,7 @@ struct TSScopeLabelArea : TransparentWidget {
 		
 		while (hue < 1.0)
 		{
-			drawColorGradientArc(vg, cx, cy, radius, thickness, 
+			drawColorGradientArc(args.vg, cx, cy, radius, thickness, 
 				start_radians, start_radians + dA*1.2, 
 				hue, hue + dH);
 			start_radians += dA;
@@ -678,16 +695,16 @@ struct TSScopeLabelArea : TransparentWidget {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(NVGcontext *vg) override {
+	void draw(const DrawArgs &args) override {
 
 		// Default Font:
-		nvgFontSize(vg, fontSize);
-		nvgFontFaceId(vg, font->handle);
-		nvgTextLetterSpacing(vg, 1);
+		nvgFontSize(args.vg, fontSize);
+		nvgFontFaceId(args.vg, font->handle);
+		nvgTextLetterSpacing(args.vg, 1);
 
 		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-		nvgFillColor(vg, textColor);
-		nvgFontSize(vg, fontSize);
+		nvgFillColor(args.vg, textColor);
+		nvgFontSize(args.vg, fontSize);
 
 		const int xStart = 17; // 23
 		const int yStart = 6; // 10
@@ -702,73 +719,73 @@ struct TSScopeLabelArea : TransparentWidget {
 		y = yStart;
 		for (int wIx = 0; wIx < TROWA_SCOPE_NUM_WAVEFORMS; wIx++)
 		{
-			nvgFontSize(vg, fontSize);
+			nvgFontSize(args.vg, fontSize);
 			x = xStart;
 			int waveY = y;
 			// Shape Label:		
-			nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+			nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 			// BG Box
-			nvgBeginPath(vg);
-			nvgRect(vg, x - 3, y - 2, TROWA_SCOPE_CONTROL_START_X - x + 3, fontSize + 3);
-			nvgFillColor(vg, textColor);
-			nvgFill(vg);
-			nvgFillColor(vg, COLOR_BLACK);
+			nvgBeginPath(args.vg);
+			nvgRect(args.vg, x - 3, y - 2, TROWA_SCOPE_CONTROL_START_X - x + 3, fontSize + 3);
+			nvgFillColor(args.vg, textColor);
+			nvgFill(args.vg);
+			nvgFillColor(args.vg, TSColors::COLOR_BLACK);
 			sprintf(messageStr, TROWA_SCOPE_SHAPE_FORMAT_STRING, (wIx + 1));
-			nvgText(vg, x, y, messageStr, NULL);
-			nvgFillColor(vg, textColor);
+			nvgText(args.vg, x, y, messageStr, NULL);
+			nvgFillColor(args.vg, textColor);
 
 			// Line down lhs:
-			nvgBeginPath(vg);
-			nvgRect(vg, x - 3, y - 2, TROWA_SCOPE_CONTROL_START_X - x + 3, fontSize + 3);
-			nvgMoveTo(vg, /*x*/ x - 3, /*y*/ y - 2);
-			nvgLineTo(vg, /*x*/ x - 3, /*y*/ y + shapeDy - 10); // Go Left (to right of the text "Edit")		
-			nvgStrokeWidth(vg, 1.0);
-			nvgStrokeColor(vg, textColor);
-			nvgStroke(vg);
+			nvgBeginPath(args.vg);
+			nvgRect(args.vg, x - 3, y - 2, TROWA_SCOPE_CONTROL_START_X - x + 3, fontSize + 3);
+			nvgMoveTo(args.vg, /*x*/ x - 3, /*y*/ y - 2);
+			nvgLineTo(args.vg, /*x*/ x - 3, /*y*/ y + shapeDy - 10); // Go Left (to right of the text "Edit")		
+			nvgStrokeWidth(args.vg, 1.0);
+			nvgStrokeColor(args.vg, textColor);
+			nvgStroke(args.vg);
 
 			// Row Labels:
 			x = TROWA_SCOPE_CONTROL_START_X - 5;
 			y += fontSize + 8;
-			nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
-			nvgText(vg, x, y, "IN", NULL);
+			nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
+			nvgText(args.vg, x, y, "IN", NULL);
 			y += dy;
-			nvgText(vg, x, y, "OFF", NULL);
+			nvgText(args.vg, x, y, "OFF", NULL);
 			y += dy;
-			nvgText(vg, x, y, "SCL", NULL);
+			nvgText(args.vg, x, y, "SCL", NULL);
 
 			const char* colLabels[] = { "X", "Y", "C", "A", "R", "T" };
-			nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+			nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
 			x = TROWA_SCOPE_CONTROL_START_X + 15;
 			y = waveY;
 			for (int i = 0; i < 6; i++)
 			{
-				nvgText(vg, x, y, colLabels[i], NULL);
+				nvgText(args.vg, x, y, colLabels[i], NULL);
 				x += dx;
 			}
 
 			int x1 = TROWA_SCOPE_CONTROL_START_X + 15 + 0.5*dx;
 			int y1 = waveY + dy * 2.3 + 1;
-			nvgFontSize(vg, fontSize*0.8);
-			nvgText(vg, x1, y1, "LNK", NULL);
+			nvgFontSize(args.vg, fontSize*0.8);
+			nvgText(args.vg, x1, y1, "LNK", NULL);
 
 			x1 += 2*dx;
 			int y2 = y1 + 6;
-			nvgText(vg, x1 - 8, y2, "BLANK", NULL);
+			nvgText(args.vg, x1 - 8, y2, "BLANK", NULL);
 			y2 += fontSize * 0.8 + 0.5;
-			nvgFontSize(vg, fontSize*1.05);
-			nvgText(vg, x1 - 8, y2, "<= 0", NULL);
+			nvgFontSize(args.vg, fontSize*1.05);
+			nvgText(args.vg, x1 - 8, y2, "<= 0", NULL);
 
-			nvgFontSize(vg, fontSize*0.8);
+			nvgFontSize(args.vg, fontSize*0.8);
 			x1 += 1.5*dx;
-			nvgText(vg, x1, y1, "ABS", NULL);
+			nvgText(args.vg, x1, y1, "ABS", NULL);
 
 			x1 += dx;
-			nvgText(vg, x1, y1, "X*Y", NULL);
+			nvgText(args.vg, x1, y1, "X*Y", NULL);
 
 			// Color Knob gradient:
 			//x += dx * 2;
 			//y += 30;
-			drawColorGradientArc(vg, 
+			drawColorGradientArc(args.vg, 
 				/*cx*/ TROWA_SCOPE_CONTROL_START_X + 15 + 2*dx,
 				/*cy*/ y + dy + 23 + TROWA_SCOPE_COLOR_KNOB_Y_OFFSET, 
 				/*radius*/ 14, 
@@ -790,7 +807,7 @@ struct TSScopeSideBarLabelArea : TransparentWidget {
 	int fontSize;
 	//char messageStr[TROWA_DISP_MSG_SIZE];
 	TSScopeSideBarLabelArea() {
-		font = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		//for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 		//	messageStr[i] = '\0';
@@ -802,27 +819,27 @@ struct TSScopeSideBarLabelArea : TransparentWidget {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(NVGcontext *vg) override {
-		nvgSave(vg);
-		//nvgTranslate(vg, -box.size.y / 2.0, -box.size.x / 2.0);
-		nvgRotate(vg, NVG_PI*0.5);
+	void draw(const DrawArgs &args) override {
+		nvgSave(args.vg);
+		//nvgTranslate(args.vg, -box.size.y / 2.0, -box.size.x / 2.0);
+		nvgRotate(args.vg, NVG_PI*0.5);
 
 		// Default Font:
-		nvgFontSize(vg, fontSize);
-		nvgFontFaceId(vg, font->handle);
-		nvgTextLetterSpacing(vg, 1);
+		nvgFontSize(args.vg, fontSize);
+		nvgFontFaceId(args.vg, font->handle);
+		nvgTextLetterSpacing(args.vg, 1);
 
 		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-		nvgFillColor(vg, textColor);
-		nvgFontSize(vg, fontSize);
-		nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
+		nvgFillColor(args.vg, textColor);
+		nvgFontSize(args.vg, fontSize);
+		nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_MIDDLE);
 
 		float x, y;
 		x = 34;// box.size.x / 2.0;
 		y = -box.size.x / 2.0; // 0;// 32;
-		nvgText(vg, x, y, "INFO", NULL); // Info display btn toggle
+		nvgText(args.vg, x, y, "INFO", NULL); // Info display btn toggle
 
-		nvgRestore(vg);
+		nvgRestore(args.vg);
 		return;
 	} // end draw()
 }; // end TSScopeSideBarLabelArea

@@ -6,14 +6,14 @@
 #if USE_NEW_SCOPE
 
 
-#include "rack.hpp"
+#include <rack.hpp>
 using namespace rack;
 
 #include <string.h>
 #include "trowaSoft.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
-#include "dsp/digital.hpp"
+#include "TSSModuleWidgetBase.hpp"
 #include "Module_multiScope.hpp"
 
 /// TODO: Widget/Module wide invert setting
@@ -36,12 +36,12 @@ struct TSScopeModuleResizeHandle : Widget {
 		this->minWidth = minWidth;
 		return;
 	}
-	TSScopeModuleResizeHandle(float minWidth, SVGPanel* bgPanel) : TSScopeModuleResizeHandle(minWidth)
+	TSScopeModuleResizeHandle(float minWidth, SvgPanel* bgPanel) : TSScopeModuleResizeHandle(minWidth)
 	{
 		addChild(bgPanel);
 		return;
 	}
-	TSScopeModuleResizeHandle(float minWidth, SVGPanel* bgPanel, TS_PadSwitch* displayBtn, ColorValueLight* displayLED) : TSScopeModuleResizeHandle(minWidth, bgPanel)
+	TSScopeModuleResizeHandle(float minWidth, SvgPanel* bgPanel, TS_PadSwitch* displayBtn, ColorValueLight* displayLED) : TSScopeModuleResizeHandle(minWidth, bgPanel)
 	{
 		this->displayToggleBtn = displayBtn;
 		this->displayToggleLED = displayLED;
@@ -81,22 +81,31 @@ struct TSScopeModuleResizeHandle : Widget {
 		return;
 	}
 
-
-	void onMouseDown(EventMouseDown &e) override {
+	void onButton(const event::Button &e) override {
 		if (e.button == 0) {
-			e.consumed = true;
-			e.target = this;
-		}
+			//e.consumed = true;
+			//e.target = this;
+			e.consume(this);
+		}		
 	}
-	void onDragStart(EventDragStart &e) override {
-		dragX = gRackWidget->lastMousePos.x;
+
+	// void onMouseDown(const event::MouseDown &e) override {
+		// if (e.button == 0) {
+			// e.consumed = true;
+			// e.target = this;
+		// }
+	// }
+
+	void onDragStart(const event::DragStart &e) override {
+		dragX = APP->scene->rack->mousePos.x;//gRackWidget->lastMousePos.x;
 		ModuleWidget *m = getAncestorOfType<ModuleWidget>();
 		originalBox = m->box;
 	}
-	void onDragMove(EventDragMove &e) override {
+	void onDragMove(const event::DragMove &e) override {
 		ModuleWidget *m = getAncestorOfType<ModuleWidget>();
 
-		float newDragX = gRackWidget->lastMousePos.x;
+		//float newDragX = gRackWidget->lastMousePos.x;
+		float newDragX = APP->scene->rack->mousePos.x;		
 		float deltaX = newDragX - dragX;
 
 		Rect newBox = originalBox;
@@ -111,7 +120,12 @@ struct TSScopeModuleResizeHandle : Widget {
 			newBox.size.x = roundf(newBox.size.x / RACK_GRID_WIDTH) * RACK_GRID_WIDTH;
 			newBox.pos.x = originalBox.pos.x + originalBox.size.x - newBox.size.x;
 		}
-		gRackWidget->requestModuleBox(m, newBox);
+		//gRackWidget->requestModuleBox(m, newBox);
+		// Set box and test whether it's valid
+		m->box = newBox;
+		if (!APP->scene->rack->requestModulePos(m, newBox.pos)) {
+			m->box = originalBox;
+		}		
 	}
 };
 
@@ -119,8 +133,8 @@ struct TSScopeModuleResizeHandle : Widget {
 // multiScopeWidget
 // Widget for the scope.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-struct multiScopeWidget : ModuleWidget {
-	Panel* panel;
+struct multiScopeWidget : TSSModuleWidgetBase {
+	//Panel* panel;
 	TSScopeModuleResizeHandle* rightHandle;
 	TransparentWidget* display[TROWA_SCOPE_NUM_WAVEFORMS];
 	TS_Panel* screenContainer;
@@ -143,8 +157,12 @@ struct multiScopeWidget : ModuleWidget {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	multiScopeWidget(multiScope* scopeModule);
 	void step() override;
-	json_t *toJson() override;
-	void fromJson(json_t *rootJ) override;
+	// /** 
+	// Overriding these is deprecated.
+	// Use Module::dataToJson() and dataFromJson() instead
+	// */	
+	// json_t *toJson() override;
+	// void fromJson(json_t *rootJ) override;	
 	//Menu *createContextMenu() override;
 };
 

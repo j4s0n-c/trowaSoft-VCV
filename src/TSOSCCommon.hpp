@@ -3,6 +3,17 @@
 
 #include <string>
 
+//--- OSC defines --
+// Default OSC outgoing address (Tx). 127.0.0.1.
+#define OSC_ADDRESS_DEF		"127.0.0.1"
+// Default OSC outgoing port (Tx). 7000.
+#define OSC_OUTPORT_DEF		7000
+// Default OSC incoming port (Rx). 7001.
+#define OSC_INPORT_DEF		7001
+// Default namespace for OSC
+#define OSC_DEFAULT_NS				"/tsseq"
+#define OSC_OUTPUT_BUFFER_SIZE		(1024*64)
+#define OSC_ADDRESS_BUFFER_SIZE		50
 
 // What client are we talking to. touchOSC and Lemur are a little limited, so they need special treatment.
 enum OSCClient : uint8_t {

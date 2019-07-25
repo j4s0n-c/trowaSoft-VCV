@@ -1,6 +1,6 @@
 #include "TSTextField.hpp"
 #include "trowaSoftComponents.hpp"
-#include "widgets.hpp"
+#include <widget/Widget.hpp> //#include "widgets.hpp"
 
 // Companion text field a for a param control.
 // Should set the param value and dirty the knob.
@@ -54,24 +54,35 @@ struct TSParamTextField : TSTextField {
 	// onAction()
 	// Save value if valid.
 	//-----------------------------------------------------------------------------------------------
-	void onAction(EventAction &e) override;
+	void onAction(const event::Action &e) override;
 	//-----------------------------------------------------------------------------------------------
 	// onFocus()
 	// Set flag to not update from the control.
 	//-----------------------------------------------------------------------------------------------
-	void onFocus(EventFocus &e) override
+	void onSelect(const event::Select &e) override
 	{
-		e.consumed = true;
-		isEditing = 3;
-		selection = 0;
-		cursor = text.size();
+DEBUG("TSParamTextField::onSelect(%d) - visible = %d", id, visible);		
+		if (this->visible) {
+			if (!e.isConsumed())
+			{
+				//e.consumed = true;
+				e.consume(this);
+				isEditing = 3;
+				this->selectAll();
+				// selection = text.size();
+				// cursor =  0; //text.size();
+				// selection = 0;
+				// cursor =  text.size();				
+DEBUG("TSParamTextField::onSelect(%d). cursor = %d, selection = %d", id, cursor, selection);				
+			}
+		}
 		return;
 	}
 	//-----------------------------------------------------------------------------------------------
 	// onDefocus()
 	// Validate input, set control value to match, format the text field number.
 	//-----------------------------------------------------------------------------------------------
-	void onDefocus(EventDefocus &e) override;
+	void onDeselect(const event::Deselect &e) override;
 	//-----------------------------------------------------------------------------------------------
 	// setText()
 	// @val : (IN) Float value to set the text.

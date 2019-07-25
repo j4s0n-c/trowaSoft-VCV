@@ -1,11 +1,11 @@
 #ifndef MODULE_OSCCV_HPP
 #define MODULE_OSCCV_HPP
 
-#include "rack.hpp"
+#include <rack.hpp>
 using namespace rack;
 #include "trowaSoft.hpp"
-#include "dsp/digital.hpp"
 #include "trowaSoftUtilities.hpp"
+#include "TSOSCCommon.hpp"
 #include "TSOSCCommunicator.hpp"
 #include <thread> // std::thread
 #include <mutex>
@@ -36,7 +36,6 @@ extern Model* modelOscCV;
 #define TROWA_OSCCV_MIDI_VALUE_MAX			   127 // Midi value 127
 #define TROWA_OSCCV_DEFAULT_SEND_HZ			   100 // If no trigger input, bang out OSC when val changes this many times per second.
 #define TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL		2
-
 
 // A channel for OSC.
 struct TSOSCCVChannel {
@@ -79,7 +78,7 @@ struct TSOSCCVChannel {
 	int frameIx = 0;
 
 	// Show channel configuration for this channel.
-	SchmittTrigger showChannelConfigTrigger;
+	dsp::SchmittTrigger showChannelConfigTrigger;
 
 
 	/// TODO: Configuration for conversion & use the conversion stuff.
@@ -329,10 +328,10 @@ struct oscCV : Module {
 	TSOSCCVInputChannel* inputChannels = NULL;
 	// Input OSC (from External) ==> Needs to be translated to Rack output port CV
 	TSOSCCVChannel* outputChannels = NULL;
-	PulseGenerator* pulseGens = NULL;
+	dsp::PulseGenerator* pulseGens = NULL;
 	// The received messages.
 	std::queue<TSOSCCVSimpleMessage> rxMsgQueue;
-	SchmittTrigger* inputTriggers;
+	dsp::SchmittTrigger* inputTriggers;
 
 	int oscId;
 	/// TODO: OSC members should be dumped into an OSC base class....
@@ -341,8 +340,8 @@ struct oscCV : Module {
 	// Current OSC IP address and port settings.
 	TSOSCConnectionInfo currentOSCSettings = { OSC_ADDRESS_DEF,  OSC_OUTPORT_DEF , OSC_INPORT_DEF };
 	// OSC Configure trigger
-	SchmittTrigger oscConfigTrigger;
-	SchmittTrigger oscConnectTrigger;
+	dsp::SchmittTrigger oscConfigTrigger;
+	dsp::SchmittTrigger oscConnectTrigger;
 	// Show the OSC configuration screen or not.
 	bool oscShowConfigurationScreen = false;
 
@@ -437,23 +436,23 @@ struct oscCV : Module {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void setOscNamespace(std::string oscNamespace);
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// step(void)
-	// Process.
+	// process()
+	// [Previously step(void)]
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void step() override;
+	void process(const ProcessArgs &args) override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// reset(void)
 	// Initialize values.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void reset() override;
+	void onReset() override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// toJson(void)
+	// dataToJson(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	json_t *toJson() override;
+	json_t *dataToJson() override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// fromJson(void)
+	// dataFromJson(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void fromJson(json_t *rootJ) override;
+	void dataFromJson(json_t *rootJ) override;
 
 };
 
@@ -483,7 +482,7 @@ public:
 	}
 	void setNamespace(std::string oscNs)
 	{
-		//debug("Listener.setNamespace(): %s, first char is %c.", oscNs.c_str(), oscNs.at(0));
+		//DEBUG("Listener.setNamespace(): %s, first char is %c.", oscNs.c_str(), oscNs.at(0));
 		std::lock_guard<std::mutex> lock(mutExNamespace);
 		if (!oscNs.empty() && oscNs.at(0) != '/')
 			this->oscNamespace = "/" + oscNs;

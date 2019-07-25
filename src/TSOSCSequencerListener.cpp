@@ -2,8 +2,8 @@
 #include <vector>
 #include <stdio.h>
 #include <exception>
-#include "util/common.hpp"
-#include "util/math.hpp" //util.hpp"
+#include "common.hpp"
+#include "math.hpp" //util.hpp"
 #include "TSOSCSequencerListener.hpp"
 #include "TSSequencerModuleBase.hpp"
 #include "trowaSoftUtilities.hpp" // For debug
@@ -65,7 +65,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 {
 	(void)remoteEndpoint; // suppress unused parameter warning
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-	debug("[RECV] OSC Message: %s", rxMsg.AddressPattern());
+	DEBUG("[RECV] OSC Message: %s", rxMsg.AddressPattern());
 #endif
 	osc::int32 step = -1;
 	float stepVal = 0.0;
@@ -79,7 +79,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 		if (std::strcmp(addr.substr(0, len).c_str(), ns) != 0) // Message is not for us
 		{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-			debug("Message is not for our namespace (%s).", ns);
+			DEBUG("Message is not for our namespace (%s).", ns);
 #endif
 			return;
 		}
@@ -90,7 +90,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 		int numParts = parts.size();
 
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-		debug("[RECV] %s - %d parts.", path, numParts);
+		DEBUG("[RECV] %s - %d parts.", path, numParts);
 #endif
 
 
@@ -116,7 +116,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			// Set Randomize ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 			// No params
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Randomize Current Edit Channel.", rxMsg.AddressPattern());
+			DEBUG("Received %s message - Randomize Current Edit Channel.", rxMsg.AddressPattern());
 #endif
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::RandomizeEditStepValue));
 		}
@@ -136,7 +136,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			catch (const std::exception& ex)
 			{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-				debug("Error getting step or stepvalue: %s\n%s", path, ex.what());
+				DEBUG("Error getting step or stepvalue: %s\n%s", path, ex.what());
 #endif
 			}
 			// --* touchOSC *--
@@ -146,7 +146,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			step = touchOSC::mcRowCol_to_stepIndex(row, col, sequencerModule->numRows, sequencerModule->numCols);
 			step = (int)clamp(step, 0, sequencerModule->maxSteps - 1);
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Row %d, Col %d => Ix %d. Value is %0.2f.", path, row, col, step, stepVal);
+			DEBUG("Received %s message - Row %d, Col %d => Ix %d. Value is %0.2f.", path, row, col, step, stepVal);
 #endif
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetEditStepValue, pattern, channel, step, stepVal));
 		}
@@ -183,7 +183,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 				catch (const std::exception& ex)
 				{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-					debug("Error getting step or stepvalue: %s\n%s", path, ex.what());
+					DEBUG("Error getting step or stepvalue: %s\n%s", path, ex.what());
 #endif
 				}
 			}
@@ -201,7 +201,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 				}
 			}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Step %d, val %f (Pattern %d, Channel %d).", path, step, stepVal, pattern, channel);
+			DEBUG("Received %s message - Step %d, val %f (Pattern %d, Channel %d).", path, step, stepVal, pattern, channel);
 #endif
 			if (step > -1)
 			{
@@ -225,16 +225,16 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 				// touchOSC is VERY limited and will just send floats
 				args >> pattern >> osc::EndMessage;
 			}
-			catch (osc::WrongArgumentTypeException touchOSCEx)
+			catch (osc::WrongArgumentTypeException &touchOSCEx)
 			{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-				debug("Wrong argument type: Error %s message: ", path, touchOSCEx.what());
-				debug("We received %d.", pattern);
+				DEBUG("Wrong argument type: Error %s message: ", path, touchOSCEx.what());
+				DEBUG("We received %d.", pattern);
 #endif
 			}
 
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Pattern %d.", path, pattern);
+			DEBUG("Received %s message - Pattern %d.", path, pattern);
 #endif
 			pattern = (int)clamp(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::StorePlayPattern, pattern, channel, step, stepVal));
@@ -249,16 +249,16 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 				// touchOSC is VERY limited and will just send floats
 				args >> pattern >> osc::EndMessage;
 			}
-			catch (osc::WrongArgumentTypeException touchOSCEx)
+			catch (osc::WrongArgumentTypeException &touchOSCEx)
 			{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-				debug("Wrong argument type: Error %s message: ", path, touchOSCEx.what());
-				debug("We received %d.", pattern);
+				DEBUG("Wrong argument type: Error %s message: ", path, touchOSCEx.what());
+				DEBUG("We received %d.", pattern);
 #endif
 			}
 
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Pattern %d.", path, pattern);
+			DEBUG("Received %s message - Pattern %d.", path, pattern);
 #endif
 			if (pattern != CURRENT_EDIT_PATTERN_IX)
 			{
@@ -273,7 +273,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
 			args >> step >> osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Step %d.", path, step);
+			DEBUG("Received %s message - Step %d.", path, step);
 #endif
 			step = (int)clamp(step, 1, sequencerModule->maxSteps) - 1;
 			/// TODO: Should we purge the queue so this guaranteed to happen immediately?
@@ -286,7 +286,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
 			args >> pattern >> osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Pattern %d.", path, pattern);
+			DEBUG("Received %s message - Pattern %d.", path, pattern);
 #endif
 			pattern = (int)clamp(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetEditPattern, pattern, channel, step, stepVal));
@@ -298,7 +298,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
 			args >> channel >> osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Channel %d.", path, channel);
+			DEBUG("Received %s message - Channel %d.", path, channel);
 #endif
 			channel = (int)clamp(channel, 1, TROWA_SEQ_NUM_CHNLS) - 1;
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetEditChannel, pattern, channel, step, stepVal));
@@ -309,7 +309,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
 			args >> intVal >> osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Output Mode %d.", path, intVal);
+			DEBUG("Received %s message - Output Mode %d.", path, intVal);
 #endif
 			intVal = (int)clamp(intVal, TSSequencerModuleBase::ValueMode::MIN_VALUE_MODE, TSSequencerModuleBase::ValueMode::MAX_VALUE_MODE);
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetPlayOutputMode, /*mode*/ intVal));
@@ -318,7 +318,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 		{
 			// Reset :::::::::::::::::::::::::::::::::::::::::::::::::::::
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message", path);
+			DEBUG("Received %s message", path);
 #endif
 			stepVal = 1;
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetPlayReset, pattern, channel, step, stepVal));
@@ -327,7 +327,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 		{
 			// Copy Edit Pattern ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message.", path);
+			DEBUG("Received %s message.", path);
 #endif
 			// Queue up this message.
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::PasteEditClipboard, pattern, channel, step, stepVal));
@@ -339,7 +339,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
 			args >> step >> osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Step Length %d.", path, step);
+			DEBUG("Received %s message - Step Length %d.", path, step);
 #endif
 			if (step != TROWA_INDEX_UNDEFINED)
 			{
@@ -354,7 +354,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
 			args >> step >> osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Step Length %d.", path, step);
+			DEBUG("Received %s message - Step Length %d.", path, step);
 #endif
 			step = (int)clamp(step, 1, sequencerModule->maxSteps); // Must be 1 to 64 (not 0 to 63)
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::StorePlayLength, pattern, channel, step, stepVal));
@@ -373,7 +373,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 				intVal = 1;
 			}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Play Val %d.", path, intVal);
+			DEBUG("Received %s message - Play Val %d.", path, intVal);
 #endif
 			if (intVal > -1)
 			{
@@ -398,7 +398,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 				intVal = 1;
 			}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Control Mode Val %d.", rxMsg.AddressPattern(), intVal);
+			DEBUG("Received %s message - Control Mode Val %d.", rxMsg.AddressPattern(), intVal);
 #endif
 			if (intVal > -1)
 			{
@@ -416,7 +416,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
 			args >> intVal >> osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - BPM %d.", path, intVal);
+			DEBUG("Received %s message - BPM %d.", path, intVal);
 #endif
 			intVal = (int)clamp(intVal, 4, 5000); // Just make sure it's not 0 or negative or too crazy.
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::StorePlayBPM, pattern, channel, step, stepVal, /*mode*/ intVal));
@@ -428,7 +428,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
 			args >> intVal >> osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - BPM %d.", path, intVal);
+			DEBUG("Received %s message - BPM %d.", path, intVal);
 #endif
 			if (intVal != TROWA_INDEX_UNDEFINED)
 				intVal = (int)clamp(intVal, 4, 5000); // Just make sure it's not 0 or negative or too crazy.
@@ -441,7 +441,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
 			args >> intVal >> osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - BPM Add %d.", path, intVal);
+			DEBUG("Received %s message - BPM Add %d.", path, intVal);
 #endif
 			intVal = (int)clamp(intVal, -5000, 5000); // Just make sure it's not too crazy
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::AddPlayBPM, pattern, channel, step, stepVal, /*mode*/ intVal));
@@ -453,7 +453,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
 			args >> stepVal >> osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Tempo %.2f", path, stepVal);
+			DEBUG("Received %s message - Tempo %.2f", path, stepVal);
 #endif
 			stepVal = clamp(stepVal, 0.0f, 1.0f); // Must be 0 to 1
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetPlayTempo, pattern, channel, step, stepVal));
@@ -485,7 +485,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 					pattern = (int)clamp(pattern, 1, TROWA_SEQ_NUM_PATTERNS) - 1;
 			}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Pattern %d.", path, pattern);
+			DEBUG("Received %s message - Pattern %d.", path, pattern);
 #endif
 			// Queue up this message.
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::CopyEditPattern, pattern, channel, step, stepVal));
@@ -529,7 +529,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 					channel = (int)clamp(channel, 1, TROWA_SEQ_NUM_CHNLS) - 1;
 			}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Pattern %d, Channel %d.", path, pattern, channel);
+			DEBUG("Received %s message - Pattern %d, Channel %d.", path, pattern, channel);
 #endif
 			// Queue up this message.
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::CopyEditChannel, pattern, channel, step, stepVal));
@@ -541,7 +541,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
 			args >> stepVal >> osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Tempo %.2f", path, stepVal);
+			DEBUG("Received %s message - Tempo %.2f", path, stepVal);
 #endif
 			stepVal = clamp(stepVal, 0.0f, 1.0f); // Must be 0 to 1
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::AddPlayTempo, pattern, channel, step, stepVal));
@@ -553,7 +553,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
 			args >> step >> osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Add to BPM Note Ix %d.", path, step);
+			DEBUG("Received %s message - Add to BPM Note Ix %d.", path, step);
 #endif
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::AddPlayBPMNote, pattern, channel, step, stepVal));
 		} // end if BPMIncr
@@ -564,7 +564,7 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
 			args >> step >> osc::EndMessage;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - BPM Note Ix %d.", path, step);
+			DEBUG("Received %s message - BPM Note Ix %d.", path, step);
 #endif
 			step = (int)clamp(step, 0, TROWA_TEMP_BPM_NUM_OPTIONS - 1); // Must be 0 to TROWA_TEMP_BPM_NUM_OPTIONS - 1
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::SetPlayBPMNote, pattern, channel, step, stepVal));
@@ -574,20 +574,20 @@ void TSOSCSequencerListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, c
 			// Set Initialize ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 			// No params
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Received %s message - Initialize module.", rxMsg.AddressPattern());
+			DEBUG("Received %s message - Initialize module.", rxMsg.AddressPattern());
 #endif
 			sequencerModule->ctlMsgQueue.push(CreateOSCRecvMsg(TSExternalControlMessage::MessageType::InitializeEditModule));
 		}
 		else
 		{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-			debug("Unknown OSC message: %s received.", rxMsg.AddressPattern());
+			DEBUG("Unknown OSC message: %s received.", rxMsg.AddressPattern());
 #endif
 		}
 	} // end try
 	catch (osc::Exception& e) {
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-		debug("Error parsing OSC message %s: %s", rxMsg.AddressPattern(), e.what());
+		DEBUG("Error parsing OSC message %s: %s", rxMsg.AddressPattern(), e.what());
 #endif
 	} // end catch
 	return;

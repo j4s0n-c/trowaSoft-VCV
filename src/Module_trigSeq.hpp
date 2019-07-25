@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdio.h>
 //#include "trowaSoft.hpp"
-#include "dsp/digital.hpp"
+//#include "dsp/digital.hpp"
 #include "TSSequencerWidgetBase.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
@@ -28,17 +28,22 @@ extern Model* modelTrigSeq64;
 //===============================================================================
 struct trigSeq : TSSequencerModuleBase
 {	
-	// Move these back to base
-	//SchmittTrigger* gateTriggers;
-	
 	trigSeq(int numSteps, int numRows, int numCols) : TSSequencerModuleBase(numSteps, numRows, numCols, false)
 	{
-		gateTriggers = new SchmittTrigger[numSteps]; // maxSteps
+		gateTriggers = new dsp::SchmittTrigger[numSteps]; // maxSteps
 		selectedOutputValueMode = VALUE_TRIGGER;
 		lastOutputValueMode = selectedOutputValueMode;
 		modeStrings[0] = "TRIG";
 		modeStrings[1] = "RTRG";
-		modeStrings[2] = "GATE";		
+		modeStrings[2] = "GATE";
+		// Configure Parameters:
+		for (int s = 0; s < maxSteps; s++) {
+			configParam(TSSequencerModuleBase::CHANNEL_PARAM + s, 0.0, 1.0, defaultStateValue, /*label*/ "Step " + std::to_string(s+1));
+		}
+		for (int i = 0; i < ValueMode::NUM_VALUE_MODES; i++)
+		{
+			dynamic_cast<TS_ParamQuantityEnum*>(this->paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM])->addToEnumMap(i, modeStrings[i]);
+		}
 		return;
 	}
 	trigSeq() : trigSeq(TROWA_SEQ_NUM_STEPS, TROWA_SEQ_STEP_NUM_ROWS, TROWA_SEQ_STEP_NUM_ROWS)
@@ -51,9 +56,13 @@ struct trigSeq : TSSequencerModuleBase
 		gateTriggers = NULL;
 		return;
 	}
-	void step() override;
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// process()
+	// [Previously step(void)]
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	void process(const ProcessArgs &args) override;
 	// Only randomize the current gate/trigger steps.
-	void randomize() override;
+	void onRandomize() override;
 	// Get the toggle step value
 	float getToggleStepValue(int step, float val, int channel, int pattern) override;
 	// Calculate a representation of all channels for this step
@@ -68,9 +77,35 @@ struct trigSeq : TSSequencerModuleBase
 //===============================================================================
 struct trigSeq64 : trigSeq {
 	trigSeq64() : trigSeq(N64_NUM_STEPS, N64_NUM_ROWS, N64_NUM_COLS)
-	{
+	{		
 		return;
 	}
+};
+
+
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// trigSeqWidget
+// Widget for the trowaSoft pad / trigger sequencer.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+struct trigSeqWidget : TSSequencerWidgetBase {
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// trigSeqWidget()
+	// Widget for the trowaSoft 16-step pad / trigger sequencer.
+	// @seqModule : (IN) Pointer to the sequencer module.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	trigSeqWidget(trigSeq* seqModule);
+};
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// trigSeq64Widget
+// Widget for the trowaSoft 64-step sequencer.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+struct trigSeq64Widget : TSSequencerWidgetBase {
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// trigSeq64Widget()
+	// Widget for the trowaSoft 64-step sequencer.
+	// @seqModule : (IN) Pointer to the sequencer module.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	trigSeq64Widget(trigSeq* seqModule);
 };
 
 

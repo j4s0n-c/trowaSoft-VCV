@@ -3,10 +3,10 @@
 
 #include <string.h>
 #include <stdio.h>
-#include "util/common.hpp"
-#include "util/math.hpp"
+#include "common.hpp"
+#include "math.hpp"
 
-#include "rack.hpp"
+#include <rack.hpp>
 using namespace rack;
 #include "TSExternalControlMessage.hpp"
 #include "../lib/oscpack/osc/OscOutboundPacketStream.h"

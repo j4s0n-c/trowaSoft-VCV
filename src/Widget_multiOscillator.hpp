@@ -1,19 +1,21 @@
 #ifndef WIDGET_MULTIOSCILLATOR_HPP
 #define WIDGET_MULTIOSCILLATOR_HPP
 
+#include <rack.hpp>
+#include "trowaSoft.hpp"
 #include "trowaSoftComponents.hpp"
-#include "widgets.hpp"
 #include "TSSModuleWidgetBase.hpp"
 #include "Module_multiOscillator.hpp"
-#include "rack.hpp"
 #include "TSParamTextField.hpp"
-using namespace rack;
 #include <vector>
 #include <string>
+
+using namespace rack;
 
 struct TSOscillatorChannelWidget;
 struct TSSingleOscillatorWidget;
 struct TSSingleOscillatorDisplay;
+
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // multiOscillator
@@ -101,8 +103,8 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 	// TSSingleOscillatorTopDisplay(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSSingleOscillatorDisplay() {
-		font = Font::load(assetPlugin(plugin, TROWA_DIGITAL_FONT));
-		labelFont = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -118,9 +120,9 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
 	// A single oscillator info.
-	// @vg : (IN) NVGcontext to draw on
+	// @args : (IN) Draw args and NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ NVGcontext *vg) override;
+	void draw(/*in*/ const DrawArgs &args) override;
 
 	/**
 	Called when a mouse button is pressed over this widget
@@ -128,10 +130,12 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 	Return `this` to accept the event.
 	Return NULL to reject the event and pass it to the widget behind this one.
 	*/
-	void onMouseDown(EventMouseDown &e) override {
+	//void onMouseDown(const event::MouseDown &e) override {
+	void onButton(const event::Button &e) override {
+		if (module == NULL)
+			return;
 		if (showDisplay) {
-			if (e.button == 0)
-			{
+			if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT) {
 				// Left click, check position, find which text box this would go to.
 				int txtBoxIx = -1;
 				const int padding = 5;
@@ -149,12 +153,16 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 				}
 				if (txtBoxIx > -1 && !textBoxes[txtBoxIx]->visible)
 				{
+DEBUG("TSSingleOscillatorDisplay::onMouseDown() = Showing Txt Id %d, visible = %d", txtBoxIx, textBoxes[txtBoxIx]->visible);					
 					// Show the text box:
 					textBoxes[txtBoxIx]->visible = true;
-					e.target = textBoxes[txtBoxIx];
-					e.consumed = true;
-				}
-			} // end if left click
+					//e.target = textBoxes[txtBoxIx];
+					//e.consumed = true;
+					e.consume(textBoxes[txtBoxIx]);
+//DEBUG("TSSingleOscillatorDisplay::onMouseDown() = Txt Id %d -- REQUEST FOCUS", txtBoxIx);					
+					textBoxes[txtBoxIx]->requestFocus();
+				}		
+			} // end if left click (previously e.button == 0)
 		} // end if visible
 		return;
 	} // end onMouseDown()
@@ -176,7 +184,7 @@ struct TSSingleOscillatorWidget : Widget
 	// Oscillator number.
 	int oscillatorNumber = 0;
 
-	NVGcolor oscillatorColor = COLOR_WHITE;
+	NVGcolor oscillatorColor = TSColors::COLOR_WHITE;
 
 	// Base input id.
 	int baseInputId = 0;
@@ -217,9 +225,9 @@ struct TSSingleOscillatorWidget : Widget
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
-	// @vg : (IN) NVGcontext to draw on
+	// @args : (IN) Draw args and NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ NVGcontext *vg) override;
+	void draw(/*in*/ const DrawArgs &args) override;
 };
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -249,8 +257,8 @@ struct TSOscillatorChannelDisplayWidget : TransparentWidget
 	// TSOscillatorChannelDisplayWidget(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSOscillatorChannelDisplayWidget() {
-		font = Font::load(assetPlugin(plugin, TROWA_DIGITAL_FONT));
-		labelFont = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -268,9 +276,9 @@ struct TSOscillatorChannelDisplayWidget : TransparentWidget
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
 	// A single oscillator info.
-	// @vg : (IN) NVGcontext to draw on
+	// @args : (IN) Draw args and NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ NVGcontext *vg) override;
+	void draw(/*in*/ const DrawArgs &args) override;
 
 	/**
 	Called when a mouse button is pressed over this widget
@@ -278,14 +286,14 @@ struct TSOscillatorChannelDisplayWidget : TransparentWidget
 	Return `this` to accept the event.
 	Return NULL to reject the event and pass it to the widget behind this one.
 	*/
-	void onMouseDown(EventMouseDown &e) override;
-
+	//void onMouseDown(const event::MouseDown &e) override;
+	void onButton(const event::Button &e) override;
 };
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // Widget for an output channel.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-struct TSOscillatorChannelWidget : VirtualWidget
+struct TSOscillatorChannelWidget : Widget// VirtualWidget
 {
 	// Parent MODULE widget.
 	//multiOscillatorWidget* parentModuleWidget;
@@ -329,7 +337,8 @@ struct TSOscillatorChannelWidget : VirtualWidget
 	{
 		// AUX:
 		tbParamValues[0]->canTabToThisEnabled = (oscillatorOutput->waveFormType == WaveFormType::WAVEFORM_SQR);
-		VirtualWidget::step();
+		//VirtualWidget::step();
+		Widget::step();
 		return;
 	}
 

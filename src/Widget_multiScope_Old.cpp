@@ -6,7 +6,7 @@
 #include "trowaSoft.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
-#include "dsp/digital.hpp"
+//#include "dsp/digital.hpp"
 #include "Module_multiScope_Old.hpp"
 #include "Widget_multiScope_Old.hpp"
 
@@ -21,9 +21,13 @@
 // multiScopeWidget(void)
 // Instantiate a multiScope widget.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-multiScopeWidget::multiScopeWidget(multiScope* scopeModule) : ModuleWidget(scopeModule)
+multiScopeWidget::multiScopeWidget(multiScope* scopeModule) : TSSModuleWidgetBase(scopeModule, true)
 {
-	this->module = scopeModule;
+	bool isPreview = this->module == NULL; // If this is null, then this isn't a real module instance but a 'Preview'?	
+	if (!isPreview && scopeModule == NULL)
+	{
+		scopeModule = dynamic_cast<multiScope*>(this->module);
+	}
 
 	// Calculate Sizes:	
 	this->inputAreaWidth = TROWA_SCOPE_INPUT_AREA_WIDTH;
@@ -41,10 +45,6 @@ multiScopeWidget::multiScopeWidget(multiScope* scopeModule) : ModuleWidget(scope
 	w = ((inputAreaWidth + scopeGraphDefWidth) / RACK_GRID_WIDTH) + 1;	
 	box.size = Vec(RACK_GRID_WIDTH*w, RACK_GRID_HEIGHT);
 
-	//// Create module:
-	//multiScope *module = new multiScope();
-	//setModule(module);	
-	//
 	// Border color for panels
 	NVGcolor borderColor = nvgRGBAf(0.25, 0.25, 0.25, 1.0); // nvgRGBAf(0.25, 0.25, 0.25, 1.0);
 	float borderWidth = 1;
@@ -53,10 +53,10 @@ multiScopeWidget::multiScopeWidget(multiScope* scopeModule) : ModuleWidget(scope
 	// LHS Panel (with controls)
 	////////////////////////////////////
 	{
-		TS_SVGPanel *svgpanel = new TS_SVGPanel(/*top*/ borderWidth, /*right*/ 0, /*bottom*/ borderWidth, /*left*/ borderWidth);
+		TS_SvgPanel *svgpanel = new TS_SvgPanel(/*top*/ borderWidth, /*right*/ 0, /*bottom*/ borderWidth, /*left*/ borderWidth);
 		svgpanel->borderColor = borderColor;
 		svgpanel->box.size = Vec(inputAreaWidth, RACK_GRID_HEIGHT);
-		svgpanel->setBackground(SVG::load(assetPlugin(plugin, "res/multiScope.svg")));
+		svgpanel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/multiScope.svg")));
 		addChild(svgpanel);
 	}
 
@@ -93,16 +93,16 @@ multiScopeWidget::multiScopeWidget(multiScope* scopeModule) : ModuleWidget(scope
 	////////////////////////////////////
 	{
 
-		TS_SVGPanel *svgpanel = new TS_SVGPanel(/*top*/ borderWidth, /*right*/ borderWidth, /*bottom*/ borderWidth, /*left*/ 0);
+		TS_SvgPanel *svgpanel = new TS_SvgPanel(/*top*/ borderWidth, /*right*/ borderWidth, /*bottom*/ borderWidth, /*left*/ 0);
 		svgpanel->box.size = Vec(RACK_GRID_WIDTH, RACK_GRID_HEIGHT);
 		svgpanel->borderColor = borderColor;
-		svgpanel->setBackground(SVG::load(assetPlugin(plugin, "res/multiScope.svg")));
+		svgpanel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/multiScope.svg")));
 
 		//========== Single Controls ================
 		// Turn Display On/Off (Default is On)
-		TS_PadSwitch* displayToggleBtn = dynamic_cast<TS_PadSwitch*>(ParamWidget::create<TS_PadSwitch>(Vec(20, 20), module, multiScope::INFO_DISPLAY_TOGGLE_PARAM, 0, 1, 1));
+		TS_PadSwitch* displayToggleBtn = dynamic_cast<TS_PadSwitch*>(createParam<TS_PadSwitch>(Vec(20, 20), module, multiScope::INFO_DISPLAY_TOGGLE_PARAM));//, 0, 1, 1));
 		displayToggleBtn->box.size = tinyBtnSize;
-		displayToggleBtn->value = 1.0;
+		displayToggleBtn->setValue(1.0);
 		ColorValueLight* displayLED = TS_createColorValueLight<ColorValueLight>(displayToggleBtn->box.pos, module, multiScope::INFO_DISPLAY_TOGGLE_LED, tinyBtnSize, TROWA_SCOPE_INFO_DISPLAY_ON_COLOR);
 		TSScopeModuleResizeHandle* rightHandle = new TSScopeModuleResizeHandle(minimumWidgetWidth, svgpanel, displayToggleBtn, displayLED);
 		rightHandle->right = true;
@@ -119,7 +119,7 @@ multiScopeWidget::multiScopeWidget(multiScope* scopeModule) : ModuleWidget(scope
 		addParam(displayToggleBtn);		
 		addChild(displayLED);
 		scopeModule->lights[multiScope::INFO_DISPLAY_TOGGLE_LED].value = 1.0;
-		scopeModule->infoDisplayOnTrigger.state = SchmittTrigger::HIGH;
+		scopeModule->infoDisplayOnTrigger.state = TriggerSignal::HIGH;
 	}
 
 	////////////////////////////////////
@@ -129,7 +129,7 @@ multiScopeWidget::multiScopeWidget(multiScope* scopeModule) : ModuleWidget(scope
 	int scopeGraphWidth = box.size.x - inputAreaWidth - 2 - this->rightHandle->box.size.x;
 	for (wIx = 0; wIx < TROWA_SCOPE_NUM_WAVEFORMS; wIx++)
 	{
-		//info("Adding scope area %d.", wIx);
+		//INFO("Adding scope area %d.", wIx);
 		multiScopeDisplay* scopeArea = new multiScopeDisplay();
 		scopeArea->wIx = wIx;
 		scopeArea->module = scopeModule;
@@ -178,13 +178,13 @@ multiScopeWidget::multiScopeWidget(multiScope* scopeModule) : ModuleWidget(scope
 		// X Controls:
 		inputPorts[multiScope::X_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), module, multiScope::X_INPUT + wIx, plugLightsEnabled, scopeModule->waveForms[wIx]->waveColor));
 		addInput(inputPorts[multiScope::X_INPUT + wIx]);
-		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), module, multiScope::X_POS_PARAM + wIx, TROWA_SCOPE_POS_KNOB_MIN, TROWA_SCOPE_POS_KNOB_MAX, TROWA_SCOPE_POS_X_KNOB_DEF));
+		addParam(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), module, multiScope::X_POS_PARAM + wIx));//, TROWA_SCOPE_POS_KNOB_MIN, TROWA_SCOPE_POS_KNOB_MAX, TROWA_SCOPE_POS_X_KNOB_DEF));
 		// Keep reference to the scale knobs for synching
-		scaleKnobs[wIx][KNOB_X] = dynamic_cast<TS_TinyBlackKnob*>(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y3), module, multiScope::X_SCALE_PARAM + wIx, TROWA_SCOPE_SCALE_KNOB_MIN, TROWA_SCOPE_SCALE_KNOB_MAX, 1.0));
+		scaleKnobs[wIx][KNOB_X] = dynamic_cast<TS_TinyBlackKnob*>(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y3), module, multiScope::X_SCALE_PARAM + wIx));//, TROWA_SCOPE_SCALE_KNOB_MIN, TROWA_SCOPE_SCALE_KNOB_MAX, 1.0));
 		addParam(scaleKnobs[wIx][KNOB_X]);
 
 		// X-Y Scale Synchronization:
-		TS_PadSwitch* linkXYScalesBtn = dynamic_cast<TS_PadSwitch*>(ParamWidget::create<TS_PadSwitch>(Vec(x + knobOffset + 23, y3 + tinyOffset), module, multiScope::LINK_XY_SCALE_PARAM + wIx, 0, 1, 0));
+		TS_PadSwitch* linkXYScalesBtn = dynamic_cast<TS_PadSwitch*>(createParam<TS_PadSwitch>(Vec(x + knobOffset + 23, y3 + tinyOffset), module, multiScope::LINK_XY_SCALE_PARAM + wIx));//, 0, 1, 0));
 		linkXYScalesBtn->box.size = tinyBtnSize;
 		addParam(linkXYScalesBtn);
 		addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + knobOffset + 23, y3 + tinyOffset), module, multiScope::LINK_XY_SCALE_LED + wIx, tinyBtnSize, TROWA_SCOPE_LINK_XY_SCALE_ON_COLOR));
@@ -194,9 +194,9 @@ multiScopeWidget::multiScopeWidget(multiScope* scopeModule) : ModuleWidget(scope
 		x += dx;
 		inputPorts[multiScope::Y_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), module, multiScope::Y_INPUT + wIx, plugLightsEnabled, scopeModule->waveForms[wIx]->waveColor));
 		addInput(inputPorts[multiScope::Y_INPUT + wIx]);
-		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), module, multiScope::Y_POS_PARAM + wIx, TROWA_SCOPE_POS_KNOB_MIN, TROWA_SCOPE_POS_KNOB_MAX, TROWA_SCOPE_POS_Y_KNOB_DEF));
+		addParam(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), module, multiScope::Y_POS_PARAM + wIx));//, TROWA_SCOPE_POS_KNOB_MIN, TROWA_SCOPE_POS_KNOB_MAX, TROWA_SCOPE_POS_Y_KNOB_DEF));
 		// Keep reference to the scale knobs for synching
-		scaleKnobs[wIx][KNOB_Y] = dynamic_cast<TS_TinyBlackKnob*>(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y3), module, multiScope::Y_SCALE_PARAM + wIx, TROWA_SCOPE_SCALE_KNOB_MIN, TROWA_SCOPE_SCALE_KNOB_MAX, 1.0));
+		scaleKnobs[wIx][KNOB_Y] = dynamic_cast<TS_TinyBlackKnob*>(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y3), module, multiScope::Y_SCALE_PARAM + wIx));//, TROWA_SCOPE_SCALE_KNOB_MIN, TROWA_SCOPE_SCALE_KNOB_MAX, 1.0));
 		addParam(scaleKnobs[wIx][KNOB_Y]);
 
 		// Color Controls:
@@ -204,8 +204,8 @@ multiScopeWidget::multiScopeWidget(multiScope* scopeModule) : ModuleWidget(scope
 		inputPorts[multiScope::COLOR_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), module, multiScope::COLOR_INPUT + wIx, plugLightsEnabled, scopeModule->waveForms[wIx]->waveColor));
 		addInput(inputPorts[multiScope::COLOR_INPUT + wIx]);
 		float knobHueVal = rescale(scopeModule->waveForms[wIx]->waveHue, 0, 1.0, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX);
-		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2 + TROWA_SCOPE_COLOR_KNOB_Y_OFFSET), module, multiScope::COLOR_PARAM + wIx, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, knobHueVal));
-		scopeModule->params[multiScope::COLOR_PARAM + wIx].value = knobHueVal;
+		addParam(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y2 + TROWA_SCOPE_COLOR_KNOB_Y_OFFSET), module, multiScope::COLOR_PARAM + wIx));//, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX, knobHueVal));
+		scopeModule->params[multiScope::COLOR_PARAM + wIx].setValue(knobHueVal);
 #if TROWA_SCOPE_USE_COLOR_LIGHTS
 		//scopeModule->waveForms[wIx]->waveLight = TS_createColorValueLight<ColorValueLight>(Vec(x + knobOffset, y3), module, multiScope::COLOR_LED + wIx, ledSize, scopeModule->waveForms[wIx]->waveColor, backColor);
 		scopeModule->waveForms[wIx]->waveLight = TS_createColorValueLight<ColorValueLight>(Vec(x + knobOffset + tinyOffset, y3 + tinyOffset), module, multiScope::COLOR_LED + wIx, tinyBtnSize, scopeModule->waveForms[wIx]->waveColor, backColor);
@@ -216,7 +216,7 @@ multiScopeWidget::multiScopeWidget(multiScope* scopeModule) : ModuleWidget(scope
 		x += dx;
 		inputPorts[multiScope::OPACITY_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), module, multiScope::OPACITY_INPUT + wIx, plugLightsEnabled, scopeModule->waveForms[wIx]->waveColor));
 		addInput(inputPorts[multiScope::OPACITY_INPUT + wIx]);
-		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), module, multiScope::OPACITY_PARAM + wIx, TROWA_SCOPE_MIN_OPACITY, TROWA_SCOPE_MAX_OPACITY, TROWA_SCOPE_MAX_OPACITY));
+		addParam(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), module, multiScope::OPACITY_PARAM + wIx));//, TROWA_SCOPE_MIN_OPACITY, TROWA_SCOPE_MAX_OPACITY, TROWA_SCOPE_MAX_OPACITY));
 		// Pen On:
 		inputPorts[multiScope::PEN_ON_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y3 - knobOffset), module, multiScope::PEN_ON_INPUT + wIx, plugLightsEnabled, scopeModule->waveForms[wIx]->waveColor));
 		addInput(inputPorts[multiScope::PEN_ON_INPUT + wIx]);
@@ -225,16 +225,16 @@ multiScopeWidget::multiScopeWidget(multiScope* scopeModule) : ModuleWidget(scope
 		x += dx;
 		inputPorts[multiScope::ROTATION_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), module, multiScope::ROTATION_INPUT + wIx, plugLightsEnabled, scopeModule->waveForms[wIx]->waveColor));
 		addInput(inputPorts[multiScope::ROTATION_INPUT + wIx]);
-		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), module, multiScope::ROTATION_PARAM + wIx, TROWA_SCOPE_ROT_KNOB_MIN, TROWA_SCOPE_ROT_KNOB_MAX, 0));
-		TS_PadSwitch* rotModeBtn = dynamic_cast<TS_PadSwitch*>( ParamWidget::create<TS_PadSwitch>(Vec(x + knobOffset + tinyOffset, y3 + tinyOffset), module, multiScope::ROTATION_MODE_PARAM + wIx, 0, 1, 0) );
+		addParam(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), module, multiScope::ROTATION_PARAM + wIx));//, TROWA_SCOPE_ROT_KNOB_MIN, TROWA_SCOPE_ROT_KNOB_MAX, 0));
+		TS_PadSwitch* rotModeBtn = dynamic_cast<TS_PadSwitch*>( createParam<TS_PadSwitch>(Vec(x + knobOffset + tinyOffset, y3 + tinyOffset), module, multiScope::ROTATION_MODE_PARAM + wIx));//, 0, 1, 0) );
 		rotModeBtn->box.size = tinyBtnSize;
 		addParam(rotModeBtn);
 		addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + knobOffset + tinyOffset, y3 + tinyOffset), module, multiScope::ROT_LED + wIx, tinyBtnSize, TROWA_SCOPE_ABS_ROT_ON_COLOR));
 		if (scopeModule->waveForms[wIx]->rotMode)
 		{
-			rotModeBtn->value = 1.0;
-			scopeModule->params[multiScope::ROTATION_MODE_PARAM + wIx].value = 1.0;
-			scopeModule->waveForms[wIx]->rotModeTrigger.state = SchmittTrigger::HIGH;
+			rotModeBtn->setValue(1.0);
+			scopeModule->params[multiScope::ROTATION_MODE_PARAM + wIx].setValue(1.0);
+			scopeModule->waveForms[wIx]->rotModeTrigger.state = TriggerSignal::HIGH;
 			scopeModule->lights[multiScope::ROT_LED + wIx].value = 1.0;
 		}
 
@@ -242,32 +242,32 @@ multiScopeWidget::multiScopeWidget(multiScope* scopeModule) : ModuleWidget(scope
 		x += dx;
 		inputPorts[multiScope::TIME_INPUT + wIx] = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), module, multiScope::TIME_INPUT + wIx, plugLightsEnabled, scopeModule->waveForms[wIx]->waveColor));
 		addInput(inputPorts[multiScope::TIME_INPUT + wIx]);
-		addParam(ParamWidget::create<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), module, multiScope::TIME_PARAM + wIx, TROWA_SCOPE_TIME_KNOB_MIN, TROWA_SCOPE_TIME_KNOB_MAX, TROWA_SCOPE_TIME_KNOB_DEF));
-		//TS_PadSwitch* mirrorBtn = dynamic_cast<TS_PadSwitch*>(ParamWidget::create<TS_PadSwitch>(Vec(x + knobOffset, y3), module, multiScope::MIRROR_X_PARAM + wIx, 0, 1, 0));
+		addParam(createParam<TS_TinyBlackKnob>(Vec(x + knobOffset, y2), module, multiScope::TIME_PARAM + wIx));//, TROWA_SCOPE_TIME_KNOB_MIN, TROWA_SCOPE_TIME_KNOB_MAX, TROWA_SCOPE_TIME_KNOB_DEF));
+		//TS_PadSwitch* mirrorBtn = dynamic_cast<TS_PadSwitch*>(createParam<TS_PadSwitch>(Vec(x + knobOffset, y3), module, multiScope::MIRROR_X_PARAM + wIx));//, 0, 1, 0));
 		//mirrorBtn->box.size = tinyBtnSize;
 		//addParam(mirrorBtn);
-		//mirrorBtn = dynamic_cast<TS_PadSwitch*>(ParamWidget::create<TS_PadSwitch>(Vec(x + knobOffset, y3 + tinyBtnSize.y + 2), module, multiScope::MIRROR_Y_PARAM + wIx, 0, 1, 0));
+		//mirrorBtn = dynamic_cast<TS_PadSwitch*>(createParam<TS_PadSwitch>(Vec(x + knobOffset, y3 + tinyBtnSize.y + 2), module, multiScope::MIRROR_Y_PARAM + wIx, 0, 1, 0));
 		//mirrorBtn->box.size = tinyBtnSize;
 		//addParam(mirrorBtn);
-		TS_PadSwitch* lissajousBtn = dynamic_cast<TS_PadSwitch*>(ParamWidget::create<TS_PadSwitch>(Vec(x + knobOffset + tinyOffset, y3 + tinyOffset), module, multiScope::LISSAJOUS_PARAM + wIx, 0, 1, 1));
+		TS_PadSwitch* lissajousBtn = dynamic_cast<TS_PadSwitch*>(createParam<TS_PadSwitch>(Vec(x + knobOffset + tinyOffset, y3 + tinyOffset), module, multiScope::LISSAJOUS_PARAM + wIx));//, 0, 1, 1));
 		lissajousBtn->box.size = tinyBtnSize;
-		lissajousBtn->value = 1.0;
+		lissajousBtn->setValue(1.0);
 		addParam(lissajousBtn);
 		addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + knobOffset + tinyOffset, y3 + tinyOffset), module, multiScope::LISSAJOUS_LED + wIx, tinyBtnSize, TROWA_SCOPE_LISSAJOUS_ON_COLOR));
-		scopeModule->params[multiScope::LISSAJOUS_PARAM + wIx].value = 1.0;
-		scopeModule->waveForms[wIx]->lissajousTrigger.state = SchmittTrigger::HIGH;
+		scopeModule->params[multiScope::LISSAJOUS_PARAM + wIx].setValue(1.0);
+		scopeModule->waveForms[wIx]->lissajousTrigger.state = TriggerSignal::HIGH;
 		scopeModule->lights[multiScope::LISSAJOUS_LED + wIx].value = 1.0;
 
 		y = y3 + dy + shapeSpacingY; // Extra space between shapes / waveforms		
 	} // end loop
 
 	// Screws:
-	addChild(Widget::create<ScrewBlack>(Vec(0, 0)));
-	addChild(Widget::create<ScrewBlack>(Vec(0, box.size.y - SCREW_DIAMETER)));
+	addChild(createWidget<ScrewBlack>(Vec(0, 0)));
+	addChild(createWidget<ScrewBlack>(Vec(0, box.size.y - SCREW_DIAMETER)));
 
-	rhsScrews[0] = dynamic_cast<ScrewBlack*>(Widget::create<ScrewBlack>(Vec(box.size.x - SCREW_DIAMETER, 0)));
+	rhsScrews[0] = dynamic_cast<ScrewBlack*>(createWidget<ScrewBlack>(Vec(box.size.x - SCREW_DIAMETER, 0)));
 	addChild(rhsScrews[0]);
-	rhsScrews[1] = dynamic_cast<ScrewBlack*>(Widget::create<ScrewBlack>(Vec(box.size.x - SCREW_DIAMETER, box.size.y - SCREW_DIAMETER)));
+	rhsScrews[1] = dynamic_cast<ScrewBlack*>(createWidget<ScrewBlack>(Vec(box.size.x - SCREW_DIAMETER, box.size.y - SCREW_DIAMETER)));
 	addChild(rhsScrews[1]);
 	if (scopeModule) {
 		scopeModule->firstLoad = true;
@@ -284,7 +284,7 @@ void multiScopeWidget::step() {
 	
 	if (scopeModule->initialized)
 	{
-		if (scopeModule->infoDisplayOnTrigger.process(scopeModule->params[multiScope::INFO_DISPLAY_TOGGLE_PARAM].value)) {
+		if (scopeModule->infoDisplayOnTrigger.process(scopeModule->params[multiScope::INFO_DISPLAY_TOGGLE_PARAM].getValue())) {
 			scopeInfoDisplay->visible = !scopeInfoDisplay->visible;
 		}
 		scopeModule->lights[multiScope::INFO_DISPLAY_TOGGLE_LED].value = (scopeInfoDisplay->visible) ? 1.0 : 0.0;
@@ -321,7 +321,7 @@ void multiScopeWidget::step() {
 			// Adjusting Knobs ///////////////////////////////////////////////
 			// Link X, Y scales
 			int srcIx = -1;
-			if (scopeModule->waveForms[wIx]->linkXYScalesTrigger.process(scopeModule->params[multiScope::LINK_XY_SCALE_PARAM + wIx].value))
+			if (scopeModule->waveForms[wIx]->linkXYScalesTrigger.process(scopeModule->params[multiScope::LINK_XY_SCALE_PARAM + wIx].getValue()))
 			{
 				scopeModule->waveForms[wIx]->linkXYScales = !scopeModule->waveForms[wIx]->linkXYScales;
 				if (scopeModule->waveForms[wIx]->linkXYScales)
@@ -333,22 +333,22 @@ void multiScopeWidget::step() {
 			else if (scopeModule->waveForms[wIx]->linkXYScales)
 			{
 				// Check if any one changed.
-				if (scopeModule->params[multiScope::X_SCALE_PARAM + wIx].value != scopeModule->waveForms[wIx]->lastXYScaleValue)
+				if (scopeModule->params[multiScope::X_SCALE_PARAM + wIx].getValue() != scopeModule->waveForms[wIx]->lastXYScaleValue)
 					srcIx = KNOB_X;
-				else if (scopeModule->params[multiScope::Y_SCALE_PARAM + wIx].value != scopeModule->waveForms[wIx]->lastXYScaleValue)
+				else if (scopeModule->params[multiScope::Y_SCALE_PARAM + wIx].getValue() != scopeModule->waveForms[wIx]->lastXYScaleValue)
 					srcIx = KNOB_Y;
 			}
 			if (srcIx > -1)
 			{
 				int destIx = (srcIx == KNOB_X) ? KNOB_Y : KNOB_X;
 				// Adjust the other knob
-				float val = scaleKnobs[wIx][srcIx]->value;
-				//info("Changing SRC: %d; DEST: %d to value of %f.", srcIx, destIx, val);
-				scaleKnobs[wIx][destIx]->value = val;
-				scaleKnobs[wIx][destIx]->dirty = true; // Set to dirty.
+				float val = scaleKnobs[wIx][srcIx]->getValue();
+				//INFO("Changing SRC: %d; DEST: %d to value of %f.", srcIx, destIx, val);
+				scaleKnobs[wIx][destIx]->setValue(val);
+				scaleKnobs[wIx][destIx]->setDirty(true); // Set to dirty.
 				// Change the value on thhe module param too?
-				scopeModule->params[multiScope::X_SCALE_PARAM + wIx].value = val;
-				scopeModule->params[multiScope::Y_SCALE_PARAM + wIx].value = val;
+				scopeModule->params[multiScope::X_SCALE_PARAM + wIx].setValue(val);
+				scopeModule->params[multiScope::Y_SCALE_PARAM + wIx].setValue(val);
 				scopeModule->waveForms[wIx]->lastXYScaleValue = val;
 			}
 			scopeModule->lights[multiScope::LINK_XY_SCALE_LED + wIx].value = (scopeModule->waveForms[wIx]->linkXYScales) ? 1.0 : 0;
@@ -365,7 +365,7 @@ void multiScopeWidget::step() {
 	return;
 } // end step()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// toJson(void)
+// dataToJson(void)
 // Save to json.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 json_t *multiScopeWidget::toJson() {
@@ -374,9 +374,9 @@ json_t *multiScopeWidget::toJson() {
 	json_object_set_new(rootJ, "showInfoDisplay", json_integer(scopeInfoDisplay->visible));
 
 	return rootJ;
-} // end toJson()
+} // end dataToJson()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// fromJson()
+// dataFromJson()
 // Load from json object.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void multiScopeWidget::fromJson(json_t *rootJ) {
@@ -387,7 +387,7 @@ void multiScopeWidget::fromJson(json_t *rootJ) {
 	json_t* showInfoJ = json_object_get(rootJ, "showInfoDisplay");
 	if (showInfoJ)
 		scopeInfoDisplay->visible = (bool)json_integer_value(showInfoJ);
-} // end fromJson()
+} // end dataFromJson()
 
 
 #endif // use new scope

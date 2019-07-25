@@ -1,32 +1,15 @@
+#include <rack.hpp>
+using namespace rack;
 #include "Widget_multiOscillator.hpp"
-#include "Widget_oscCV.hpp" // Just for the channel colors 
+#include "Module_multiOscillator.hpp"
+//#include "Widget_oscCV.hpp" // Just for the channel colors 
 /// TODO: Move channel colors into a common file.
-#include "util/math.hpp"
+#include "math.hpp"
 #include "trowaSoftComponents.hpp"
 
 #define OSC_WIDGET_HEIGHT		115
 #define OSC_WIDGET_WIDTH		(49 * RACK_GRID_WIDTH)
 
-static float KnobVoltage2Frequency(float knobVal) {
-#if TROWA_MOSC_FREQ_KNOB_NEEDS_CONVERSION
-	return rescale(knobVal, TROWA_MOSC_F_KNOB_MIN_V, TROWA_MOSC_F_KNOB_MAX_V, MOSC_FREQ_MIN_HZ, MOSC_FREQ_MAX_HZ);
-#else
-	return knobVal;
-#endif
-}
-static float Frequency2KnobVoltage(float frequency_Hz) {
-#if TROWA_MOSC_FREQ_KNOB_NEEDS_CONVERSION
-	return rescale(frequency_Hz, MOSC_FREQ_MIN_HZ, MOSC_FREQ_MAX_HZ, TROWA_MOSC_F_KNOB_MIN_V, TROWA_MOSC_F_KNOB_MAX_V);
-#else
-	return frequency_Hz;
-#endif
-}
-static float KnobVoltage2PhaseShift(float knobVal) {
-	return rescale(knobVal, TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, MOSC_PHASE_SHIFT_MIN_DEG, MOSC_PHASE_SHIFT_MAX_DEG);
-}
-static float PhaseShift2KnobVoltage(float phi_deg) {
-	return rescale(phi_deg, MOSC_PHASE_SHIFT_MIN_DEG, MOSC_PHASE_SHIFT_MAX_DEG, TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V);
-}
 // Mix % (0-100) to knob voltage (0-1V).
 static float AMMix2KnobVoltage(float mix) {
 	return mix / 100.f;
@@ -47,14 +30,16 @@ static float KnobVoltage2AUX(float knobVal) {
 // multiOscillator()
 // @thisModule : (IN) Pointer to the multiOscillator module.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-multiOscillatorWidget::multiOscillatorWidget(multiOscillator* thisModule) : TSSModuleWidgetBase(thisModule)
+multiOscillatorWidget::multiOscillatorWidget(multiOscillator* thisModule) : TSSModuleWidgetBase(thisModule, true)
 {
 	// 26 : Sequencer width, so a little wider...
 	// was 30, now 43
 	box.size = Vec(48 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT);
-	randomizeParameters = true; // Allow randomize
-	bool isPreview = thisModule == NULL; // If this is null, this for a preview??? Just get the controls layed out
-	this->module = thisModule;
+	bool isPreview = this->module == NULL; // If this is null, then this isn't a real module instance but a 'Preview'?	
+	if (!isPreview && thisModule == NULL)
+	{
+		thisModule = dynamic_cast<multiOscillator*>(this->module);
+	}
 	this->numberOscillators = (isPreview) ? TROWA_MOSC_DEFAULT_NUM_OSCILLATORS : thisModule->numberOscillators;
 	this->numberOutputOscillators = (isPreview) ? TROWA_MOSC_DEFAULT_NUM_OSC_OUTPUTS : thisModule->numOscillatorOutputs;
 
@@ -62,9 +47,9 @@ multiOscillatorWidget::multiOscillatorWidget(multiOscillator* thisModule) : TSSM
 	// Background
 	//////////////////////////////////////////////	
 	{
-		SVGPanel *panel = new SVGPanel();
+		SvgPanel *panel = new SvgPanel();
 		panel->box.size = box.size;
-		panel->setBackground(SVG::load(assetPlugin(plugin, "res/multiOscillator.svg")));
+		panel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/multiOscillator.svg")));
 		addChild(panel);
 	}
 
@@ -123,18 +108,17 @@ multiOscillatorWidget::multiOscillatorWidget(multiOscillator* thisModule) : TSSM
 	}
 
 	// Screws:
-	addChild(Widget::create<ScrewBlack>(Vec(0, 0)));
-	addChild(Widget::create<ScrewBlack>(Vec(box.size.x - 15, 0)));
-	addChild(Widget::create<ScrewBlack>(Vec(0, box.size.y - 15)));
-	addChild(Widget::create<ScrewBlack>(Vec(box.size.x - 15, box.size.y - 15)));
-
+	addChild(createWidget<ScrewBlack>(Vec(0, 0)));
+	addChild(createWidget<ScrewBlack>(Vec(box.size.x - 15, 0)));
+	addChild(createWidget<ScrewBlack>(Vec(0, box.size.y - 15)));
+	addChild(createWidget<ScrewBlack>(Vec(box.size.x - 15, box.size.y - 15)));
+	
 	if (thisModule != NULL)
 	{
 		thisModule->isInitialized = true;
 	}
 	return;
 } //end multiOscillatorWidget()
-
 
 multiOscillatorWidget::~multiOscillatorWidget()
 {
@@ -153,6 +137,8 @@ multiOscillatorWidget::~multiOscillatorWidget()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void multiOscillatorWidget::step()
 {
+	if (module == NULL)
+		return;
 	TSSModuleWidgetBase::step();
 	return;
 } // end multiOscillator::step()
@@ -162,31 +148,30 @@ void multiOscillatorWidget::step()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // draw()
 // A single oscillator info.
-// @vg : (IN) NVGcontext to draw on
+// @args : (IN) Draw args and NVGcontext to draw on
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSSingleOscillatorDisplay::draw(/*in*/ NVGcontext *vg) {
-
+void TSSingleOscillatorDisplay::draw(/*in*/ const DrawArgs &args) {
 	if (showBackground)
 	{
 		// Background Colors:
 		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
 		NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
 		// Screen:
-		nvgBeginPath(vg);
-		nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(vg, backgroundColor);
-		nvgFill(vg);
-		nvgStrokeWidth(vg, 1.0);
-		nvgStrokeColor(vg, borderColor);
-		nvgStroke(vg);
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+		nvgFillColor(args.vg, backgroundColor);
+		nvgFill(args.vg);
+		nvgStrokeWidth(args.vg, 1.0);
+		nvgStrokeColor(args.vg, borderColor);
+		nvgStroke(args.vg);
 	}
 
 	if (!showDisplay)
 		return;
 
 	NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-	nvgFillColor(vg, textColor);
-	nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+	nvgFillColor(args.vg, textColor);
+	nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
 	float largeFontSize = fontSize * 1.15f;
 	float largeSpacing = 1.5;
 	float spacing = 2.5;
@@ -197,19 +182,18 @@ void TSSingleOscillatorDisplay::draw(/*in*/ NVGcontext *vg) {
 	float y = padding * 2;
 	//float y2 = box.size.y - fontSize - 4;
 	float y2 = box.size.y - fontSize - 8;
-
 	for (int i = 0; i < numTextBoxes; i++)
 	{
-		nvgFillColor(vg, textColor); // Value is white
+		nvgFillColor(args.vg, textColor); // Value is white
 		std::string label = std::string(labels[i]);
 		if (!this->textBoxes[i]->visible) // If the text box is visible, then don't draw the values.
 		{
 			// Large Font:
-			nvgFontSize(vg, largeFontSize);
-			nvgFontFaceId(vg, font->handle);
-			nvgTextLetterSpacing(vg, largeSpacing);
+			nvgFontSize(args.vg, largeFontSize);
+			nvgFontFaceId(args.vg, font->handle);
+			nvgTextLetterSpacing(args.vg, largeSpacing);
 			// Show value
-			float val = std::stof(this->textBoxes[i]->text, NULL);
+			float val = (this->textBoxes[i]->text.length() > 0) ? std::stof(this->textBoxes[i]->text, NULL) : 0.0f;
 			if (val >= 1000 && label.compare("FREQ (Hz)") == 0)
 			{
 				if (val >= 1000)
@@ -219,22 +203,22 @@ void TSSingleOscillatorDisplay::draw(/*in*/ NVGcontext *vg) {
 				}
 			}
 			sprintf(messageStr, this->textBoxes[i]->formatString, val);
-			nvgText(vg, x, y, messageStr, NULL);
+			nvgText(args.vg, x, y, messageStr, NULL);
 		}
 
 		// Label Font:
-		nvgFillColor(vg, parentWidget->oscillatorColor);
-		nvgFontSize(vg, fontSize); // Small font
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgTextLetterSpacing(vg, spacing);
-		nvgText(vg, x, y2, label.c_str(), NULL);
+		nvgFillColor(args.vg, parentWidget->oscillatorColor);
+		nvgFontSize(args.vg, fontSize); // Small font
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgTextLetterSpacing(args.vg, spacing);
+		nvgText(args.vg, x, y2, label.c_str(), NULL);
 		if (i == phaseShiftIx)
 		{
 			// Make a damn degree symbol (our font doesn't have one apparently)
 			float txtBounds[4];
-			float nextX = nvgTextBounds(vg, 0, 0, "PHASE (", NULL, txtBounds);
-			nvgFontSize(vg, fontSize * 0.6f);
-			nvgText(vg, x + nextX / 2.f - 1.25f, y2, "o", NULL); // make a tiny o
+			float nextX = nvgTextBounds(args.vg, 0, 0, "PHASE (", NULL, txtBounds);
+			nvgFontSize(args.vg, fontSize * 0.6f);
+			nvgText(args.vg, x + nextX / 2.f - 1.25f, y2, "o", NULL); // make a tiny o
 		}
 		x += dx;
 	} // end loop
@@ -265,7 +249,7 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 
 	// int colorIx = (oscIx * (1 + numOscillatorOutputs)) % TROWA_OSCCV_NUM_COLORS;
 	// oscillatorColor = oscCVWidget::CHANNEL_COLORS[colorIx];
-	int colorIx = (oscIx * (numOscillatorOutputs)) % TROWA_OSCCV_NUM_COLORS;
+	int colorIx = (oscIx * (numOscillatorOutputs)) % TSColors::NUM_CHANNEL_COLORS;// TROWA_OSCCV_NUM_COLORS;
 	oscillatorColor = nvgRGB(0xee, 0xee, 0xee);
 
 	//-------------------------
@@ -282,22 +266,22 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 	// User controls (params) & Inputs:
 	// (Left)
 	//-------------------------
-	NVGcolor thisColor = COLOR_WHITE;
+	NVGcolor thisColor = TSColors::COLOR_WHITE;
 	int xStart = 15;
 	int yStart = 5;
 	int dx = 60;
 	const int numKnobVals = 4;
-	float knobVals[][3] = {
-		{ MOSC_AMPLITUDE_MIN_V, MOSC_AMPLITUDE_MAX_V, MOSC_AMPLITUDE_DEFAULT_V }, // Amplitude
-		{ TROWA_MOSC_F_KNOB_MIN_V, TROWA_MOSC_F_KNOB_MAX_V, Frequency2KnobVoltage(MOSC_FREQ_DEFAULT_HZ) }, // Frequency
-		{ TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, PhaseShift2KnobVoltage(MOSC_PHASE_SHIFT_DEFAULT_DEG) }, // Phi
-		{ MOSC_OFFSET_MIN_V, MOSC_OFFSET_MAX_V, MOSC_OFFSET_DEFAULT_V } // Offset
-	};
+	// float knobVals[][3] = {
+		// { MOSC_AMPLITUDE_MIN_V, MOSC_AMPLITUDE_MAX_V, MOSC_AMPLITUDE_DEFAULT_V }, // Amplitude
+		// { TROWA_MOSC_F_KNOB_MIN_V, TROWA_MOSC_F_KNOB_MAX_V, multiOscillator::Frequency2KnobVoltage(MOSC_FREQ_DEFAULT_HZ) }, // Frequency
+		// { TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, multiOscillator::PhaseShift2KnobVoltage(MOSC_PHASE_SHIFT_DEFAULT_DEG) }, // Phi
+		// { MOSC_OFFSET_MIN_V, MOSC_OFFSET_MAX_V, MOSC_OFFSET_DEFAULT_V } // Offset
+	// };
 	bool isNormalKnob[4] = { true, false, true, true };
 	const char* formatStrs[numKnobVals] = { "%0.3f", "%0.3f", "%0.3f", "%0.3f" };
 	Knob* knobPtr = NULL;
 	TS_Port* port = NULL;
-	NVGcolor mainColor = COLOR_TS_GRAY;
+	NVGcolor mainColor = TSColors::COLOR_TS_GRAY;
 	Vec tbSize = Vec(65, 22);
 	int x = xStart;
 	int y = yStart;
@@ -314,23 +298,20 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 		int yKnob = y + 10;
 		if (isNormalKnob[paramId]) {
 			// Knob (normal)
-			knobPtr = dynamic_cast<TS_TinyBlackKnob*>(ParamWidget::create<TS_TinyBlackKnob>(Vec(xKnob, yKnob),
-				thisModule, /*id*/ baseParamId + paramId, /*min*/ knobVals[paramId][0], /*max*/ knobVals[paramId][1], /*def*/ knobVals[paramId][2]));
+			knobPtr = dynamic_cast<TS_TinyBlackKnob*>(createParam<TS_TinyBlackKnob>(Vec(xKnob, yKnob), thisModule, /*id*/ baseParamId + paramId));
 		}
 		else {
 			// Encoder
-			TS_20_BlackEncoder* tmp = dynamic_cast<TS_20_BlackEncoder*>(ParamWidget::create<TS_20_BlackEncoder>(Vec(xKnob, yKnob),
-				thisModule, /*id*/ baseParamId + paramId, /*min*/ knobVals[paramId][0], /*max*/ knobVals[paramId][1], /*def*/ knobVals[paramId][2]));
+			TS_20_BlackEncoder* tmp = dynamic_cast<TS_20_BlackEncoder*>(createParam<TS_20_BlackEncoder>(Vec(xKnob, yKnob), thisModule, /*id*/ baseParamId + paramId));	
 			knobPtr = tmp;
 			tmp->setRotationAmount(20.f);
+DEBUG("Added Encoder Knob - Param Id %d", baseParamId + paramId);			
 		}
 		addChild(knobPtr);
 		parentWidget->params.push_back(knobPtr);
 
-
 		// Input Text Field
-		TSParamTextField* knobTextBox = new TSParamTextField(TSTextField::TextType::RealNumberOnly, /*maxLength*/ 30,
-			/*control*/ knobPtr, /*formatStr*/ formatStrs[paramId]);
+		TSParamTextField* knobTextBox = new TSParamTextField(TSTextField::TextType::RealNumberOnly, /*maxLength*/ 30, /*control*/ knobPtr, /*formatStr*/ formatStrs[paramId]);
 		knobTextBox->box.pos = Vec(screenStartX + 15 + paramId*88.75, y + tbDy);
 		knobTextBox->box.size = tbSize;
 		knobTextBox->borderColor = mainColor;
@@ -348,11 +329,11 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 	// Set the translators for the text boxes:
 	int baseTextBoxIx = 0;
 #if TROWA_MOSC_FREQ_KNOB_NEEDS_CONVERSION
-	tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_FREQUENCY_PARAM]->knob2TextVal = KnobVoltage2Frequency;
-	tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_FREQUENCY_PARAM]->text2KnobVal = Frequency2KnobVoltage;
+	tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_FREQUENCY_PARAM]->knob2TextVal = multiOscillator::KnobVoltage2Frequency;
+	tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_FREQUENCY_PARAM]->text2KnobVal = multiOscillator::Frequency2KnobVoltage;
 #endif
-	tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_PHASE_SHIFT_PARAM]->knob2TextVal = KnobVoltage2PhaseShift;
-	tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_PHASE_SHIFT_PARAM]->text2KnobVal = PhaseShift2KnobVoltage;
+	tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_PHASE_SHIFT_PARAM]->knob2TextVal = multiOscillator::KnobVoltage2PhaseShift;
+	tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_PHASE_SHIFT_PARAM]->text2KnobVal = multiOscillator::PhaseShift2KnobVoltage;
 	oscillatorDisplay->showDisplay = true;
 
 	//------------------------------------------
@@ -375,9 +356,7 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 	// Channels
 	// (below)
 	//-----------------------------------------
-	xStart = 15;
-	
-	
+	xStart = 15;	
 	x = xStart;
 	y = 35;
 	int bParamId = baseParamId + TS_Oscillator::BaseParamIds::OSCWF_NUM_PARAMS;
@@ -387,7 +366,6 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 
 	for (int ch = 0; ch < numOscillatorOutputs; ch++)
 	{		
-		//oscCVWidget::CHANNEL_COLORS[colorIx]
 		TSOscillatorChannelWidget* chWidget = new TSOscillatorChannelWidget(parentWidget, this, 
 			Vec(0, y), ch + 1, oscillatorColor,
 			bInputId, bParamId, bOutputId, bLightId, &( oscillator->outputWaveforms[ch] ));
@@ -404,7 +382,7 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 		bInputId += TS_OscillatorOutput::BaseInputIds::OUT_NUM_INPUTS;
 		bOutputId += TS_OscillatorOutput::BaseOutputIds::OUT_NUM_OUTPUTS;
 		bLightId += TS_OscillatorOutput::BaseLightIds::OUT_NUM_LIGHTS;
-		colorIx = (colorIx + 1) % TROWA_OSCCV_NUM_COLORS;
+		colorIx = (colorIx + 1) % TSColors::NUM_CHANNEL_COLORS; //TROWA_OSCCV_NUM_COLORS;
 	}
 
 	//--------------------------------------------
@@ -425,24 +403,24 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 } // end TSSingleOscillatorWidget()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // draw()
-// @vg : (IN) NVGcontext to draw on
+// @args : (IN) Draw args and NVGcontext to draw on
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSSingleOscillatorWidget::draw(/*in*/ NVGcontext *vg)
+void TSSingleOscillatorWidget::draw(/*in*/ const DrawArgs &args)
 {
 	// Draw screen background
 	// Background Colors:
 	NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
 	NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
 	// Screen:
-	nvgBeginPath(vg);
-	nvgRoundedRect(vg, screenStartX, screenStartY, screenWidth, box.size.y - screenStartY, 5.0);
-	nvgFillColor(vg, backgroundColor);
-	nvgFill(vg);
-	nvgStrokeWidth(vg, 1.0);
-	nvgStrokeColor(vg, borderColor);
-	nvgStroke(vg);
+	nvgBeginPath(args.vg);
+	nvgRoundedRect(args.vg, screenStartX, screenStartY, screenWidth, box.size.y - screenStartY, 5.0);
+	nvgFillColor(args.vg, backgroundColor);
+	nvgFill(args.vg);
+	nvgStrokeWidth(args.vg, 1.0);
+	nvgStrokeColor(args.vg, borderColor);
+	nvgStroke(args.vg);
 
-	Widget::draw(vg);
+	this->Widget::draw(args);
 	return;
 } // end TSSingleOscillatorWidget::draw()
 
@@ -453,9 +431,14 @@ Called when a mouse button is pressed over this widget
 Return `this` to accept the event.
 Return NULL to reject the event and pass it to the widget behind this one.
 */
-void TSOscillatorChannelDisplayWidget::onMouseDown(EventMouseDown &e) {
-	if (showDisplay) {
-		if (e.button == 0 && e.pos.y >= yTbStart && e.pos.y < yTbEnd)
+//void TSOscillatorChannelDisplayWidget::onMouseDown(const event::MouseDown &e) {
+void TSOscillatorChannelDisplayWidget::onButton(const event::Button &e)  {	
+	if (parentWidget == NULL || parentWidget->parentWidget->oscillatorDisplay->module == NULL)
+		return;
+	if (showDisplay) {		
+		//		if (e.button == 0 && e.pos.y >= yTbStart && e.pos.y < yTbEnd)
+		if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT
+			&& e.pos.y >= yTbStart && e.pos.y < yTbEnd)
 		{
 			// Left click, check position, find which text box this would go to.
 			int txtBoxIx = -1;
@@ -483,10 +466,13 @@ void TSOscillatorChannelDisplayWidget::onMouseDown(EventMouseDown &e) {
 			}
 			if (txtBoxIx > -1 && !textBoxes[txtBoxIx]->visible)
 			{
+//DEBUG("TSOscillatorChannelDisplayWidget - Showing text box %d.", txtBoxIx);				
 				// Show the text box:
 				textBoxes[txtBoxIx]->visible = true;
-				e.target = textBoxes[txtBoxIx];
-				e.consumed = true;
+				//e.target = textBoxes[txtBoxIx];
+				//e.consumed = true;
+				e.consume(textBoxes[txtBoxIx]);	
+				textBoxes[txtBoxIx]->requestFocus();	
 			}
 		} // end if left click
 	} // end if visible
@@ -496,9 +482,9 @@ void TSOscillatorChannelDisplayWidget::onMouseDown(EventMouseDown &e) {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // draw()
 // A single oscillator info.
-// @vg : (IN) NVGcontext to draw on
+// @args : (IN) Draw args and NVGcontext to draw on
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSOscillatorChannelDisplayWidget::draw(/*in*/ NVGcontext *vg)
+void TSOscillatorChannelDisplayWidget::draw(/*in*/ const DrawArgs &args)
 {
 	if (showBackground)
 	{
@@ -506,22 +492,21 @@ void TSOscillatorChannelDisplayWidget::draw(/*in*/ NVGcontext *vg)
 		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
 		NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
 		// Screen:
-		nvgBeginPath(vg);
-		nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(vg, backgroundColor);
-		nvgFill(vg);
-		nvgStrokeWidth(vg, 1.0);
-		nvgStrokeColor(vg, borderColor);
-		nvgStroke(vg);
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+		nvgFillColor(args.vg, backgroundColor);
+		nvgFill(args.vg);
+		nvgStrokeWidth(args.vg, 1.0);
+		nvgStrokeColor(args.vg, borderColor);
+		nvgStroke(args.vg);
 	}
-
 	if (!showDisplay)
 		return;
 
 	NVGcolor textColor = parentWidget->channelColor;// nvgRGB(0xee, 0xee, 0xee);
 	NVGcolor numColor = nvgRGB(0xee, 0xee, 0xee);
 	
-	nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+	nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
 	float largeFontSize = fontSize * 1.15f;
 	float largeSpacing = 1.5;
 	float spacing = 2.5;
@@ -532,94 +517,99 @@ void TSOscillatorChannelDisplayWidget::draw(/*in*/ NVGcontext *vg)
 	float y = padding * 2;
 	float y2 = box.size.y - fontSize - 8;
 
-	for (int i = 0; i < numFields; i++)
+	try 
 	{
-		std::string label = std::string(labels[i]);
+		for (int i = 0; i < numFields; i++)
+		{
+			std::string label = std::string(labels[i]);
 
-		//---- VALUE -----
-		// Large Font:
-		nvgFillColor(vg, numColor);
-		nvgFontSize(vg, largeFontSize);
-		nvgFontFaceId(vg, font->handle);
-		nvgTextLetterSpacing(vg, largeSpacing);
-		if (hasTextBox[i] && (i != 1)) 
-		{
-			if (!this->textBoxes[i]->visible) // If the text box is visible, then don't draw the values.
+			//---- VALUE -----
+			// Large Font:
+			nvgFillColor(args.vg, numColor);
+			nvgFontSize(args.vg, largeFontSize);
+			nvgFontFaceId(args.vg, font->handle);
+			nvgTextLetterSpacing(args.vg, largeSpacing);
+			if (hasTextBox[i] && (i != 1)) 
 			{
-				// Show value
-				float val = std::stof(this->textBoxes[i]->text, NULL);
-				sprintf(messageStr, this->textBoxes[i]->formatString, val);
-				nvgText(vg, x, y, messageStr, NULL);
-			}
-		}
-		else
-		{
-			switch (i)
-			{
-			case 0:
-				// Waveform
-				nvgText(vg, x, y, multiOscillator::WaveFormAbbr[parentWidget->oscillatorOutput->waveFormType], NULL);
-				break;
-			case 1:
-				// AUX
-				switch (parentWidget->oscillatorOutput->waveFormType)
+				if (!this->textBoxes[i]->visible) // If the text box is visible, then don't draw the values.
 				{
-				case WaveFormType::WAVEFORM_SQR:
-					label = std::string("P WIDTH");
-					sprintf(messageStr, "%5.2f", parentWidget->oscillatorOutput->auxParam_norm*100);
-					nvgText(vg, x, y, messageStr, NULL);
+					// Show value
+					float val = (this->textBoxes[i]->text.length() > 0) ? std::stof(this->textBoxes[i]->text, NULL) : 0.0f;
+					sprintf(messageStr, this->textBoxes[i]->formatString, val);
+					nvgText(args.vg, x, y, messageStr, NULL);					
+				}
+			}
+			else
+			{
+				WaveFormType wType = (parentWidget->oscillatorOutput == NULL) ? WaveFormType::WAVEFORM_SIN : parentWidget->oscillatorOutput->waveFormType;
+				switch (i)
+				{
+				case 0:
+					// Waveform
+					nvgText(args.vg, x, y, multiOscillator::WaveFormAbbr[wType], NULL);
 					break;
-				case WaveFormType::WAVEFORM_SAW:
-					label = std::string("SLOPE");
-					if (parentWidget->oscillatorOutput->getRampSlope())
-						nvgText(vg, x, y, "POS(+)", NULL);
-					else
-						nvgText(vg, x, y, "NEG(-)", NULL);
-					break;
-				case WaveFormType::WAVEFORM_SIN:
-				case WaveFormType::WAVEFORM_TRI:
-					nvgText(vg, x, y, "N/A", NULL);
-					break;
-				default:
+				case 1:
+					// AUX
+					switch (wType)
+					{
+					case WaveFormType::WAVEFORM_SQR:
+						label = std::string("P WIDTH");
+						sprintf(messageStr, "%5.2f", parentWidget->oscillatorOutput->auxParam_norm*100);
+						nvgText(args.vg, x, y, messageStr, NULL);
+						break;
+					case WaveFormType::WAVEFORM_SAW:
+						label = std::string("SLOPE");
+						if (parentWidget->oscillatorOutput->getRampSlope())
+							nvgText(args.vg, x, y, "POS(+)", NULL);
+						else
+							nvgText(args.vg, x, y, "NEG(-)", NULL);
+						break;
+					case WaveFormType::WAVEFORM_SIN:
+					case WaveFormType::WAVEFORM_TRI:
+						nvgText(args.vg, x, y, "N/A", NULL);
+						break;
+					default:
+						break;
+					}
 					break;
 				}
-				break;
 			}
-			//WaveFormAbbr
-		}
 
-
-
-		//---- Label ----
-		if (i == amodIx)
-		{
-			if (parentWidget->oscillatorOutput->amRingModulation)
-				label += " (RNG)";
-			else
-				label += " (DIG)";
-		}
-		// Label Font:
-		nvgFillColor(vg, textColor);
-		nvgFontSize(vg, fontSize); // Small font
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgTextLetterSpacing(vg, spacing);
-		nvgText(vg, x, y2, label.c_str(), NULL);
-		switch (i)
-		{
-		case phaseShiftIx:
-		{
-			// Make a damn degree symbol (our font doesn't have one apparently)
-			float txtBounds[4];
-			float nextX = nvgTextBounds(vg, 0, 0, "PHASE (", NULL, txtBounds);
-			nvgFontSize(vg, fontSize * 0.6f);
-			nvgText(vg, x + nextX / 2.f - 1.25f, y2, "o", NULL); // make a tiny o
-		}
-			break;
-		default:
-			break;
-		} // end switch
-		x += dx;
-	} // end loop
+			//---- Label ----
+			if (i == amodIx)
+			{
+				if (parentWidget->oscillatorOutput->amRingModulation)
+					label += " (RNG)";
+				else
+					label += " (DIG)";
+			}
+			// Label Font:
+			nvgFillColor(args.vg, textColor);
+			nvgFontSize(args.vg, fontSize); // Small font
+			nvgFontFaceId(args.vg, labelFont->handle);
+			nvgTextLetterSpacing(args.vg, spacing);
+			nvgText(args.vg, x, y2, label.c_str(), NULL);
+			switch (i)
+			{
+			case phaseShiftIx:
+			{
+				// Make a damn degree symbol (our font doesn't have one apparently)
+				float txtBounds[4];
+				float nextX = nvgTextBounds(args.vg, 0, 0, "PHASE (", NULL, txtBounds);
+				nvgFontSize(args.vg, fontSize * 0.6f);
+				nvgText(args.vg, x + nextX / 2.f - 1.25f, y2, "o", NULL); // make a tiny o
+			}
+				break;
+			default:
+				break;
+			} // end switch
+			x += dx;
+		} // end loop
+	}
+	catch (std::exception &ex)
+	{
+		WARN("Error in channel display: %s.", ex.what());
+	}
 	return;
 } // end TSOscillatorChannelDisplayWidget::draw()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -634,12 +624,14 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 	Vec location,
 	int chNumber, NVGcolor chColor, int bInputId, int bParamId, int bOutputId, int bLightId, TS_OscillatorOutput* oscOutput)
 {
-	labelFont = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+	labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 	box.size = Vec(OSC_WIDGET_WIDTH, 50);
 	box.pos = location;
 	this->parentWidget = parentOscWidget;
 	//this->parentModuleWidget = parentModuleWidget;
-	multiOscillator* thisModule = dynamic_cast<multiOscillator*>(parentModuleWidget->module);
+	multiOscillator* thisModule = NULL;
+	if (parentModuleWidget->module != NULL)
+		thisModule = dynamic_cast<multiOscillator*>(parentModuleWidget->module);
 	baseInputId = bInputId;
 	baseParamId = bParamId;
 	baseOutputId = bOutputId;
@@ -668,17 +660,17 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 	int yStart = 5;
 	int dx = 60;
 	const int numKnobVals = 4;
-	float knobVals[][3] = {
-		{ TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V,  TROWA_MOSC_KNOB_MIN_V }, // Waveform Type
-		{ TROWA_MOSC_KNOB_AUX_MIN_V, TROWA_MOSC_KNOB_AUX_MAX_V, 0.5f*(TROWA_MOSC_KNOB_AUX_MIN_V+ TROWA_MOSC_KNOB_AUX_MAX_V) }, // Aux
-		{ TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, PhaseShift2KnobVoltage(MOSC_PHASE_SHIFT_DEFAULT_DEG) }, // Phi
-		{ TROWA_MOSC_MIX_MIN_V, TROWA_MOSC_MIX_MAX_V,  TROWA_MOSC_MIX_DEF_V } // Mod Mix
-	};
+	// float knobVals[][3] = {
+		// { TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V,  TROWA_MOSC_KNOB_MIN_V }, // Waveform Type
+		// { TROWA_MOSC_KNOB_AUX_MIN_V, TROWA_MOSC_KNOB_AUX_MAX_V, 0.5f*(TROWA_MOSC_KNOB_AUX_MIN_V+ TROWA_MOSC_KNOB_AUX_MAX_V) }, // Aux
+		// { TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, multiOscillator::PhaseShift2KnobVoltage(MOSC_PHASE_SHIFT_DEFAULT_DEG) }, // Phi
+		// { TROWA_MOSC_MIX_MIN_V, TROWA_MOSC_MIX_MAX_V,  TROWA_MOSC_MIX_DEF_V } // Mod Mix
+	// };
 	bool hasTextBox[] = { false, true, true, true };
 	const char* formatStrs[numKnobVals] = { "%0.0f", "%0.2f", "%0.2f", "%0.2f" };
 	TS_TinyBlackKnob* knobPtr = NULL;
 	TS_Port* port = NULL;
-	NVGcolor mainColor = COLOR_TS_GRAY;
+	NVGcolor mainColor = TSColors::COLOR_TS_GRAY;
 	Vec tbSize = Vec(65, 22);
 	int x = xStart;
 	int y = yStart;
@@ -693,8 +685,8 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 		// Input Knobs
 		int xKnob = x + 30;
 		int yKnob = y + 10;
-		knobPtr = dynamic_cast<TS_TinyBlackKnob*>(ParamWidget::create<TS_TinyBlackKnob>(Vec(xKnob, yKnob),
-			thisModule, /*id*/ baseParamId + paramId, /*min*/ knobVals[paramId][0], /*max*/ knobVals[paramId][1], /*def*/ knobVals[paramId][2]));
+		//knobPtr = dynamic_cast<TS_TinyBlackKnob*>(createParam<TS_TinyBlackKnob>(Vec(xKnob, yKnob), thisModule, /*id*/ baseParamId + paramId, /*min*/ knobVals[paramId][0], /*max*/ knobVals[paramId][1], /*def*/ knobVals[paramId][2]));
+		knobPtr = dynamic_cast<TS_TinyBlackKnob*>(createParam<TS_TinyBlackKnob>(Vec(xKnob, yKnob), thisModule, /*id*/ baseParamId + paramId));		
 		addChild(knobPtr);
 		parentModuleWidget->params.push_back(knobPtr);
 
@@ -722,8 +714,8 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 				knobTextBox->text2KnobVal = AUX2KnobVoltage;
 				break;
 			case TS_OscillatorOutput::BaseParamIds::OUT_PHASE_SHIFT_PARAM:
-				knobTextBox->knob2TextVal = KnobVoltage2PhaseShift;
-				knobTextBox->text2KnobVal = PhaseShift2KnobVoltage;
+				knobTextBox->knob2TextVal = multiOscillator::KnobVoltage2PhaseShift;
+				knobTextBox->text2KnobVal = multiOscillator::PhaseShift2KnobVoltage;
 				break;
 			case TS_OscillatorOutput::BaseParamIds::OUT_AM_MIX_PARAM:
 				knobTextBox->knob2TextVal = KnobVoltageAMMix;
@@ -744,13 +736,13 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 	Vec ledBtnSize = Vec(size, size); // LED button size
 	Vec ledSize = Vec(size-2, size-2); // LED size
 	x += -7;
-	LEDButton* btn = dynamic_cast<LEDButton*>(ParamWidget::create<LEDButton>(Vec(x, y + 11), thisModule,
-		baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM, 0, 1, 0));
+	//LEDButton* btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(x, y + 11), thisModule, baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM, 0, 1, 0));
+	LEDButton* btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(x, y + 11), thisModule, baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM));	
 	btn->box.size = ledBtnSize;
 	addChild(btn);
 	parentModuleWidget->params.push_back(btn);
 	ColorValueLight* light = TS_createColorValueLight<ColorValueLight>(Vec(x + 3, y + 14), thisModule,
-		baseLightId + TS_OscillatorOutput::BaseLightIds::OUT_AM_MODE_LED, ledSize, COLOR_WHITE);
+		baseLightId + TS_OscillatorOutput::BaseLightIds::OUT_AM_MODE_LED, ledSize, TSColors::COLOR_WHITE);
 	addChild(light);
 
 
@@ -760,13 +752,13 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 	// * RAW * signal
 	x = parentOscWidget->screenStartX + parentOscWidget->screenWidth + parentOscWidget->outPortOffsetX;
 	y = yStart + 5;
-	//info(" >> Raw Signal id %d", baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_RAW_SIGNAL);
+	//INFO(" >> Raw Signal id %d", baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_RAW_SIGNAL);
 	port = TS_createOutput<TS_Port>(Vec(x, y), thisModule, baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_RAW_SIGNAL, !plugLightsEnabled, chColor);
 	addChild(port);
 	parentModuleWidget->outputs.push_back(port);
 	// * Multiplied * signal
 	x += 30;
-	//info(" >> Mod Signal id %d", baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL);
+	//INFO(" >> Mod Signal id %d", baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL);
 	port = TS_createOutput<TS_Port>(Vec(x, y), thisModule, baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL, !plugLightsEnabled, chColor);
 	addChild(port);
 	parentModuleWidget->outputs.push_back(port);

@@ -1,5 +1,5 @@
 #include "TSTextField.hpp"
-#include "widgets.hpp"
+#include <widget/Widget.hpp> //#include "widgets.hpp"
 #include "ui.hpp"
 // for gVg
 #include "window.hpp"
@@ -10,8 +10,9 @@ using namespace rack;
 #include "trowaSoftComponents.hpp"
 
 TSTextField::TSTextField(TextType textType) : TextField() {
+	multiline = false; // Default to no multiline.
 	setTextType(textType);
-	font = Font::load(assetPlugin(plugin, TROWA_MONOSPACE_FONT));
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
 	fontSize = 14.0f;
 	backgroundColor = FORMS_DEFAULT_BG_COLOR;
 	color = FORMS_DEFAULT_TEXT_COLOR;
@@ -31,52 +32,68 @@ TSTextField::TSTextField(TextType textType, int maxLength) : TSTextField(textTyp
 // Taken from Rack's LEDTextField
 int TSTextField::getTextPosition(Vec mousePos) {
 	bndSetFont(font->handle);
-	int textPos = bndIconLabelTextPosition(gVg, textOffset.x, textOffset.y,
+	int textPos = bndIconLabelTextPosition(APP->window->vg, textOffset.x, textOffset.y,
 		box.size.x - 2 * textOffset.x, box.size.y - 2 * textOffset.y,
 		-1, fontSize, displayStr.c_str(), mousePos.x, mousePos.y);
-	bndSetFont(gGuiFont->handle);
+	bndSetFont(APP->window->uiFont->handle);	
 	return textPos;
+
+}
+
+void TSTextField::setVisible(bool isVisible){
+	this->visible = isVisible;
+	return;
 }
 
 // Draw if visible.
-void TSTextField::draw(NVGcontext *vg) {
-	if (visible)
+void TSTextField::draw(const DrawArgs &args) 
+{
+	if (this->visible)
 	{
 		// Draw taken from Rack's LEDTextField and modified for scrolling (my quick & dirty ghetto text scrolling---ONLY truly effective for calculating the width with MONOSPACE font
 		// since I don't want to do a bunch of calcs... [lazy]).
-		nvgScissor(vg, 0, 0, box.size.x, box.size.y);
+		nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);
 
 		// Background
-		nvgBeginPath(vg);
-		nvgRoundedRect(vg, 0, 0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(vg, backgroundColor);
-		nvgFill(vg);
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, 5.0);
+		nvgFillColor(args.vg, backgroundColor);
+		nvgFill(args.vg);
 
 		// Border
 		if (borderWidth > 0) {
-			nvgStrokeWidth(vg, borderWidth);
-			nvgStrokeColor(vg, borderColor);
-			nvgStroke(vg);
+			nvgStrokeWidth(args.vg, borderWidth);
+			nvgStrokeColor(args.vg, borderColor);
+			nvgStroke(args.vg);
 		}
 
 		// Text
 		if (font->handle >= 0) {
 			bndSetFont(font->handle);
+			
+			
+			BNDwidgetState state;
+			if (this == APP->event->selectedWidget)
+				state = BND_ACTIVE;
+			else if (this == APP->event->hoveredWidget)
+				state = BND_HOVER;
+			else
+				state = BND_DEFAULT;			
 
 			//NVGcolor highlightColor = color;
 			//highlightColor.a = 0.5;
-			int begin = min(cursor, selection);
-			int end = (this == gFocusedWidget) ? max(cursor, selection) : -1;
+			int begin = std::min(cursor, selection);
+			int end = (state == BND_ACTIVE) ? std::max(cursor, selection) : -1;
 
 			// Calculate overflow and the displayed text (based on bounding box)
 			// Currently the scrolling should work for any font, **BUT** the width calculation is only really good for monospace.
 			float txtBounds[4] = { 0,0,0,0 };
-			nvgTextAlign(vg, NVG_ALIGN_LEFT);
-			nvgFontSize(vg, fontSize);
-			nvgFontFaceId(vg, font->handle);
+			nvgTextAlign(args.vg, NVG_ALIGN_LEFT);
+			nvgFontSize(args.vg, fontSize);
+			nvgFontFaceId(args.vg, font->handle);
 			int maxTextWidth = box.size.x - textOffset.x * 2 - fontSize / 2.0; // There should be a caret
-			float estLetterSize = nvgTextBounds(vg, 0, 0, "X", NULL, txtBounds); // Estimate size of a letter (accurate for monospace)
-			float nextX = nvgTextBounds(vg, 0, 0, text.c_str(), NULL, txtBounds); // Calculate full string size
+			float estLetterSize = nvgTextBounds(args.vg, 0, 0, "X", NULL, txtBounds); // Estimate size of a letter (accurate for monospace)
+			float nextX = nvgTextBounds(args.vg, 0, 0, text.c_str(), NULL, txtBounds); // Calculate full string size
 
 			displayStr = text;
 			if (nextX > maxTextWidth) {
@@ -84,7 +101,7 @@ void TSTextField::draw(NVGcontext *vg) {
 				if (nChars < 1)
 					nChars = 1;
 
-				if (this == gFocusedWidget) {
+				if (state == BND_ACTIVE) {
 					int lastIx = (cursor > nChars) ? cursor : nChars;
 					int startIx = clamp(lastIx - nChars, 0, lastIx);
 					displayStr = text.substr(startIx, nChars);
@@ -104,32 +121,35 @@ void TSTextField::draw(NVGcontext *vg) {
 			//void bndIconLabelCaret(NVGcontext *ctx, float x, float y, float w, float h,
 			//	int iconid, NVGcolor color, float fontsize, const char *label,
 			//	NVGcolor caretcolor, int cbegin, int cend
-			bndIconLabelCaret(vg, /*x*/ textOffset.x, /*y*/ textOffset.y,
+			bndIconLabelCaret(args.vg, /*x*/ textOffset.x, /*y*/ textOffset.y,
 				/*w*/ box.size.x - 2 * textOffset.x, /*h*/ box.size.y - 2 * textOffset.y,
 				/*iconid*/ -1, /*textColor*/ color, /*fontsize*/ fontSize, 
 				/*label*/ displayStr.c_str(), 
 				/*caretcolor*/ caretColor, /*cbegin*/ begin, /*cend*/ end);
 
-			bndSetFont(gGuiFont->handle);
+			bndSetFont(APP->window->uiFont->handle);
 		}
 
-		nvgResetScissor(vg);
+		nvgResetScissor(args.vg);
 	}
 } // end draw()
 
 // Request focus on this field.
 void TSTextField::requestFocus() {
-	if (gFocusedWidget) {
-		EventDefocus evt;
-		gFocusedWidget->onDefocus(evt);
-		gFocusedWidget = NULL;
+	if (APP->event->selectedWidget) {
+		event::Deselect evt;
+		APP->event->selectedWidget->onDeselect(evt);
+		APP->event->selectedWidget = NULL;
 	}
-	gFocusedWidget = this;	
+	APP->event->selectedWidget = this;
 	{
-		EventFocus eFocus;
-		onFocus(eFocus);
+//DEBUG("TSTextField::requestFocus(%d) - Select this object, visible = %d", id, visible);					
+		event::Select evt;
+		onSelect(evt);
 		cursor = 0;
 		selection = text.length();
+		visible = true;
+//DEBUG("TSTextField::requestFocus(%d) - Select this object Finished. cursor = %d, selection = %d", id, cursor, selection);
 	}
 	return;
 } // end requestFocus()
@@ -155,7 +175,7 @@ std::string TSTextField::cleanseString(std::string newText)
 /** Inserts text at the cursor, replacing the selection if necessary */
 void TSTextField::insertText(std::string newText) {
 	if (cursor != selection) {
-		int begin = min(cursor, selection);
+		int begin = std::min(cursor, selection);
 		this->text.erase(begin, std::abs(selection - cursor));
 		cursor = selection = begin;
 	}
@@ -168,7 +188,9 @@ void TSTextField::insertText(std::string newText) {
 } // end insertText()
 
 // On Key
-void TSTextField::onText(EventText &e) {
+//void TSTextField::onText(const event::Text &e) 
+void TSTextField::onSelectText(const event::SelectText &e)
+{
 	if (enabled)
 	{
 		if (e.codepoint < 128) {
@@ -180,7 +202,7 @@ void TSTextField::onText(EventText &e) {
 			}
 		}
 	}
-	e.consumed = true;
+	e.consume(this);
 	return;
 } // end onText()
 
@@ -194,52 +216,93 @@ void TSTextField::onTextChange() {
 	text = cleanseString(text);
 	cursor = clamp(cursor, 0, text.size());
 	selection = clamp(selection, 0, text.size());
-	//debug("onTextChange() - New cursor: %d", cursor);
+	//DEBUG("onTextChange() - New cursor: %d", cursor);
 	return;
 } // end onTextChanged()
 
 // On key press.
-void TSTextField::onKey(EventKey &e) {
+//void TSTextField::onKey(const event::Key &e) 
+void TSTextField::onSelectKey(const event::SelectKey &e)
+{
 	if (!visible)
 	{
 		// Do not capture the keys.
-		e.consumed = false;
+		//e.consumed = false;
 		return;
 	}
 	if (!enabled)
 	{
-		e.consumed = false; // We are ingoring this.
+		//e.consumed = false; // We are ingoring this.
 		return;
 	}
-	// We can throw invalid chars away in onText(), so we don't have to check here anymore.
-	//// Flag if we need to validate/cleanse this character (only if printable and if we are doing validation).
-	//bool checkKey = (this->allowedTextType != TextType::Any) && isPrintableKey(e.key);
-	switch (e.key) {
-		case GLFW_KEY_TAB:
-			// If we have an event to fire, then do it
-			if (windowIsShiftPressed())//(guiIsShiftPressed())
-			{
-				if (onShiftTabCallback != NULL)
-				{			
-					onShiftTabCallback(id);
-				}
-				else if (prevField != NULL)
+	if (e.action == GLFW_PRESS || e.action == GLFW_REPEAT) {
+		// We can throw invalid chars away in onText(), so we don't have to check here anymore.
+		//// Flag if we need to validate/cleanse this character (only if printable and if we are doing validation).
+		//bool checkKey = (this->allowedTextType != TextType::Any) && isPrintableKey(e.key);
+		switch (e.key) {
+			case GLFW_KEY_TAB:
+				// If we have an event to fire, then do it
+				if ((e.mods & RACK_MOD_MASK) == GLFW_MOD_SHIFT) //    windowIsShiftPressed())//(guiIsShiftPressed())
 				{
-					TSTextField* fField = prevField;
+					if (onShiftTabCallback != NULL)
+					{			
+						onShiftTabCallback(id);
+					}
+					else if (prevField != NULL)
+					{
+						TSTextField* fField = prevField;
+						if (!fField->visible)
+						{
+							switch (tabNextHiddenAction)
+							{
+							case TabFieldHiddenAction::MoveToNextVisibleTabField:
+								fField = fField->prevField;
+								while (fField != NULL && !fField->visible && fField != this && !fField->canTabToThisEnabled)
+									fField = fField->prevField;
+								if (fField == this || (fField != NULL && !fField->visible))
+									fField = NULL;
+								break;
+							case TabFieldHiddenAction::ShowHiddenTabToField:
+								while (fField != NULL && fField != this && !fField->canTabToThisEnabled)
+									fField = fField->prevField;
+								if (fField == this || (fField != NULL && !fField->canTabToThisEnabled))
+									fField = NULL;
+								if (fField != NULL)
+									fField->visible = true;
+								break;
+							case TabFieldHiddenAction::DoNothing:
+							default:
+								fField = NULL;
+								break;
+							}
+						}
+						if (fField != NULL)
+						{
+							fField->requestFocus();
+						}
+					} // end if previous field
+				}
+				else if (onTabCallback != NULL)
+				{
+					onTabCallback(id);
+				}
+				else if (nextField != NULL)
+				{
+					TSTextField* fField = nextField;
 					if (!fField->visible)
 					{
 						switch (tabNextHiddenAction)
 						{
 						case TabFieldHiddenAction::MoveToNextVisibleTabField:
-							fField = fField->prevField;
+							fField = fField->nextField;
 							while (fField != NULL && !fField->visible && fField != this && !fField->canTabToThisEnabled)
-								fField = fField->prevField;
+								fField = fField->nextField;
 							if (fField == this || (fField != NULL && !fField->visible))
 								fField = NULL;
 							break;
 						case TabFieldHiddenAction::ShowHiddenTabToField:
 							while (fField != NULL && fField != this && !fField->canTabToThisEnabled)
-								fField = fField->prevField;
+								fField = fField->nextField;
 							if (fField == this || (fField != NULL && !fField->canTabToThisEnabled))
 								fField = NULL;
 							if (fField != NULL)
@@ -255,61 +318,30 @@ void TSTextField::onKey(EventKey &e) {
 					{
 						fField->requestFocus();
 					}
-				} // end if previous field
-			}
-			else if (onTabCallback != NULL)
+				} // end if next field
+				break;
+			case GLFW_KEY_KP_ENTER:
 			{
-				onTabCallback(id);
+				if (multiline){
+					insertText("\n");
+				}
+				else {
+					// Key pad enter should also trigger event action
+					event::Action evt;
+					onAction(evt);
+				}
 			}
-			else if (nextField != NULL)
-			{
-				TSTextField* fField = nextField;
-				if (!fField->visible)
-				{
-					switch (tabNextHiddenAction)
-					{
-					case TabFieldHiddenAction::MoveToNextVisibleTabField:
-						fField = fField->nextField;
-						while (fField != NULL && !fField->visible && fField != this && !fField->canTabToThisEnabled)
-							fField = fField->nextField;
-						if (fField == this || (fField != NULL && !fField->visible))
-							fField = NULL;
-						break;
-					case TabFieldHiddenAction::ShowHiddenTabToField:
-						while (fField != NULL && fField != this && !fField->canTabToThisEnabled)
-							fField = fField->nextField;
-						if (fField == this || (fField != NULL && !fField->canTabToThisEnabled))
-							fField = NULL;
-						if (fField != NULL)
-							fField->visible = true;
-						break;
-					case TabFieldHiddenAction::DoNothing:
-					default:
-						fField = NULL;
-						break;
-					}
-				}
-				if (fField != NULL)
-				{
-					fField->requestFocus();
-				}
-			} // end if next field
-			break;
-		case GLFW_KEY_KP_ENTER:
-		{
-			// Key pad enter should also trigger event action
-			EventAction evt;
-			onAction(evt);
+				break;
+			default:
+				// Call base method
+				TextField::onSelectKey(e);
+				break;
 		}
-			break;
-		default:
-			// Call base method
-			TextField::onKey(e);
-			break;
+		cursor = clamp(cursor, 0, text.size());
+		selection = clamp(selection, 0, text.size());		
 	}
-	cursor = clamp(cursor, 0, text.size());
-	selection = clamp(selection, 0, text.size());
-	e.consumed = true;
+	//e.consumed = true;
+	e.consume(this);
 	return;
 } // end onKey()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

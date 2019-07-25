@@ -1,8 +1,9 @@
 #ifndef TSTEXTFIELD_HPP
 #define TSTEXTFIELD_HPP
 
-#include "rack.hpp"
-#include "widgets.hpp"
+#include <rack.hpp>
+#include <widget/Widget.hpp> //#include "widgets.hpp"
+#include <ui/TextField.hpp>
 
 using namespace rack;
 
@@ -10,6 +11,8 @@ using namespace rack;
 #include <regex>
 #include <sstream>
 #include <string>
+
+#include "TSColors.hpp"
 
 
 // Integer/Digits: Entire string validation
@@ -142,6 +145,8 @@ struct TSTextField : TextField {
 		this->onShiftTabCallback = onShiftTabHandler;
 		return;
 	}
+	
+	void setVisible(bool isVisible);
 
 	// If the text is valid.
 	bool isValid() {
@@ -193,100 +198,103 @@ struct TSTextField : TextField {
 
 	// Remove invalid chars.
 	std::string cleanseString(std::string newText);
-	void draw(NVGcontext *vg) override;
+	void draw(const DrawArgs &args) override;
 	void insertText(std::string newText);
-	void onTextChange() override;
-	void onKey(EventKey &e) override;
+	void onTextChange();
+	
+	//void onKey(const event::Key &e) override;
+	void onSelectKey(const event::SelectKey &e) override;
 	// Set the text
 	void setText(std::string text);
 	// On key
-	void onText(EventText &e) override;
+	//void onText(const event::Text &e) override;
+	void onSelectText(const event::SelectText &e) override;
 	// Request focus on this field from the Rack engine.
 	void requestFocus();
-	//void onDefocus(EventDefocus &e) override;
+	//void onDefocus(const event::Defocus &e) override;
 
 	// -- TRY TO NOT RESPOND TO EVENTS IF WE ARE HIDING --
-
 	/** Called when a mouse button is pressed over this widget
 	0 for left, 1 for right, 2 for middle.
 	Return `this` to accept the event.
 	Return NULL to reject the event and pass it to the widget behind this one.
 	*/
-	void onMouseDown(EventMouseDown &e) override {
-		if (visible) {
-			TextField::onMouseDown(e);
-		}
-	};
-	void onMouseUp(EventMouseUp &e) override {
-		if (visible) {
-			TextField::onMouseUp(e);
-		}
-	};
-	/** Called on every frame, even if mouseRel = Vec(0, 0) */
-	void onMouseMove(EventMouseMove &e) override {
-		if (visible) {
-			TextField::onMouseMove(e);
+	// void onMouseDown(const event::MouseDown &e) override {
+		// if (visible) {
+			// TextField::onMouseDown(e);
+		// }
+	// };
+	// void onMouseUp(const event::MouseUp &e) override {
+		// if (visible) {
+			// TextField::onMouseUp(e);
+		// }
+	// };
+	// /** Called on every frame, even if mouseRel = Vec(0, 0) */
+	// void onMouseMove(const event::MouseMove &e) override {
+		// if (visible) {
+			// TextField::onMouseMove(e);
+		// }
+	// }
+	
+	void onButton(const event::Button &e) override {
+DEBUG("TSTextField::onButton(%d) - Visible = %d", id, visible);		
+		if (visible && !e.isConsumed()){
+			TextField::onButton(e);	
+DEBUG("TSTextField::onButton(%d) - Consuming. Is Button Click = %d. cursor = %d, selection = %d.", id, e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT, cursor, selection);								
 		}
 	}
-	void onHoverKey(EventHoverKey &e) override {
+	
+	void onHoverKey(const event::HoverKey &e) override{
 		if (visible) {
 			TextField::onHoverKey(e);
 		}
-	};
-	///** Called when this widget begins responding to `onMouseMove` events */
-	//virtual void onMouseEnter(EventMouseEnter &e) {}
-	///** Called when another widget begins responding to `onMouseMove` events */
-	//virtual void onMouseLeave(EventMouseLeave &e) {}
-	//virtual void onFocus(EventFocus &e) {}
-	//virtual void onDefocus(EventDefocus &e) {}
-	//virtual void onScroll(EventScroll &e);
-
+	}
 	/** Called when a widget responds to `onMouseDown` for a left button press */
-	void onDragStart(EventDragStart &e) override {
+	void onDragStart(const event::DragStart &e) override {
 		if (visible) {
 			TextField::onDragStart(e);
 		}
 	}
 	/** Called when the left button is released and this widget is being dragged */
-	void onDragEnd(EventDragEnd &e) override {
+	void onDragEnd(const event::DragEnd &e) override {
 		if (visible) {
 			TextField::onDragEnd(e);
 		}
 	}
 	/** Called when a widget responds to `onMouseMove` and is being dragged */
-	void onDragMove(EventDragMove &e) override {
+	void onDragMove(const event::DragMove &e) override {
 		if (visible) {
 			TextField::onDragMove(e);
 		}
 	}
 	/** Called when a widget responds to `onMouseUp` for a left button release and a widget is being dragged */
-	void onDragEnter(EventDragEnter &e) override {
+	void onDragEnter(const event::DragEnter &e) override {
 		if (visible) {
 			TextField::onDragEnter(e);
 		}
 	}
-	void onDragLeave(EventDragEnter &e) override {
+	void onDragLeave(const event::DragLeave &e) override {
 		if (visible) {
 			TextField::onDragLeave(e);
 		}
 	}
-	void onDragDrop(EventDragDrop &e) override {
+	void onDragDrop(const event::DragDrop &e) override {
 		if (visible) {
 			TextField::onDragDrop(e);
 		}
 	}
-	void onPathDrop(EventPathDrop &e)override {
+	void onPathDrop(const event::PathDrop &e)override {
 		if (visible) {
 			TextField::onPathDrop(e);
 		}
 	}
 
-	void onAction(EventAction &e) override {
+	void onAction(const event::Action &e) override {
 		if (visible) {
 			TextField::onAction(e);
 		}
 	}
-	//void onChange(EventChange &e) override {
+	//void onChange(const event::Change &e) override {
 	//}
 }; // end struct TSTextField
 

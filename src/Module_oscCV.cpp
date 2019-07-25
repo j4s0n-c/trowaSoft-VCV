@@ -1,13 +1,12 @@
 #include "Module_oscCV.hpp"
-#include "rack.hpp"
+#include <rack.hpp>
 using namespace rack;
 #include "TSOSCCommunicator.hpp"
 #include "Widget_oscCV.hpp"
 #include <cmath>  
 
 // Model for trowa OSC2CV
-Model* modelOscCV = Model::create<oscCV, oscCVWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "cvOSCcv", /*name*/ "cvOSCcv", /*Tags*/ EXTERNAL_TAG);
-
+Model* modelOscCV = createModel<oscCV, oscCVWidget>(/*slug*/ "cvOSCcv");
 
 
 
@@ -19,8 +18,9 @@ Model* modelOscCV = Model::create<oscCV, oscCVWidget>(/*manufacturer*/ TROWA_PLU
 // @osc2cv: (IN) True to do OSC to CV out.
 // At least one of those flags should be true.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-oscCV::oscCV(int numChannels, bool cv2osc, bool osc2cv) : Module(NUM_PARAMS + numChannels*2, NUM_INPUTS + numChannels*2, NUM_OUTPUTS + numChannels * 2, NUM_LIGHTS + numChannels * 2)
+oscCV::oscCV(int numChannels, bool cv2osc, bool osc2cv) // : Module(NUM_PARAMS + numChannels*2, NUM_INPUTS + numChannels*2, NUM_OUTPUTS + numChannels * 2, NUM_LIGHTS + numChannels * 2)
 {
+	config(NUM_PARAMS + numChannels*2, NUM_INPUTS + numChannels*2, NUM_OUTPUTS + numChannels * 2, NUM_LIGHTS + numChannels * 2);
 	oscInitialized = false;
 	oscId = TSOSCConnector::GetId();
 	this->doOSC2CVPort = osc2cv;
@@ -29,16 +29,32 @@ oscCV::oscCV(int numChannels, bool cv2osc, bool osc2cv) : Module(NUM_PARAMS + nu
 	this->numberChannels = numChannels;
 	if (doCVPort2OSC)
 	{
-		inputTriggers = new SchmittTrigger[numberChannels];
+		inputTriggers = new dsp::SchmittTrigger[numberChannels];
 		inputChannels = new TSOSCCVInputChannel[numberChannels];
 	}
 	if (doOSC2CVPort)
 	{
 		outputChannels = new TSOSCCVChannel[numberChannels];
-		pulseGens = new PulseGenerator[numberChannels];
+		pulseGens = new dsp::PulseGenerator[numberChannels];
 	}
-
 	initialChannels();
+	
+	// Configure parameters:
+	// id, min, max, def
+	configParam(/*paramId*/ oscCV::ParamIds::OSC_SHOW_CONF_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);	
+#if TROWA_OSSCV_SHOW_ADV_CH_CONFIG	
+	configParam(/*paramId*/ oscCV::ParamIds::OSC_CH_SAVE_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
+	configParam(/*paramId*/ oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);			
+	configParam(/*paramId*/ oscCV::ParamIds::OSC_CH_CANCEL_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
+	// Channel parameters:
+	for (int ch = 0; ch < numberChannels; ch++)
+	{
+		int baseParamId = oscCV::ParamIds::CH_PARAM_START + ch*TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS;		
+		configParam(/*id*/ baseParamId + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
+	}
+#endif // Show Advanced Configuration on each Channel		
+	
+	
 	return;
 } // end constructor
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -73,7 +89,7 @@ oscCV::~oscCV()
 // reset(void)
 // Initialize values.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void oscCV::reset() {
+void oscCV::onReset() {
 	// Stop OSC while we reset the values
 	cleanupOSC();
 
@@ -105,7 +121,7 @@ void oscCV::initOSC(const char* ipAddress, int outputPort, int inputPort)
 {
 	oscMutex.lock();
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-	debug("oscCV::initOSC() - Initializing OSC");
+	DEBUG("oscCV::initOSC() - Initializing OSC");
 #endif
 	try
 	{
@@ -136,7 +152,7 @@ void oscCV::initOSC(const char* ipAddress, int outputPort, int inputPort)
 				if (oscTxSocket == NULL)
 				{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-					debug("oscCV::initOSC() - Create TRANS socket at %s, port %d.", ipAddress, outputPort);
+					DEBUG("oscCV::initOSC() - Create TRANS socket at %s, port %d.", ipAddress, outputPort);
 #endif
 					oscTxSocket = new UdpTransmitSocket(IpEndpointName(ipAddress, outputPort));
 					this->currentOSCSettings.oscTxPort = outputPort;
@@ -147,7 +163,7 @@ void oscCV::initOSC(const char* ipAddress, int outputPort, int inputPort)
 				if (oscRxSocket == NULL)
 				{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-					debug("oscCV::initOSC() - Create RECV socket at any address, port %d. Osc Namespace %s.", inputPort, oscNamespace.c_str());
+					DEBUG("oscCV::initOSC() - Create RECV socket at any address, port %d. Osc Namespace %s.", inputPort, oscNamespace.c_str());
 #endif
 					if (oscListener == NULL)
 						oscListener = new TSOSCCVSimpleMsgListener(this->oscNamespace, this);
@@ -156,13 +172,13 @@ void oscCV::initOSC(const char* ipAddress, int outputPort, int inputPort)
 					oscRxSocket = new UdpListeningReceiveSocket(IpEndpointName(IpEndpointName::ANY_ADDRESS, inputPort), oscListener);
 					this->currentOSCSettings.oscRxPort = inputPort;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-					debug("oscCV::initOSC() - Starting listener thread...");
+					DEBUG("oscCV::initOSC() - Starting listener thread...");
 #endif
 					oscListenerThread = std::thread(&UdpListeningReceiveSocket::Run, oscRxSocket);
 				}
 			}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-			debug("oscCV::initOSC() - OSC Initialized");
+			DEBUG("oscCV::initOSC() - OSC Initialized");
 #endif
 			oscInitialized = true;
 		}
@@ -170,7 +186,7 @@ void oscCV::initOSC(const char* ipAddress, int outputPort, int inputPort)
 		{
 			oscError = true;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-			debug("oscCV::initOSC() - Ports in use already.");
+			DEBUG("oscCV::initOSC() - Ports in use already.");
 #endif
 		}
 	}
@@ -178,7 +194,7 @@ void oscCV::initOSC(const char* ipAddress, int outputPort, int inputPort)
 	{
 		oscError = true;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-		warn("oscCV::initOSC() - Error initializing: %s.", ex.what());
+		WARN("oscCV::initOSC() - Error initializing: %s.", ex.what());
 #endif
 	}
 	oscMutex.unlock();
@@ -193,7 +209,7 @@ void oscCV::cleanupOSC()
 	try
 	{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-		debug("oscCV::cleanupOSC() - Cleaning up OSC");
+		DEBUG("oscCV::cleanupOSC() - Cleaning up OSC");
 #endif
 		oscInitialized = false;
 		oscError = false;
@@ -203,7 +219,7 @@ void oscCV::cleanupOSC()
 		if (oscRxSocket != NULL)
 		{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-			debug("oscCV::cleanupOSC() - Cleaning up RECV socket.");
+			DEBUG("oscCV::cleanupOSC() - Cleaning up RECV socket.");
 #endif
 			oscRxSocket->AsynchronousBreak();
 			oscListenerThread.join(); // Wait for him to finish
@@ -215,29 +231,29 @@ void oscCV::cleanupOSC()
 		if (oscTxSocket != NULL)
 		{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-			debug("oscCV::cleanupOSC() - Cleanup TRANS socket.");
+			DEBUG("oscCV::cleanupOSC() - Cleanup TRANS socket.");
 #endif
 			delete oscTxSocket;
 			oscTxSocket = NULL;
 		}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-		debug("oscCV::cleanupOSC() - OSC cleaned");
+		DEBUG("oscCV::cleanupOSC() - OSC cleaned");
 #endif
 	}
 	catch (const std::exception& ex)
 	{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-		debug("oscCV::cleanupOSC() - Exception caught:\n%s", ex.what());
+		DEBUG("oscCV::cleanupOSC() - Exception caught:\n%s", ex.what());
 #endif
 	}
 	oscMutex.unlock();
 } // end cleanupOSC()
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// toJson(void)
+// dataToJson(void)
 // Serialize to json.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-json_t *oscCV::toJson() {
+json_t *oscCV::dataToJson() {
 	json_t* rootJ = json_object();
 
 	// version
@@ -267,13 +283,13 @@ json_t *oscCV::toJson() {
 	json_object_set_new(rootJ, "outputChannels", outputChannelsJ);
 
 	return rootJ;
-} // end toJson()
+} // end dataToJson()
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// fromJson(void)
+// dataFromJson(void)
 // Deserialize.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-void oscCV::fromJson(json_t *rootJ) {
+void oscCV::dataFromJson(json_t *rootJ) {
 	json_t* currJ = NULL;
 	bool autoReconnect = false;
 	// OSC Parameters
@@ -341,21 +357,21 @@ void oscCV::fromJson(json_t *rootJ) {
 
 		if (oscError || !oscInitialized)
 		{
-			warn("oscCV::fromJson(): Error on auto-reconnect OSC %s :%d :%d.", this->currentOSCSettings.oscTxIpAddress.c_str(), this->currentOSCSettings.oscTxPort, this->currentOSCSettings.oscRxPort);
+			WARN("oscCV::dataFromJson(): Error on auto-reconnect OSC %s :%d :%d.", this->currentOSCSettings.oscTxIpAddress.c_str(), this->currentOSCSettings.oscTxPort, this->currentOSCSettings.oscRxPort);
 		}
 		else
 		{
-			info("oscCV::fromJson(): Successful auto-reconnection of OSC %s :%d :%d.", this->currentOSCSettings.oscTxIpAddress.c_str(), this->currentOSCSettings.oscTxPort, this->currentOSCSettings.oscRxPort);
+			INFO("oscCV::dataFromJson(): Successful auto-reconnection of OSC %s :%d :%d.", this->currentOSCSettings.oscTxIpAddress.c_str(), this->currentOSCSettings.oscTxPort, this->currentOSCSettings.oscRxPort);
 		}
 	}
 	return;
-} // end fromJson() 
+} // end dataFromJson() 
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// step(void)
-// Process.
+// process()
+// [Previously step(void)]
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void oscCV::step()
+void oscCV::process(const ProcessArgs &args)
 {
 	//bool oscStarted = false; // If OSC just started to a new address this step.
 	switch (this->oscCurrentAction)
@@ -383,7 +399,7 @@ void oscCV::step()
 	if (doCVPort2OSC) {
 		// Timer for sending values
 		bool sendTime = false;
-		sendDt += sendFrequency_Hz / engineGetSampleRate();
+		sendDt += sendFrequency_Hz / args.sampleRate;
 		if (sendDt > 1.0f) {
 			sendDt -= 1.0f;
 			sendTime = true;
@@ -396,13 +412,13 @@ void oscCV::step()
 		char addressBuffer[512];
 		for (int c = 0; c < this->numberChannels; c++)
 		{
-			inputChannels[c].setValue(inputs[InputIds::CH_INPUT_START + c * 2 + 1].value); // 2nd one is value
+			inputChannels[c].setValue(inputs[InputIds::CH_INPUT_START + c * 2 + 1].getVoltage()); // 2nd one is value
 			bool sendVal = false;
-			if (oscInitialized && inputs[InputIds::CH_INPUT_START + c * 2 + 1].active)
+			if (oscInitialized && inputs[InputIds::CH_INPUT_START + c * 2 + 1].isConnected())
 			{
-				if (inputs[InputIds::CH_INPUT_START + c * 2].active) // Input Trigger Port
+				if (inputs[InputIds::CH_INPUT_START + c * 2].isConnected()) // Input Trigger Port
 				{
-					sendVal = inputTriggers[c].process(inputs[InputIds::CH_INPUT_START + c * 2].value);
+					sendVal = inputTriggers[c].process(inputs[InputIds::CH_INPUT_START + c * 2].getVoltage());
 				} // end if trigger is active
 				else
 				{
@@ -469,12 +485,12 @@ void oscCV::step()
 						oscStream << osc::EndMessage;
 						
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-						debug("SEND OSC[%d]: %s %7.3f", c, addressBuffer, inputChannels[c].getValCV2OSC());
+						DEBUG("SEND OSC[%d]: %s %7.3f", c, addressBuffer, inputChannels[c].getValCV2OSC());
 #endif					
 					}
 					catch (const std::exception& e)
 					{
-						warn("Error %s.", e.what());
+						WARN("Error %s.", e.what());
 					}
 					oscMutex.unlock();
 					// Save our last sent values
@@ -499,7 +515,7 @@ void oscCV::step()
 			}
 			catch (const std::exception& e)
 			{
-				warn("Error %s.", e.what());
+				WARN("Error %s.", e.what());
 			}
 			oscMutex.unlock();
 		} // end if packet opened (close it)
@@ -529,19 +545,19 @@ void oscCV::step()
 				lights[LightIds::CH_LIGHT_START + chIx * 2 + 1].value = 1.0f;
 			} // end if valid channel
 		} // end while (loop through message queue)
-		  // ::: OUTPUTS :::
-		float dt = 1.0 / engineGetSampleRate();
+		// ::: OUTPUTS :::
+		float dt = args.sampleTime; //1.0 / engineGetSampleRate();
 		for (int c = 0; c < numberChannels; c++)
 		{
 			// Output the value first
 			// We should limit this value (-10V to +10V). Rack says nothing should be higher than +/- 12V.
 			// Do any massaging?
 			float outVal = outputChannels[c].getValOSC2CV();
-			outputs[OutputIds::CH_OUTPUT_START + c * 2 + 1].value = clamp(outVal, TROWA_OSCCV_MIN_VOLTAGE, TROWA_OSCCV_MAX_VOLTAGE);
+			outputs[OutputIds::CH_OUTPUT_START + c * 2 + 1].setVoltage(clamp(outVal, TROWA_OSCCV_MIN_VOLTAGE, TROWA_OSCCV_MAX_VOLTAGE));
 			outputChannels[c].addValToBuffer(outVal);
 			// Then trigger if needed.
 			bool trigger = pulseGens[c].process(dt);
-			outputs[OutputIds::CH_OUTPUT_START + c * 2].value = (trigger) ? TROWA_OSCCV_TRIGGER_ON_V : TROWA_OSCCV_TRIGGER_OFF_V;
+			outputs[OutputIds::CH_OUTPUT_START + c * 2].setVoltage((trigger) ? TROWA_OSCCV_TRIGGER_ON_V : TROWA_OSCCV_TRIGGER_OFF_V);
 			lights[LightIds::CH_LIGHT_START + c * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + 1].value = clamp(lights[LightIds::CH_LIGHT_START + c * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + 1].value - lightLambda, 0.0f, 1.0f);
 		}
 	}
@@ -568,7 +584,7 @@ void oscCV::setOscNamespace(std::string oscNs)
 		}
 		catch (const std::exception& e)
 		{
-			warn("Error %s.", e.what());
+			WARN("Error %s.", e.what());
 		}
 	}
 	return;
@@ -586,7 +602,7 @@ void TSOSCCVSimpleMsgListener::ProcessMessage(const osc::ReceivedMessage& rxMsg,
 {
 	(void)remoteEndpoint; // suppress unused parameter warning
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-	debug("[RECV] OSC Message: %s", rxMsg.AddressPattern());
+	DEBUG("[RECV] OSC Message: %s", rxMsg.AddressPattern());
 #endif
 	try 
 	{
@@ -599,7 +615,7 @@ void TSOSCCVSimpleMsgListener::ProcessMessage(const osc::ReceivedMessage& rxMsg,
 		if (!oscNamespace.empty() && std::strcmp(addr.substr(0, len).c_str(), ns) != 0) // Message is not for us
 		{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-			debug("Message is not for our namespace (%s).", ns);
+			DEBUG("Message is not for our namespace (%s).", ns);
 #endif
 			return;
 		}
@@ -612,7 +628,7 @@ void TSOSCCVSimpleMsgListener::ProcessMessage(const osc::ReceivedMessage& rxMsg,
 //		int numParts = parts.size();
 //
 //#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-//		debug("[RECV] %s - %d parts.", path, numParts);
+//		DEBUG("[RECV] %s - %d parts.", path, numParts);
 //#endif
 
 		// Get the argument (not strongly typed.... We'll read in as float and cast as what we need in case > 1 channel is receiving this message)
@@ -653,11 +669,11 @@ void TSOSCCVSimpleMsgListener::ProcessMessage(const osc::ReceivedMessage& rxMsg,
 				}
 			}
 		}
-		catch (osc::WrongArgumentTypeException touchOSCEx)
+		catch (osc::WrongArgumentTypeException &touchOSCEx)
 		{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Wrong argument type: Error %s message: ", path, touchOSCEx.what());
-			debug("We received (float) %05.2f.", floatArg);
+			DEBUG("Wrong argument type: Error %s message: ", path, touchOSCEx.what());
+			DEBUG("We received (float) %05.2f.", floatArg);
 #endif
 		}
 
@@ -670,27 +686,27 @@ void TSOSCCVSimpleMsgListener::ProcessMessage(const osc::ReceivedMessage& rxMsg,
 				{
 					case TSOSCCVChannel::ArgDataType::OscBool:
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-						debug("OSC Recv Ch %d: Bool %d at %s.", c+1, boolArg, oscModule->outputChannels[c].path.c_str());
+						DEBUG("OSC Recv Ch %d: Bool %d at %s.", c+1, boolArg, oscModule->outputChannels[c].path.c_str());
 #endif
 						oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, boolArg));
 						break;
 					case TSOSCCVChannel::ArgDataType::OscInt:
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-						debug("OSC Recv Ch %d: Int %d at %s.", c + 1, intArg, oscModule->outputChannels[c].path.c_str());
+						DEBUG("OSC Recv Ch %d: Int %d at %s.", c + 1, intArg, oscModule->outputChannels[c].path.c_str());
 #endif
 						oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, intArg));
 						break;
 					case TSOSCCVChannel::ArgDataType::OscMidi:
 						// Actually, I don't think anything natively supports this, so this would be unused.
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-						debug("OSC Recv Ch %d: MIDI %08x at %s.", c + 1, uintArg, oscModule->outputChannels[c].path.c_str());
+						DEBUG("OSC Recv Ch %d: MIDI %08x at %s.", c + 1, uintArg, oscModule->outputChannels[c].path.c_str());
 #endif
 						oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, floatArg, uintArg));
 						break;
 					case TSOSCCVChannel::ArgDataType::OscFloat:
 					default:
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-						debug("OSC Recv Ch %d: Float %7.4f at %s.", c + 1, floatArg, oscModule->outputChannels[c].path.c_str());
+						DEBUG("OSC Recv Ch %d: Float %7.4f at %s.", c + 1, floatArg, oscModule->outputChannels[c].path.c_str());
 #endif
 						oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, floatArg));
 						break;
@@ -700,7 +716,7 @@ void TSOSCCVSimpleMsgListener::ProcessMessage(const osc::ReceivedMessage& rxMsg,
 	}
 	catch (osc::Exception& e) {
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-		debug("Error parsing OSC message %s: %s", rxMsg.AddressPattern(), e.what());
+		DEBUG("Error parsing OSC message %s: %s", rxMsg.AddressPattern(), e.what());
 #endif
 	} // end catch
 	return;
@@ -714,7 +730,7 @@ void TSOSCCVSimpleMsgListener::ProcessMessage(const osc::ReceivedMessage& rxMsg,
 void TSOSCCVChannel::addValToBuffer(float buffVal)
 {
 	float deltaTime = powf(2.0, -12.0);
-	int frameCount = (int)ceilf(deltaTime * engineGetSampleRate());
+	int frameCount = (int)ceilf(deltaTime * APP->engine->getSampleRate());
 	// Add frame to buffer
 	if (valBuffIx < TROWA_OSCCV_VAL_BUFFER_SIZE) {
 		if (++frameIx > frameCount) {
@@ -725,7 +741,7 @@ void TSOSCCVChannel::addValToBuffer(float buffVal)
 	else {
 		frameIx++;
 		const float holdTime = 0.1;
-		if (frameIx >= engineGetSampleRate() * holdTime) {
+		if (frameIx >= APP->engine->getSampleRate() * holdTime) {
 			valBuffIx = 0;
 			frameIx = 0;
 		}

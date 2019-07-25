@@ -1,17 +1,17 @@
 ﻿#include "Widget_oscCV.hpp"
 
-#include "widgets.hpp"
+#include <widget/Widget.hpp> //#include "widgets.hpp"
 using namespace rack;
 #include "trowaSoft.hpp"
-#include "dsp/digital.hpp"
+//#include "dsp/digital.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
 #include "Module_oscCV.hpp"
 
 // Channel colors
 const NVGcolor oscCVWidget::CHANNEL_COLORS[TROWA_OSCCV_NUM_COLORS] = {
-	COLOR_TS_RED, COLOR_DARK_ORANGE, COLOR_YELLOW, COLOR_TS_GREEN,
-	COLOR_CYAN, COLOR_TS_BLUE, COLOR_PURPLE, COLOR_PINK
+	TSColors::COLOR_TS_RED, TSColors::COLOR_DARK_ORANGE, TSColors::COLOR_YELLOW, TSColors::COLOR_TS_GREEN,
+	TSColors::COLOR_CYAN, TSColors::COLOR_TS_BLUE, TSColors::COLOR_PURPLE, TSColors::COLOR_PINK
 };
 
 
@@ -20,11 +20,14 @@ const NVGcolor oscCVWidget::CHANNEL_COLORS[TROWA_OSCCV_NUM_COLORS] = {
 // Instantiate a oscCV widget. v0.60 must have module as param.
 // @oscModule : (IN) Pointer to the osc module.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule)
+oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, false)
 {
 	box.size = Vec(26 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT);
-	bool isPreview = oscModule == NULL; // If this is null, this for a preview??? Just get the controls layed out
-	this->module = oscModule;
+	bool isPreview = this->module == NULL; // If this is null, then this isn't a real module instance but a 'Preview'?	
+	if (!isPreview && oscModule == NULL)
+	{
+		oscModule = dynamic_cast<oscCV*>(this->module);
+	}
 	this->numberChannels = (isPreview) ? TROWA_OSCCV_DEFAULT_NUM_CHANNELS : oscModule->numberChannels; 
 
 	Vec topScreenSize = Vec(363, 48);
@@ -33,9 +36,9 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule)
 	// Background
 	//////////////////////////////////////////////	
 	{
-		SVGPanel *panel = new SVGPanel();
+		SvgPanel *panel = new SvgPanel();
 		panel->box.size = box.size;
-		panel->setBackground(SVG::load(assetPlugin(plugin, "res/cvOSCcv.svg")));
+		panel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/cvOSCcv.svg")));
 		addChild(panel);
 	}
 
@@ -93,10 +96,10 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule)
 	y = topScreenSize.y + 30;
 	x = 76; // 80
 	Vec btnSize = Vec(ledSize.x - 2, ledSize.y - 2);
-	btn = dynamic_cast<LEDButton*>(ParamWidget::create<LEDButton>(Vec(x, y), oscModule, oscCV::ParamIds::OSC_SHOW_CONF_PARAM, 0, 1, 0));
+	btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(x, y), oscModule, oscCV::ParamIds::OSC_SHOW_CONF_PARAM));//, 0, 1, 0));
 	btn->box.size = btnSize;
 	addParam(btn);
-	addChild(TS_createColorValueLight<ColorValueLight>(Vec(x, y), oscModule, oscCV::LightIds::OSC_CONFIGURE_LIGHT, ledSize, COLOR_WHITE));
+	addChild(TS_createColorValueLight<ColorValueLight>(Vec(x, y), oscModule, oscCV::LightIds::OSC_CONFIGURE_LIGHT, ledSize, TSColors::COLOR_WHITE));
 	addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + 2, y + 2), oscModule, oscCV::LightIds::OSC_ENABLED_LIGHT, Vec(ledSize.x - 4, ledSize.y - 4), TSOSC_STATUS_COLOR));
 
 
@@ -126,7 +129,7 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule)
 	////////////////////////////////////
 	{
 		this->oscChannelConfigScreen = new TSOscCVChannelConfigScreen(this, Vec(x, y), middleDisplay->box.size);
-		//debug("Hiding screen");
+		//DEBUG("Hiding screen");
 		oscChannelConfigScreen->setVisibility(false);
 		//oscChannelConfigScreen->box.size = middleDisplay->box.size;
 		//oscChannelConfigScreen->box.pos = Vec(x, y);
@@ -137,7 +140,7 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule)
 	// Input Ports
 	////////////////////////////////////
 	// Trigger and Value CV inputs for each channel
-	//debug("Starting ports");
+	//DEBUG("Starting ports");
 	y = yStart;
 	ledSize = Vec(5, 5);
 	float ledYOffset = 12.5;
@@ -191,8 +194,7 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule)
 			+ r*TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS
 			+ TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
 
-		//debug("Input Ch %d, paramId = %d", r, paramId);
-
+		//DEBUG("Input Ch %d, paramId = %d", r, paramId);
 		TS_ScreenBtn* btn = new TS_ScreenBtn(btnSize, oscModule, paramId, std::string( "ADV" ), /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
 		btn->box.pos = Vec(x, y + tbYOffset);
 		btn->borderColor = CHANNEL_COLORS[r];
@@ -241,7 +243,7 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule)
 		int paramId = oscCV::ParamIds::CH_PARAM_START
 			+ (numberChannels + r) * TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
 
-		//debug("Output Ch %d, paramId = %d", r, paramId);
+		//DEBUG("Output Ch %d, paramId = %d", r, paramId);
 
 		TS_ScreenBtn* btn = new TS_ScreenBtn(btnSize, oscModule, paramId, std::string("ADV"), /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
 		btn->box.pos = Vec(x, y + tbYOffset);
@@ -300,10 +302,10 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule)
 
 
 	// Screws:
-	addChild(Widget::create<ScrewBlack>(Vec(0, 0)));
-	addChild(Widget::create<ScrewBlack>(Vec(box.size.x - 15, 0)));
-	addChild(Widget::create<ScrewBlack>(Vec(0, box.size.y - 15)));
-	addChild(Widget::create<ScrewBlack>(Vec(box.size.x - 15, box.size.y - 15)));
+	addChild(createWidget<ScrewBlack>(Vec(0, 0)));
+	addChild(createWidget<ScrewBlack>(Vec(box.size.x - 15, 0)));
+	addChild(createWidget<ScrewBlack>(Vec(0, box.size.y - 15)));
+	addChild(createWidget<ScrewBlack>(Vec(box.size.x - 15, box.size.y - 15)));
 
 	if (oscModule != NULL)
 	{
@@ -325,9 +327,9 @@ void oscCVWidget::step()
 
 	oscCV* thisModule = dynamic_cast<oscCV*>(module);
 
-	if (thisModule->oscConfigTrigger.process(thisModule->params[oscCV::ParamIds::OSC_SHOW_CONF_PARAM].value))
+	if (thisModule->oscConfigTrigger.process(thisModule->params[oscCV::ParamIds::OSC_SHOW_CONF_PARAM].getValue()))
 	{
-		//debug("Button clicked");
+		//DEBUG("Button clicked");
 		thisModule->oscShowConfigurationScreen = !thisModule->oscShowConfigurationScreen;
 		thisModule->lights[oscCV::LightIds::OSC_CONFIGURE_LIGHT].value = (thisModule->oscShowConfigurationScreen) ? 1.0 : 0.0;
 		this->oscConfigurationScreen->setVisible(thisModule->oscShowConfigurationScreen);
@@ -385,8 +387,8 @@ void oscCVWidget::step()
 			// Input Channel:
 			int paramId = oscCV::ParamIds::CH_PARAM_START 
 				+ c*TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
-			if (thisModule->inputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].value)) {
-				//debug("btnClick: Input Ch %d, paramId = %d", c, paramId);
+			if (thisModule->inputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].getValue())) {
+				//DEBUG("btnClick: Input Ch %d, paramId = %d", c, paramId);
 				editChannelPtr = &(thisModule->inputChannels[c]);
 				isInput = true;
 				break;
@@ -394,8 +396,8 @@ void oscCVWidget::step()
 			paramId = oscCV::ParamIds::CH_PARAM_START
 				+ (thisModule->numberChannels + c) * TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
 			// Output Channel:
-			if (thisModule->outputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].value)) {
-				//debug("btnClick: Output Ch %d, paramId = %d", c, paramId);
+			if (thisModule->outputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].getValue())) {
+				//DEBUG("btnClick: Output Ch %d, paramId = %d", c, paramId);
 				editChannelPtr = &(thisModule->outputChannels[c]);
 				isInput = false;
 				break;
@@ -410,27 +412,27 @@ void oscCVWidget::step()
 		{
 			// Check for enable/disable data massaging
 			// Check for Save or Cancel
-			if (oscChannelConfigScreen->saveTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_SAVE_PARAM].value)) {
-				//debug("Save Clicked");
+			if (oscChannelConfigScreen->saveTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_SAVE_PARAM].getValue())) {
+				//DEBUG("Save Clicked");
 				// Validate form & save
 				if (oscChannelConfigScreen->saveValues()) {
 					oscChannelConfigScreen->setVisibility(false); // Hide
 					this->toggleChannelPathConfig(true); // Show paths again
-					//thisModule->params[oscCV::ParamIds::OSC_CH_SAVE_PARAM].value = 0.0f; // Reset
+					//thisModule->params[oscCV::ParamIds::OSC_CH_SAVE_PARAM].setValue(0.0f); // Reset
 				}
 			}
-			else if (oscChannelConfigScreen->cancelTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_CANCEL_PARAM].value)) {
+			else if (oscChannelConfigScreen->cancelTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_CANCEL_PARAM].getValue())) {
 				// Just hide and go back to paths
 				oscChannelConfigScreen->setVisibility(false); // Hide
 				this->toggleChannelPathConfig(true); // Show paths again
-				//thisModule->params[oscCV::ParamIds::OSC_CH_CANCEL_PARAM].value = 0.0f; // Reset
+				//thisModule->params[oscCV::ParamIds::OSC_CH_CANCEL_PARAM].setValue(0.0f); // Reset
 			}
 		}
 
 		//------------------------------------------
 		// Check for enable/disable OSC
 		//------------------------------------------
-		if (thisModule->oscConnectTrigger.process(thisModule->params[oscCV::ParamIds::OSC_SAVE_CONF_PARAM].value))
+		if (thisModule->oscConnectTrigger.process(thisModule->params[oscCV::ParamIds::OSC_SAVE_CONF_PARAM].getValue()))
 		{
 			if (oscConfigurationScreen->btnActionEnable)
 			{
@@ -439,7 +441,7 @@ void oscCVWidget::step()
 				if (!this->oscConfigurationScreen->isValidIpAddress())
 				{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-					debug("IP Address is not valid.");
+					DEBUG("IP Address is not valid.");
 #endif
 					this->oscConfigurationScreen->errorMsg = "Invalid IP Address.";
 					this->oscConfigurationScreen->tbIpAddress->requestFocus();
@@ -447,7 +449,7 @@ void oscCVWidget::step()
 				else if (!this->oscConfigurationScreen->isValidTxPort())
 				{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-					debug("Tx Port is not valid.");
+					DEBUG("Tx Port is not valid.");
 #endif
 					this->oscConfigurationScreen->errorMsg = "Invalid Output Port (0-" + std::to_string(0xFFFF) + ").";
 					this->oscConfigurationScreen->tbTxPort->requestFocus();
@@ -456,7 +458,7 @@ void oscCVWidget::step()
 				else if (!this->oscConfigurationScreen->isValidRxPort())
 				{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-					debug("Rx Port is not valid.");
+					DEBUG("Rx Port is not valid.");
 #endif
 					this->oscConfigurationScreen->errorMsg = "Invalid Input Port (0-" + std::to_string(0xFFFF) + ").";
 					this->oscConfigurationScreen->tbRxPort->requestFocus();
@@ -465,7 +467,7 @@ void oscCVWidget::step()
 				{
 					// Try to connect
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-					debug("Save OSC Configuration clicked, save information for module.");
+					DEBUG("Save OSC Configuration clicked, save information for module.");
 #endif
 					readChannelPathConfig();
 					this->oscConfigurationScreen->errorMsg = "";
@@ -473,7 +475,7 @@ void oscCVWidget::step()
 					thisModule->oscNewSettings.oscTxPort = this->oscConfigurationScreen->getTxPort();
 					thisModule->oscNewSettings.oscRxPort = this->oscConfigurationScreen->getRxPort();
 					//thisModule->oscCurrentClient = this->oscConfigurationScreen->getSelectedClient();
-					//debug("Setting namespace");
+					//DEBUG("Setting namespace");
 					thisModule->setOscNamespace(this->oscConfigurationScreen->tbNamespace->text);
 					thisModule->oscCurrentAction = oscCV::OSCAction::Enable;
 					thisModule->oscReconnectAtLoad = this->oscConfigurationScreen->ckAutoReconnect->checked;
@@ -483,7 +485,7 @@ void oscCVWidget::step()
 			{
 				// Disable OSC ------------------------------------------------------------------
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-				debug("Disable OSC clicked.");
+				DEBUG("Disable OSC clicked.");
 #endif
 				this->oscConfigurationScreen->errorMsg = "";
 				thisModule->oscCurrentAction = oscCV::OSCAction::Disable;
@@ -546,7 +548,7 @@ void oscCVWidget::readChannelPathConfig()
 		}
 		catch (const std::exception& e)
 		{
-			warn("Error %s.", e.what());
+			WARN("Error %s.", e.what());
 		}
 	}
 	return;
@@ -566,7 +568,7 @@ void oscCVWidget::setChannelPathConfig() {
 		}
 		catch (const std::exception& e)
 		{
-			warn("Error %s.", e.what());
+			WARN("Error %s.", e.what());
 		}
 	}
 	return;
@@ -576,18 +578,18 @@ void oscCVWidget::setChannelPathConfig() {
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // draw()
-// @vg : (IN) NVGcontext to draw on
+// @args.vg : (IN) NVGcontext to draw on
 // Draw labels on our widget.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSOscCVLabels::draw(/*in*/ NVGcontext *vg) {
+void TSOscCVLabels::draw(/*in*/ const DrawArgs &args) {
 	// Default Font:
-	nvgFontSize(vg, fontSize);
-	nvgFontFaceId(vg, font->handle);
-	nvgTextLetterSpacing(vg, 1);
+	nvgFontSize(args.vg, fontSize);
+	nvgFontFaceId(args.vg, font->handle);
+	nvgTextLetterSpacing(args.vg, 1);
 
 	NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-	nvgFillColor(vg, textColor);
-	nvgFontSize(vg, fontSize);
+	nvgFillColor(args.vg, textColor);
+	nvgFontSize(args.vg, fontSize);
 
 	int x, y, dx;// , dy;
 	int xStart, yStart;
@@ -599,8 +601,8 @@ void TSOscCVLabels::draw(/*in*/ NVGcontext *vg) {
 	//-- * Top Buttons *--//
 	x = 84;
 	y = 18;
-	nvgTextAlign(vg, NVG_ALIGN_LEFT);
-	nvgText(vg, x, y, "CONFIG", NULL);
+	nvgTextAlign(args.vg, NVG_ALIGN_LEFT);
+	nvgText(args.vg, x, y, "CONFIG", NULL);
 
 
 	//--- * Inputs *---//
@@ -608,34 +610,34 @@ void TSOscCVLabels::draw(/*in*/ NVGcontext *vg) {
 	// TRIG:
 	x = xStart + dx / 2;
 	y = yStart;
-	nvgTextAlign(vg, NVG_ALIGN_CENTER);
-	nvgText(vg, x, y, "TRG", NULL);
+	nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
+	nvgText(args.vg, x, y, "TRG", NULL);
 	// VAL:
 	x += dx;
 	y = yStart;
-	nvgTextAlign(vg, NVG_ALIGN_CENTER);
-	nvgText(vg, x, y, "VAL", NULL);
+	nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
+	nvgText(args.vg, x, y, "VAL", NULL);
 	// Bottom (INPUTS)
 	x = xStart + dx;
 	y = box.size.y - 13;
-	nvgText(vg, x, y, "INPUTS", NULL);
+	nvgText(args.vg, x, y, "INPUTS", NULL);
 
 	//--- * Outputs *---//
 	// (Right hand side)
 	// TRIG:
 	x = box.size.x - dx / 2 - dx;
 	y = yStart;
-	nvgTextAlign(vg, NVG_ALIGN_CENTER);
-	nvgText(vg, x, y, "TRG", NULL);
+	nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
+	nvgText(args.vg, x, y, "TRG", NULL);
 	// VAL:
 	x += dx;
 	y = yStart;
-	nvgTextAlign(vg, NVG_ALIGN_CENTER);
-	nvgText(vg, x, y, "VAL", NULL);
+	nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
+	nvgText(args.vg, x, y, "VAL", NULL);
 	// Bottom (INPUTS)
 	x = box.size.x - dx;
 	y = box.size.y - 13;
-	nvgText(vg, x, y, "OUTPUTS", NULL);
+	nvgText(args.vg, x, y, "OUTPUTS", NULL);
 } // end TSOscCVLabels::draw()
 
 
@@ -644,8 +646,6 @@ void TSOscCVLabels::draw(/*in*/ NVGcontext *vg) {
 // Calculate scrolling and stuff?
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSOscCVTopDisplay::step() {
-	//debug("Top Display: step(%8.6f)", dt);
-
 	bool connected = false;
 	bool isPreview = parentWidget->module == NULL;
 	std::string thisIp = std::string("NO CONNECTION ");
@@ -663,9 +663,6 @@ void TSOscCVTopDisplay::step() {
 			   thisIp = thisIp + ((thisModule->oscNamespace.at(0) == '/') ? " " : " /") + thisModule->oscNamespace + " ";				
 		}
 	}
-
-
-
 	if (thisIp.compare(lastIp) != 0)
 	{
 		sprintf(scrollingMsg, "trowaSoft - %s - cv<->OSC<->cv - ", thisIp.c_str());
@@ -673,10 +670,10 @@ void TSOscCVTopDisplay::step() {
 
 	//dt += engineGetSampleTime() / scrollTime_sec;
 	//if (dt > 1.0f)
-	dt += 100.0 / engineGetSampleRate();
+	dt += 100.0 / APP->engine->getSampleRate();
 	if (dt > scrollTime_sec) 
 	{
-		//debug("Dt has grown. Increment Ix: %d", scrollIx);
+		//DEBUG("Dt has grown. Increment Ix: %d", scrollIx);
 		dt = 0.0f;
 		if (static_cast<size_t>(scrollIx) == strlen(scrollingMsg) - 1)
 			scrollIx = 0;
@@ -691,78 +688,66 @@ void TSOscCVTopDisplay::step() {
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // draw()
-// @vg : (IN) NVGcontext to draw on
+// @args.vg : (IN) NVGcontext to draw on
 // Top display
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSOscCVTopDisplay::draw(/*in*/ NVGcontext *vg)
+void TSOscCVTopDisplay::draw(/*in*/ const DrawArgs &args)
 {
-	//bool isPreview = parentWidget->module == NULL; // May get a NULL module for preview
-
 	// Background Colors:
 	NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
 	NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
 
 	// Screen:
-	nvgBeginPath(vg);
-	nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-	nvgFillColor(vg, backgroundColor);
-	nvgFill(vg);
-	nvgStrokeWidth(vg, 1.0);
-	nvgStrokeColor(vg, borderColor);
-	nvgStroke(vg);
+	nvgBeginPath(args.vg);
+	nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+	nvgFillColor(args.vg, backgroundColor);
+	nvgFill(args.vg);
+	nvgStrokeWidth(args.vg, 1.0);
+	nvgStrokeColor(args.vg, borderColor);
+	nvgStroke(args.vg);
 
 	if (!showDisplay)
 		return;
 
 	Rect b = Rect(Vec(0, 0), Vec(box.size.x - 13, box.size.y));
-	nvgScissor(vg, b.pos.x, b.pos.y, b.size.x, b.size.y);
-
-	//oscCV* thisModule = NULL;
-	//if (!isPreview)
-	//	thisModule = dynamic_cast<oscCV*>(parentWidget->module);
+	nvgScissor(args.vg, b.pos.x, b.pos.y, b.size.x, b.size.y);
 
 	int x, y;
 
 	// Default Font:
-	nvgFontSize(vg, fontSize);
-	nvgFontFaceId(vg, font->handle);
-	nvgTextLetterSpacing(vg, 2.5);
+	nvgFontSize(args.vg, fontSize);
+	nvgFontFaceId(args.vg, font->handle);
+	nvgTextLetterSpacing(args.vg, 2.5);
 	NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-	nvgFillColor(vg, textColor);
+	nvgFillColor(args.vg, textColor);
 
 	// SCROLLING MESSAGE ====================================
 	x = 13;// -scrollIx * 0.5;
 	y = 13;
-	nvgFontSize(vg, fontSize * 1.5);	// Large font
-	//nvgFontFaceId(vg, font->handle);
-	nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+	nvgFontSize(args.vg, fontSize * 1.5);	// Large font
+	//nvgFontFaceId(args.vg, font->handle);
+	nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+	
+	if (parentWidget->module == NULL)
+		sprintf(scrollingMsg, "trowaSoft - cv<->OSC<->cv - %s", "NO CONNECTION");
 
 	// Start (left on screen) of scrolling message:
 	const char * subStr = scrollingMsg + scrollIx;
-	nvgText(vg, x, y, subStr, NULL);
+	nvgText(args.vg, x, y, subStr, NULL);
 	// Get circular wrap (right part of screen) - start of message again:
 	float txtBounds[4] = { 0,0,0,0 };
-	float nextX = nvgTextBounds(vg, x, y, subStr, NULL, txtBounds);
+	float nextX = nvgTextBounds(args.vg, x, y, subStr, NULL, txtBounds);
 	x = nextX; // +24
 	if (x < b.size.x) {
 		// Wrap the start of the string around
-		nvgText(vg, x, y, scrollingMsg, subStr);
+		nvgText(args.vg, x, y, scrollingMsg, subStr);
 	}
 	//// Measures the specified text string. Parameter bounds should be a pointer to float[4],
 	//// if the bounding box of the text should be returned. The bounds value are [xmin,ymin, xmax,ymax]
 	//// Returns the horizontal advance of the measured text (i.e. where the next character should drawn).
 	//// Measured values are returned in local coordinate space.
 	//float nvgTextBounds(NVGcontext* ctx, float x, float y, const char* string, const char* end, float* bounds);
-	nvgResetScissor(vg);
-
-	//const char* asciiArt[] = {
-	//	"♫♪.ılılıll|̲̅̅●̲̅̅|̲̅̅=̲̅̅|̲̅̅●̲̅̅|llılılı.♫♪",
-	//	"°º¤ø,¸¸,ø¤º°`°º¤ø,¸,ø¤°º¤ø,¸¸,ø¤º°`°º¤ø,¸"
-	//}
-
-
-	// Always display connected 
-
+	nvgResetScissor(args.vg);
 	return;
 } // end TSOscCVTopDisplay::draw()
 
@@ -773,7 +758,7 @@ void TSOscCVTopDisplay::draw(/*in*/ NVGcontext *vg)
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSOscCVMiddleDisplay::step() {
 	if (displayMode == DisplayMode::Default) {
-		dt += 100.0 / engineGetSampleRate();
+		dt += 100.0 / APP->engine->getSampleRate();
 		if (dt > scrollTime)
 		{
 			dt = 0.0f;
@@ -788,10 +773,10 @@ void TSOscCVMiddleDisplay::step() {
 } // end step()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // draw()
-// @vg : (IN) NVGcontext to draw on
+// @args.vg : (IN) NVGcontext to draw on
 // Middle display drawing.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSOscCVMiddleDisplay::draw(/*in*/ NVGcontext *vg) {
+void TSOscCVMiddleDisplay::draw(/*in*/ const DrawArgs &args) {
 	bool isPreview = parentWidget->module == NULL; // May get a NULL module for preview
 
 	// Background Colors:
@@ -799,151 +784,248 @@ void TSOscCVMiddleDisplay::draw(/*in*/ NVGcontext *vg) {
 	NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
 
 	// Screen:
-	nvgBeginPath(vg);
-	nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-	nvgFillColor(vg, backgroundColor);
-	nvgFill(vg);
-	nvgStrokeWidth(vg, 1.0);
-	nvgStrokeColor(vg, borderColor);
-	nvgStroke(vg);
+	nvgBeginPath(args.vg);
+	nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+	nvgFillColor(args.vg, backgroundColor);
+	nvgFill(args.vg);
+	nvgStrokeWidth(args.vg, 1.0);
+	nvgStrokeColor(args.vg, borderColor);
+	nvgStroke(args.vg);
 
 	if (!displayMode)
 		return;
+	
+	oscCV* thisModule = (isPreview) ? NULL : dynamic_cast<oscCV*>(parentWidget->module);
+	// Default Font:
+	nvgFontSize(args.vg, 9);
+	nvgFontFaceId(args.vg, font->handle);
+	nvgTextLetterSpacing(args.vg, 1);
+	NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
+	nvgFillColor(args.vg, textColor);
 
-	if (!isPreview)
-	{
-		oscCV* thisModule = dynamic_cast<oscCV*>(parentWidget->module);
-		// Default Font:
-		nvgFontSize(vg, 9);
-		nvgFontFaceId(vg, font->handle);
-		nvgTextLetterSpacing(vg, 1);
-		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-		nvgFillColor(vg, textColor);
+	int dy = 2;
+	int dx = 4;
+	int height = 28;
+	int width = box.size.x / 2.0 - 4;
+	int y = 2;
+	float txtBounds[4] = { 0,0,0,0 };
+	const int txtPadding = 4;
+	int txtWidth = width - txtPadding;
+	bool drawBoxes = false;
+	int numChannels = (isPreview) ? TROWA_OSCCV_DEFAULT_NUM_CHANNELS : thisModule->numberChannels;
+	char buffer[50];
+	for (int c = 0; c < numChannels; c++) {
+		int ix = 0;
+		float nextX;
 
-		int dy = 2;
-		int dx = 4;
-		int height = 28;
-		int width = box.size.x / 2.0 - 4;
-		int y = 2;
-		float txtBounds[4] = { 0,0,0,0 };
-		const int txtPadding = 4;
-		int txtWidth = width - txtPadding;
-		bool drawBoxes = false;
-		for (int c = 0; c < thisModule->numberChannels; c++) {
-			int ix = 0;
-			float nextX;
-
-			//---- INPUT ----
-			int x = 2;
-			drawChannelChart(vg, &(thisModule->inputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
-			if (drawBoxes) {
-				// Debug draw box:
-				nvgBeginPath(vg);
-				nvgRect(vg, x, y, width, height);
-				nvgStrokeColor(vg, oscCVWidget::CHANNEL_COLORS[c]);
-				nvgStrokeWidth(vg, 1.0);
-				nvgStroke(vg);
-			}
-
-			// Label:
-			nextX = nvgTextBounds(vg, x, y, thisModule->inputChannels[c].path.c_str(), NULL, txtBounds);
-			ix = 0;
-			if (nextX > txtWidth) {
-				ix = chPathPosition * thisModule->inputChannels[c].path.length();
-			}
-			nvgScissor(vg, x, y, txtWidth, height);
-			nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-			nvgText(vg, x, y + 1, &(thisModule->inputChannels[c].path.c_str()[ix]), NULL);
-			nvgResetScissor(vg);
-
-			//---- OUTPUT ----
-			x += dx + width;
-			drawChannelChart(vg, &(thisModule->outputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
-			if (drawBoxes) {
-				// Debug draw box:
-				nvgBeginPath(vg);
-				nvgRect(vg, x, y, width, height);
-				nvgStrokeColor(vg, oscCVWidget::CHANNEL_COLORS[thisModule->numberChannels - c - 1]);
-				nvgStrokeWidth(vg, 1.0);
-				nvgStroke(vg);
-			}
-
-			// Label:
-			nextX = nvgTextBounds(vg, x, y, thisModule->outputChannels[c].path.c_str(), NULL, txtBounds);
-			ix = thisModule->outputChannels[c].path.length();
-			if (nextX > txtWidth) {
-				ix = thisModule->outputChannels[c].path.length() - chPathPosition * thisModule->outputChannels[c].path.length();
-			}
-			nvgScissor(vg, x + txtPadding, y, txtWidth, height);
-			nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
-			nvgText(vg, x + width, y + 1, thisModule->outputChannels[c].path.c_str(), &(thisModule->outputChannels[c].path.c_str()[ix]));
-			nvgResetScissor(vg);
-
-			y += dy + height;
+		//---- INPUT ----
+		int x = 2;
+		if (drawBoxes) {
+			// Debug draw box:
+			nvgBeginPath(args.vg);
+			nvgRect(args.vg, x, y, width, height);
+			nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[c]);
+			nvgStrokeWidth(args.vg, 1.0);
+			nvgStroke(args.vg);
 		}
-	} // end if we actually have a module
+		// Label:
+		const char* lbl = NULL;
+		int len = 0;
+		if (isPreview)
+		{
+			sprintf(buffer, "/ch/%d", c + 1);
+			lbl = buffer;
+			len = strlen(lbl);
+		}
+		else
+		{
+			lbl = thisModule->inputChannels[c].path.c_str();
+			// Chart:
+			drawChannelChart(args, &(thisModule->inputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
+			len = thisModule->inputChannels[c].path.length();
+		}
+		nextX = nvgTextBounds(args.vg, x, y, lbl, NULL, txtBounds);
+		ix = 0;
+		if (nextX > txtWidth) {
+			ix = chPathPosition * len;
+		}
+		nvgScissor(args.vg, x, y, txtWidth, height);
+		nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+		nvgText(args.vg, x, y + 1, &(lbl[ix]), NULL);
+		nvgResetScissor(args.vg);
+
+		//---- OUTPUT ----
+		x += dx + width;
+		if (drawBoxes) {
+			// Debug draw box:
+			nvgBeginPath(args.vg);
+			nvgRect(args.vg, x, y, width, height);
+			nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[thisModule->numberChannels - c - 1]);
+			nvgStrokeWidth(args.vg, 1.0);
+			nvgStroke(args.vg);
+		}
+		// Label:
+		if (isPreview)
+		{
+			sprintf(buffer, "/ch/%d", c + 1);
+			lbl = buffer;
+			len = strlen(lbl);			
+		}
+		else
+		{
+			lbl = thisModule->outputChannels[c].path.c_str();
+			// Chart:
+			drawChannelChart(args, &(thisModule->outputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
+			len = thisModule->outputChannels[c].path.length();
+		}
+		nextX = nvgTextBounds(args.vg, x, y, lbl, NULL, txtBounds);
+		ix = len;
+		if (nextX > txtWidth) {
+			ix = len - chPathPosition * len;
+		}
+		nvgScissor(args.vg, x + txtPadding, y, txtWidth, height);
+		nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
+		nvgText(args.vg, x + width, y + 1, lbl, &(lbl[ix]));
+		nvgResetScissor(args.vg);
+
+		y += dy + height;
+	} // end loop
+	
+
+	// if (!isPreview)
+	// {
+		// oscCV* thisModule = dynamic_cast<oscCV*>(parentWidget->module);
+		// // Default Font:
+		// nvgFontSize(args.vg, 9);
+		// nvgFontFaceId(args.vg, font->handle);
+		// nvgTextLetterSpacing(args.vg, 1);
+		// NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
+		// nvgFillColor(args.vg, textColor);
+
+		// int dy = 2;
+		// int dx = 4;
+		// int height = 28;
+		// int width = box.size.x / 2.0 - 4;
+		// int y = 2;
+		// float txtBounds[4] = { 0,0,0,0 };
+		// const int txtPadding = 4;
+		// int txtWidth = width - txtPadding;
+		// bool drawBoxes = false;
+		// for (int c = 0; c < thisModule->numberChannels; c++) {
+			// int ix = 0;
+			// float nextX;
+
+			// //---- INPUT ----
+			// int x = 2;
+			// drawChannelChart(args.vg, &(thisModule->inputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
+			// if (drawBoxes) {
+				// // Debug draw box:
+				// nvgBeginPath(args.vg);
+				// nvgRect(args.vg, x, y, width, height);
+				// nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[c]);
+				// nvgStrokeWidth(args.vg, 1.0);
+				// nvgStroke(args.vg);
+			// }
+
+			// // Label:
+			// nextX = nvgTextBounds(args.vg, x, y, thisModule->inputChannels[c].path.c_str(), NULL, txtBounds);
+			// ix = 0;
+			// if (nextX > txtWidth) {
+				// ix = chPathPosition * thisModule->inputChannels[c].path.length();
+			// }
+			// nvgScissor(args.vg, x, y, txtWidth, height);
+			// nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+			// nvgText(args.vg, x, y + 1, &(thisModule->inputChannels[c].path.c_str()[ix]), NULL);
+			// nvgResetScissor(args.vg);
+
+			// //---- OUTPUT ----
+			// x += dx + width;
+			// drawChannelChart(args.vg, &(thisModule->outputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
+			// if (drawBoxes) {
+				// // Debug draw box:
+				// nvgBeginPath(args.vg);
+				// nvgRect(args.vg, x, y, width, height);
+				// nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[thisModule->numberChannels - c - 1]);
+				// nvgStrokeWidth(args.vg, 1.0);
+				// nvgStroke(args.vg);
+			// }
+
+			// // Label:
+			// nextX = nvgTextBounds(args.vg, x, y, thisModule->outputChannels[c].path.c_str(), NULL, txtBounds);
+			// ix = thisModule->outputChannels[c].path.length();
+			// if (nextX > txtWidth) {
+				// ix = thisModule->outputChannels[c].path.length() - chPathPosition * thisModule->outputChannels[c].path.length();
+			// }
+			// nvgScissor(args.vg, x + txtPadding, y, txtWidth, height);
+			// nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
+			// nvgText(args.vg, x + width, y + 1, thisModule->outputChannels[c].path.c_str(), &(thisModule->outputChannels[c].path.c_str()[ix]));
+			// nvgResetScissor(args.vg);
+
+			// y += dy + height;
+		// } // end loop
+	// } // end if we actually have a module
 	return;
 } // end draw()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // drawChannelChart()
 // Draw the channel data.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSOscCVMiddleDisplay::drawChannelChart(/*in*/ NVGcontext *vg, /*in*/ TSOSCCVChannel* channelData,  
+void TSOscCVMiddleDisplay::drawChannelChart(/*in*/ const DrawArgs &args, /*in*/ TSOSCCVChannel* channelData,  
 	/*in*/ int x, /*in*/ int y, /*in*/ int width, /*in*/ int height,
 	/*in*/ NVGcolor lineColor)
 {
-	nvgScissor(vg, x, y, width, height);
-	nvgBeginPath(vg);
+	nvgScissor(args.vg, x, y, width, height);
+	nvgBeginPath(args.vg);
 	float dx = static_cast<float>(width) / TROWA_OSCCV_VAL_BUFFER_SIZE;
 	//if (dx < 0.5)
 	//	dx = 0.5;
 	float px = x;
-	nvgMoveTo(vg, x, y);
+	nvgMoveTo(args.vg, x, y);
 	float startY = y + height;
 	for (int i = 0; i < TROWA_OSCCV_VAL_BUFFER_SIZE; i++)
 	{
 		float py = startY - rescale(channelData->valBuffer[i], channelData->minVoltage, channelData->maxVoltage, 0, height);
-		nvgLineTo(vg, px, py);
+		nvgLineTo(args.vg, px, py);
 		px += dx;
 	}
-	nvgStrokeColor(vg, lineColor);
-	nvgStrokeWidth(vg, 1.0);
-	nvgStroke(vg);
+	nvgStrokeColor(args.vg, lineColor);
+	nvgStrokeWidth(args.vg, 1.0);
+	nvgStroke(args.vg);
 
-	nvgResetScissor(vg);
+	nvgResetScissor(args.vg);
 	return;
 }
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // drawChannelChart()
 // Draw the channel data.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSOscCVMiddleDisplay::drawChannelBar(/*in*/ NVGcontext *vg, /*in*/ TSOSCCVChannel* channelData,
+void TSOscCVMiddleDisplay::drawChannelBar(/*in*/ const DrawArgs &args, /*in*/ TSOSCCVChannel* channelData,
 	/*in*/ int x, /*in*/ int y, /*in*/ int width, /*in*/ int height,
 	/*in*/ NVGcolor lineColor)
 {
-	nvgScissor(vg, x, y, width, height);
-	nvgBeginPath(vg);
+	nvgScissor(args.vg, x, y, width, height);
+	nvgBeginPath(args.vg);
 	float dx = static_cast<float>(width) / TROWA_OSCCV_VAL_BUFFER_SIZE;
 	float px = x;
-	nvgMoveTo(vg, x, y);
+	nvgMoveTo(args.vg, x, y);
 	for (int i = 0; i < TROWA_OSCCV_VAL_BUFFER_SIZE; i++)
 	{
 		float py = y + rescale(channelData->valBuffer[i], channelData->minVoltage, channelData->maxVoltage, 0, height);
-		nvgLineTo(vg, px, py);
+		nvgLineTo(args.vg, px, py);
 		px += dx;
 	}
-	nvgStrokeColor(vg, lineColor);
-	nvgStrokeWidth(vg, 1.0);
-	nvgStroke(vg);
+	nvgStrokeColor(args.vg, lineColor);
+	nvgStrokeWidth(args.vg, 1.0);
+	nvgStroke(args.vg);
 
-	nvgResetScissor(vg);
+	nvgResetScissor(args.vg);
 	return;
 }
 // On click
-void TSOscCVDataTypeSelectBtn::onAction(EventAction &e) {
+void TSOscCVDataTypeSelectBtn::onAction(const event::Action &e) {
 	if (visible)
 	{
-		Menu *menu = gScene->createMenu();
+		Menu *menu = createMenu();// gScene->createMenu();
 		menu->box.pos = getAbsoluteOffset(Vec(0, box.size.y)).round();
 		menu->box.size.x = box.size.x;
 		for (int i = 0; i < numVals; i++) {
@@ -956,37 +1038,37 @@ void TSOscCVDataTypeSelectBtn::onAction(EventAction &e) {
 	return;
 }
 // Draw if visible
-void TSOscCVDataTypeSelectBtn::draw(NVGcontext *vg) {
+void TSOscCVDataTypeSelectBtn::draw(const DrawArgs &args) {
 	if (visible) {
-		nvgScissor(vg, 0, 0, box.size.x, box.size.y);
+		nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);
 
 		// Background
-		nvgBeginPath(vg);
-		nvgRoundedRect(vg, 0, 0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(vg, backgroundColor);
-		nvgFill(vg);
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, 5.0);
+		nvgFillColor(args.vg, backgroundColor);
+		nvgFill(args.vg);
 
 		// Border
 		if (borderWidth > 0) {
-			nvgStrokeWidth(vg, borderWidth);
-			nvgStrokeColor(vg, borderColor);
-			nvgStroke(vg);
+			nvgStrokeWidth(args.vg, borderWidth);
+			nvgStrokeColor(args.vg, borderColor);
+			nvgStroke(args.vg);
 		}
-		nvgResetScissor(vg);
+		nvgResetScissor(args.vg);
 
 		if (font->handle >= 0) {
-			nvgScissor(vg, 0, 0, box.size.x - 5, box.size.y);
+			nvgScissor(args.vg, 0, 0, box.size.x - 5, box.size.y);
 
-			nvgFillColor(vg, color);
-			nvgFontFaceId(vg, font->handle);
-			//nvgTextLetterSpacing(vg, 0.0);
+			nvgFillColor(args.vg, color);
+			nvgFontFaceId(args.vg, font->handle);
+			//nvgTextLetterSpacing(args.vg, 0.0);
 
-			nvgFontSize(vg, fontSize);
-			nvgText(vg, textOffset.x, textOffset.y, text.c_str(), NULL);
+			nvgFontSize(args.vg, fontSize);
+			nvgText(args.vg, textOffset.x, textOffset.y, text.c_str(), NULL);
 
-			nvgResetScissor(vg);
+			nvgResetScissor(args.vg);
 
-			bndUpDownArrow(vg, box.size.x - 10, 10, 5, color);
+			bndUpDownArrow(args.vg, box.size.x - 10, 10, 5, color);
 		}
 	}
 	return;
@@ -1010,13 +1092,13 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 	box.size = boxSize;
 	parentWidget = widget;
 	Module* thisModule = (widget != NULL) ? widget->module : NULL;
-	font = Font::load(assetPlugin(plugin, TROWA_DIGITAL_FONT));
-	labelFont = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+	labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 	fontSize = 10;
 	box.pos = pos;
 	//visible = true;
 
-	//debug("Init Channel Config screen");
+	//DEBUG("Init Channel Config screen");
 	int x, y;
 	Vec tbSize = Vec(180, 20);
 	int dx = 20;
@@ -1034,7 +1116,7 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 	x = box.size.x - startX - btnSize.x;
 	btnToggleTranslateVals = new TS_ScreenCheckBox(/*size*/ btnSize, /*module*/ thisModule, /*paramId*/ oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM, /*text*/ "Convert Values", /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
 	btnToggleTranslateVals->fontSize = 9;
-	btnToggleTranslateVals->color = COLOR_TS_GRAY;
+	btnToggleTranslateVals->color = TSColors::COLOR_TS_GRAY;
 	btnToggleTranslateVals->borderWidth = 0;
 	btnToggleTranslateVals->padding = 2;
 	btnToggleTranslateVals->textAlign = TS_ScreenBtn::TextAlignment::Right;
@@ -1054,7 +1136,7 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 	//else
 	//	addChild(btnToggleTranslateVals);
 
-	//debug("Light at (%d, %d). %.2fx%.2f.", x, y, ledSize.x, ledSize.y);
+	//DEBUG("Light at (%d, %d). %.2fx%.2f.", x, y, ledSize.x, ledSize.y);
 	//lightTranslateVals = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(x+3, y), thisModule, oscCV::LightIds::OSC_CH_TRANSLATE_LIGHT, ledSize, COLOR_WHITE));
 	//if (widget != NULL)
 	//{
@@ -1066,7 +1148,7 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 	//	addChild(lightTranslateVals);
 
 
-	//debug("Starting text boxes");
+	//DEBUG("Starting text boxes");
 	// -- Min/Max Text Boxes
 	btnSize = Vec(70, 20);
 	tbSize = Vec(70, 20);
@@ -1078,7 +1160,7 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 		tbNumericBounds[i]->box.size = tbSize;
 		tbNumericBounds[i]->box.pos = Vec(x, y);
 		tbNumericBounds[i]->id = i;
-		//debug("TextBox %d at (%d, %d)", i, x, y);
+		//DEBUG("TextBox %d at (%d, %d)", i, x, y);
 
 		// Next Field
 		if (i > 0)
@@ -1105,35 +1187,38 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 	tbNumericBounds[TextBoxIx::NumTextBoxes - 1]->nextField = tbNumericBounds[0]; // Loop back around
 
 
-	//debug("Starting btn select");
+	//DEBUG("Starting btn select");
 	// Data Type
 	x = startX;
 	y += tbSize.y + dy + dy;
-	//debug("Select at (%d, %d). %.2fx%.2f.", x, y, btnSize.x, btnSize.y);
+	//DEBUG("Select at (%d, %d). %.2fx%.2f.", x, y, btnSize.x, btnSize.y);
 	btnSelectDataType = new TSOscCVDataTypeSelectBtn(numDataTypes, reinterpret_cast<int*>(oscDataTypeVals), oscDataTypeStr, static_cast<int>(selectedDataType));
 	btnSelectDataType->box.size = btnSize;
 	btnSelectDataType->box.pos = Vec(x, y);
 	btnSelectDataType->parentScreen = this;
+	btnSelectDataType->visible = false;
 	addChild(btnSelectDataType);
 
-	//debug("Save Btn");
+	//DEBUG("Save Btn");
 	// Save Button
 	y += btnSelectDataType->box.size.y + dy;
-	//debug("Save Button at (%d, %d). %.2fx%.2f.", x, y, btnSize.x, btnSize.y);
+	//DEBUG("Save Button at (%d, %d). %.2fx%.2f.", x, y, btnSize.x, btnSize.y);
 	//Vec size, Module* module, int paramId, std::string text, float minVal, float maxVal, float defVal
 	btnSave = new TS_ScreenBtn(/*size*/ btnSize, /*module*/ thisModule, /*paramId*/ oscCV::ParamIds::OSC_CH_SAVE_PARAM, /*text*/ "Save", /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
 	btnSave->box.pos = Vec(x, y);
+	btnSave->visible = false;
 	if (widget != NULL)
 		addChild(btnSave);// widget->addParam(btnSave);
 	else
 		addChild(btnSave);
 
-	//debug("Cancel Btn");
+	//DEBUG("Cancel Btn");
 	// Cancel button
 	x += btnSize.x + dx;
-	//debug("Cancel Button at (%d, %d). %.2fx%.2f.", x, y, btnSize.x, btnSize.y);
+	//DEBUG("Cancel Button at (%d, %d). %.2fx%.2f.", x, y, btnSize.x, btnSize.y);
 	btnCancel = new TS_ScreenBtn(/*size*/ btnSize, /*module*/ thisModule, /*paramId*/ oscCV::ParamIds::OSC_CH_CANCEL_PARAM, /*text*/ "Cancel", /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
 	btnCancel->box.pos = Vec(x, y);
+	btnCancel->visible = false;
 	if (widget != NULL)
 		addChild(btnCancel);// widget->addParam(btnCancel);
 	else
@@ -1141,19 +1226,19 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 	return;
 } // end TSOscCVChannelConfigScreen()
 
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-  // draw()
-  // @vg : (IN) NVGcontext to draw on
-  //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSOscCVChannelConfigScreen::draw(/*in*/ NVGcontext *vg)
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// draw()
+// @args.vg : (IN) NVGcontext to draw on
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+void TSOscCVChannelConfigScreen::draw(/*in*/ const DrawArgs &args)
 {
 	if (this->visible) {
 		// Default Font:
-		nvgFontSize(vg, fontSize);
-		nvgFontFaceId(vg, font->handle);
-		nvgTextLetterSpacing(vg, 1);
+		nvgFontSize(args.vg, fontSize);
+		nvgFontFaceId(args.vg, font->handle);
+		nvgTextLetterSpacing(args.vg, 1);
 		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-		NVGcolor errorColor = COLOR_TS_RED;
+		NVGcolor errorColor = TSColors::COLOR_TS_RED;
 
 		// Draw labels
 		int x, y;
@@ -1172,48 +1257,48 @@ void TSOscCVChannelConfigScreen::draw(/*in*/ NVGcontext *vg)
 		sprintf(buffer, "CH %d %sPUT", this->currentChannelPtr->channelNum, (isInput) ? "IN" : "OUT");
 		float txtBounds[4] = { 0,0,0,0 };
 		const float padding = 2.0f;
-		nvgFontSize(vg, fontSize*1.1);
-		nvgFontFaceId(vg, font->handle);
-		nvgTextBounds(vg, x, y, buffer, NULL, txtBounds); //float txtWidth = 
-		nvgBeginPath(vg);
-		nvgRect(vg, txtBounds[0], y, txtBounds[2] - txtBounds[0] + padding*2, txtBounds[3] - txtBounds[1] + padding*2);
-		nvgFillColor(vg, channelColor);
-		nvgFill(vg);
-		nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-		nvgFillColor(vg, COLOR_BLACK);
-		nvgText(vg, x + padding, y + padding, buffer, NULL);
+		nvgFontSize(args.vg, fontSize*1.1);
+		nvgFontFaceId(args.vg, font->handle);
+		nvgTextBounds(args.vg, x, y, buffer, NULL, txtBounds); //float txtWidth = 
+		nvgBeginPath(args.vg);
+		nvgRect(args.vg, txtBounds[0], y, txtBounds[2] - txtBounds[0] + padding*2, txtBounds[3] - txtBounds[1] + padding*2);
+		nvgFillColor(args.vg, channelColor);
+		nvgFill(args.vg);
+		nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+		nvgFillColor(args.vg, TSColors::COLOR_BLACK);
+		nvgText(args.vg, x + padding, y + padding, buffer, NULL);
 
 
-		nvgFillColor(vg, textColor);
+		nvgFillColor(args.vg, textColor);
 		// -- Min/Max Text Boxes
 		x = startX;
 		y = startY + 15 + dy;
 		//	y = startY + ledSize.y + dy + fontSize*2; // 13 + 15 + 20 + fontSize
-		nvgFontSize(vg, fontSize*0.9);
+		nvgFontSize(args.vg, fontSize*0.9);
 		sprintf(buffer, "Control Voltage (%s)", (isInput) ? "IN" : "OUT");
-		nvgText(vg, x, y, buffer, NULL);
+		nvgText(args.vg, x, y, buffer, NULL);
 		y += fontSize + 1;
 		const char* labels[] = { "Min", "Max", "Min", "Max" };
 		for (int i = 0; i < TextBoxIx::NumTextBoxes; i++) {
 			if (i == 2) {
-				nvgFontSize(vg, fontSize*0.9);
-				nvgFontFaceId(vg, font->handle);
+				nvgFontSize(args.vg, fontSize*0.9);
+				nvgFontFaceId(args.vg, font->handle);
 
 				sprintf(buffer, "OSC Value (%s)", (isInput) ? "OUT" : "IN");
-				nvgText(vg, x, y, buffer, NULL);
+				nvgText(args.vg, x, y, buffer, NULL);
 				y += fontSize + 1;
 			}
 
-			nvgFontSize(vg, fontSize);
-			nvgFontFaceId(vg, labelFont->handle);
-			nvgText(vg, x, y, labels[i], NULL);
+			nvgFontSize(args.vg, fontSize);
+			nvgFontFaceId(args.vg, labelFont->handle);
+			nvgText(args.vg, x, y, labels[i], NULL);
 
 			// Errors if any
 			if (tbErrors[i].length() > 0) {
-				nvgFontFaceId(vg, labelFont->handle);
-				nvgFillColor(vg, errorColor);
-				nvgText(vg, x, y + errorDy, tbErrors[i].c_str(), NULL);
-				nvgFillColor(vg, textColor);
+				nvgFontFaceId(args.vg, labelFont->handle);
+				nvgFillColor(args.vg, errorColor);
+				nvgText(args.vg, x, y + errorDy, tbErrors[i].c_str(), NULL);
+				nvgFillColor(args.vg, textColor);
 			}
 
 			// Position:
@@ -1229,11 +1314,11 @@ void TSOscCVChannelConfigScreen::draw(/*in*/ NVGcontext *vg)
 		} // end for
 
 		// Data Type
-		nvgFontSize(vg, fontSize);
-		nvgFontFaceId(vg, labelFont->handle);
-		nvgText(vg, x, y, "Data Type", NULL);
+		nvgFontSize(args.vg, fontSize);
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgText(args.vg, x, y, "Data Type", NULL);
 
-		OpaqueWidget::draw(vg); // Parent
+		this->OpaqueWidget::draw(args); // Parent
 	}
 	return;
 } // end draw()
@@ -1252,12 +1337,12 @@ void TSOscCVChannelConfigScreen::showControl(TSOSCCVChannel* channel, bool isInp
 	translateValsEnabled = currentChannelPtr->convertVals;
 	if (currentChannelPtr->convertVals)
 	{		
-		this->btnToggleTranslateVals->value = 1.0f;
+		this->btnToggleTranslateVals->setValue(1.0f);
 		//parentWidget->module->lights[oscCV::LightIds::OSC_CH_TRANSLATE_LIGHT].value = 1.0f;
 	}
 	else
 	{
-		this->btnToggleTranslateVals->value = 0.0f;
+		this->btnToggleTranslateVals->setValue(0.0f);
 		//parentWidget->module->lights[oscCV::LightIds::OSC_CH_TRANSLATE_LIGHT].value = 0.0f;
 	}
 	btnToggleTranslateVals->checked = translateValsEnabled;
@@ -1331,8 +1416,8 @@ void TSOscCVChannelConfigScreen::step()
 
 		if (thisModule) {
 			// Check for enable/disable data massaging
-			if (translateTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM].value)) {
-				//debug("Translate button clicked");
+			if (translateTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM].getValue())) {
+				//DEBUG("Translate button clicked");
 				translateValsEnabled = !translateValsEnabled;
 			}
 		}
@@ -1349,7 +1434,7 @@ void TSOscCVChannelConfigScreen::step()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 bool TSOscCVChannelConfigScreen::validateValues()
 {
-	//debug("TSOscCVChannelConfigScreen::validateValues()");
+	//DEBUG("TSOscCVChannelConfigScreen::validateValues()");
 	bool isValid = true;
 	for (int i = 0; i < TextBoxIx::NumTextBoxes; i++)
 	{
@@ -1379,7 +1464,7 @@ bool TSOscCVChannelConfigScreen::validateValues()
 		}
 		catch (const std::exception& e)
 		{
-			warn("Error %s.", e.what());
+			WARN("Error %s.", e.what());
 		}
 	} // end if valid values
 	return isValid;
@@ -1408,7 +1493,7 @@ bool TSOscCVChannelConfigScreen::saveValues(/*out*/ TSOSCCVChannel* channelPtr)
 		}
 		catch (const std::exception& e)
 		{
-			warn("Error %s.", e.what());
+			WARN("Error %s.", e.what());
 		}
 	}
 	return saved;

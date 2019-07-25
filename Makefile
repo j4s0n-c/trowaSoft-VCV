@@ -1,13 +1,9 @@
 SHELL:=/bin/bash -O extglob
 
-# 03/03/2018 Changed to match https://github.com/VCVRack/Fundamental/blob/master/Makefile
-
-SLUG = trowaSoft
-VERSION = 0.6.5
-# ^ Don't allow any SPACE after the VERSION because it will F'UP the zip...
-# ONLY 3 digits allowed now. https://github.com/VCVRack/community/issues/269
-
+#1.3 Remove SLUG and VERSION from the Makefile, and remove p->slug = ... and p->version = ... from your plugin’s main .cpp file, since they are now defined in plugin.json.
 RACK_DIR ?= ../..
+
+#FLAGS += -w
 
 # Add .cpp and .c files to the build
 SOURCES = \
@@ -34,7 +30,3 @@ DISTRIBUTABLES += $(wildcard LICENSE*) res \
 # ^ add our other folders (supplementary files)
 
 include $(RACK_DIR)/plugin.mk
-
-
-
-

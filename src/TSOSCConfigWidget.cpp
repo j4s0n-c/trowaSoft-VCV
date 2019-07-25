@@ -1,4 +1,4 @@
-#include "rack.hpp"
+#include <rack.hpp>
 using namespace rack;
 #include "asset.hpp"
 #include "componentlibrary.hpp"
@@ -15,13 +15,13 @@ using namespace rack;
 /// TODO: DISABLE WHEN NOT VISIBLE
 
 
-void TSOSCClientItem::onAction(EventAction &e) {
+void TSOSCClientItem::onAction(const event::Action &e) {
 	parentButton->selectedOSCClient = this->oscClient;
 	return;
 }
 
 TSOSCClientSelectBtn::TSOSCClientSelectBtn() {
-	font = Font::load(assetPlugin(plugin, TROWA_MONOSPACE_FONT));
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
 	fontSize = 14.0f;
 	backgroundColor = FORMS_DEFAULT_BG_COLOR;
 	color = FORMS_DEFAULT_TEXT_COLOR;
@@ -32,10 +32,10 @@ TSOSCClientSelectBtn::TSOSCClientSelectBtn() {
 }
 
 // On button click, create drop down menu.
-void TSOSCClientSelectBtn::onAction(EventAction &e) {
+void TSOSCClientSelectBtn::onAction(const event::Action &e) {
 	if (visible)
 	{
-		Menu *menu = gScene->createMenu();
+		Menu *menu = createMenu();// gScene->createMenu();
 		menu->box.pos = getAbsoluteOffset(Vec(0, box.size.y)).round();
 		menu->box.size.x = box.size.x;
 		for (unsigned int i = 0; i < OSCClient::NUM_OSC_CLIENTS; i++) {
@@ -49,45 +49,43 @@ void TSOSCClientSelectBtn::onAction(EventAction &e) {
 }
 
 void TSOSCClientSelectBtn::step() {
-	text = stringEllipsize(OSCClientStr[selectedOSCClient], 15);
+	text = string::ellipsize(OSCClientStr[selectedOSCClient], 15);
 }
 
-void TSOSCClientSelectBtn::draw(NVGcontext *vg) {
+void TSOSCClientSelectBtn::draw(const DrawArgs &args) {
 	if (visible)
 	{
-		nvgScissor(vg, 0, 0, box.size.x, box.size.y);
+		nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);
 
 		// Background
-		nvgBeginPath(vg);
-		nvgRoundedRect(vg, 0, 0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(vg, backgroundColor);
-		nvgFill(vg);
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, 5.0);
+		nvgFillColor(args.vg, backgroundColor);
+		nvgFill(args.vg);
 
 		// Border
 		if (borderWidth > 0) {
-			nvgStrokeWidth(vg, borderWidth);
-			nvgStrokeColor(vg, borderColor);
-			nvgStroke(vg);
+			nvgStrokeWidth(args.vg, borderWidth);
+			nvgStrokeColor(args.vg, borderColor);
+			nvgStroke(args.vg);
 		}
-		nvgResetScissor(vg);
+		nvgResetScissor(args.vg);
 
 		if (font->handle >= 0) {
-			nvgScissor(vg, 0, 0, box.size.x - 5, box.size.y);
+			nvgScissor(args.vg, 0, 0, box.size.x - 5, box.size.y);
 
-			nvgFillColor(vg, color);
-			nvgFontFaceId(vg, font->handle);
-			nvgTextLetterSpacing(vg, 0.0);
+			nvgFillColor(args.vg, color);
+			nvgFontFaceId(args.vg, font->handle);
+			nvgTextLetterSpacing(args.vg, 0.0);
 
-			nvgFontSize(vg, fontSize);
-			nvgText(vg, textOffset.x, textOffset.y, text.c_str(), NULL);
+			nvgFontSize(args.vg, fontSize);
+			nvgText(args.vg, textOffset.x, textOffset.y, text.c_str(), NULL);
 
-			nvgResetScissor(vg);
+			nvgResetScissor(args.vg);
 
-			bndUpDownArrow(vg, box.size.x - 10,  10, 5, color);
+			bndUpDownArrow(args.vg, box.size.x - 10,  10, 5, color);
 		}
-
-
-		//ChoiceButton::draw(vg);
+		//ChoiceButton::draw(args.vg);
 	}
 	return;
 }
@@ -101,8 +99,9 @@ TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReco
 TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReconnectId, std::string ipAddress, uint16_t txPort, uint16_t rxPort, 
 	bool showClient, OSCClient selectedClient, bool showNamespace, std::string oscNamespace)
 {
+	
 	this->module = mod;
-	font = Font::load(assetPlugin(plugin, TROWA_LABEL_FONT));
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 
 	this->showClientSelect = showClient;
 	this->showNamespace = showNamespace;
@@ -178,15 +177,15 @@ TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReco
 
 	// Button Enable/Disable
 	Vec btnSize = Vec(36, height);
-	this->btnSave = new TS_PadBtn();
-	this->btnSave->module = module;
-	this->btnSave->paramId = btnSaveId;
+	this->btnSave = dynamic_cast<TS_PadBtn*>( createParam<TS_PadBtn>(Vec(x, y), module, btnSaveId) );
+	// this->btnSave->module = module;
+	// this->btnSave->paramId = btnSaveId;
 	this->btnSave->box.size = btnSize;
-	this->btnSave->box.pos = Vec(x, y);
+	//this->btnSave->box.pos = Vec(x, y);
 	addChild(btnSave);
 
 	// Checkbox for Auto-reconnect:
-	this->ckAutoReconnect = new TS_ScreenCheckBox(Vec(50, 12), module, btnAutoReconnectId, "Auto Con", 0.f, 1.f, 0.f);
+	this->ckAutoReconnect = new TS_ScreenCheckBox(Vec(50, 12), module, btnAutoReconnectId, "Auto Con");//, 0.f, 1.f, 0.f);
 	this->ckAutoReconnect->box.pos = Vec(x + 4, y - 13);
 	this->ckAutoReconnect->checkBoxWidth = 10;
 	this->ckAutoReconnect->checkBoxHeight = 10;
@@ -195,7 +194,7 @@ TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReco
 	this->ckAutoReconnect->padding = 1;
 	this->ckAutoReconnect->color = textColor;
 	addChild(ckAutoReconnect);
-
+		
 	numTextFields = i;
 	for (i = 0; i < numTextFields; i++)
 	{
@@ -215,7 +214,7 @@ TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReco
 
 void TSOSCConfigWidget::step() {
 	// Check for enable/disable data massaging
-	if (autoReconnectTrigger.process(module->params[ckAutoReconnect->paramId].value)) {
+	if (autoReconnectTrigger.process(module->params[ckAutoReconnect->paramQuantity->paramId].getValue())) {
 		ckAutoReconnect->checked = !ckAutoReconnect->checked;
 	}
 	Widget::step();
@@ -241,89 +240,90 @@ void TSOSCConfigWidget::onShiftTabField(int id)
 	return;
 }
 
-void TSOSCConfigWidget::draw(NVGcontext *vg) {
-	if (!visible)
+void TSOSCConfigWidget::draw(const DrawArgs &args) {
+	if (!this->visible)
 	{
-
 		return;
 	}
-	nvgFontSize(vg, fontSize);
-	nvgFontFaceId(vg, font->handle);
+	
+	nvgFontSize(args.vg, fontSize);
+	nvgFontFaceId(args.vg, font->handle);
 
 	// Screen:
-	nvgBeginPath(vg);
-	nvgRoundedRect(vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-	nvgFillColor(vg, backgroundColor);
-	nvgFill(vg);
-	nvgStrokeWidth(vg, 1.0);
-	nvgStrokeColor(vg, borderColor);
-	nvgStroke(vg);
+	nvgBeginPath(args.vg);
+	nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+	nvgFillColor(args.vg, backgroundColor);
+	nvgFill(args.vg);
+	nvgStrokeWidth(args.vg, 1.0);
+	nvgStrokeColor(args.vg, borderColor);
+	nvgStroke(args.vg);
 
 	// Draw labels
-	nvgFillColor(vg, textColor);
-	nvgFontSize(vg, fontSize);
-	nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_BOTTOM);
+	nvgFillColor(args.vg, textColor);
+	nvgFontSize(args.vg, fontSize);
+	nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_BOTTOM);
 	float y = START_Y - 1;
 	float x;
 	const char* labels[] = { "OSC IP Address", "Out Port", "In Port" };
 	for (int i = 0; i < TSOSC_NUM_TXTFIELDS; i++)
 	{
 		x = textBoxes[i]->box.pos.x + 2;
-		nvgText(vg, x, y, labels[i], NULL);
+		nvgText(args.vg, x, y, labels[i], NULL);
 	}
 	if (xNamespace > -1)
 	{
-		nvgText(vg, xNamespace + 1, y, "Namespace", NULL);
+		nvgText(args.vg, xNamespace + 1, y, "Namespace", NULL);
 	}
 
 	// Current status:
 	x = box.size.x - 8;
-	nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_BOTTOM);
-	nvgFillColor(vg, statusColor);
-	nvgText(vg, x, y, statusMsg.c_str(), NULL);
+	nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_BOTTOM);
+	nvgFillColor(args.vg, statusColor);
+	nvgText(args.vg, x, y, statusMsg.c_str(), NULL);
 	// Status 2
 	y += textBoxes[0]->box.size.y + 2;
 	if (!statusMsg2.empty())
 	{
-		nvgTextAlign(vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
-		nvgText(vg, x, y, statusMsg2.c_str(), NULL);
+		nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
+		nvgText(args.vg, x, y, statusMsg2.c_str(), NULL);
 	}
 
 	// Draw Messages:
 	x = textBoxes[0]->box.pos.x + 2;
-	nvgTextAlign(vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+	nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 	if (!errorMsg.empty())
 	{
-		nvgFillColor(vg, errorColor);		
-		nvgText(vg, x, y, errorMsg.c_str(), NULL);
+		nvgFillColor(args.vg, errorColor);		
+		nvgText(args.vg, x, y, errorMsg.c_str(), NULL);
 	}
 	else if (!successMsg.empty())
 	{
-		nvgFillColor(vg, successColor);
-		nvgText(vg, x, y, successMsg.c_str(), NULL);
+		nvgFillColor(args.vg, successColor);
+		nvgText(args.vg, x, y, successMsg.c_str(), NULL);
 	}
 	else
 	{
-		nvgFillColor(vg, textColor);
-		nvgText(vg, x, y, "Open Sound Control Configuration", NULL);
+		nvgFillColor(args.vg, textColor);
+		nvgText(args.vg, x, y, "Open Sound Control Configuration", NULL);
 	}
 
-	OpaqueWidget::draw(vg);
-
+	// Draw children:
+	this->OpaqueWidget::draw(args);	
+	
 	// Quick and dirty -- Draw labels on buttons:
-	nvgTextAlign(vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+	nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 	y = btnSave->box.pos.y + btnSave->box.size.y / 2.0 + 1;
 	// Save:
 	x = btnSave->box.pos.x + btnSave->box.size.x / 2.0 + 7;
 	if (btnActionEnable)
 	{
-		nvgFillColor(vg, COLOR_TS_GREEN);
-		nvgText(vg, x, y, "ENABLE", NULL);
+		nvgFillColor(args.vg, TSColors::COLOR_TS_GREEN);
+		nvgText(args.vg, x, y, "ENABLE", NULL);
 	}
 	else
 	{
-		nvgFillColor(vg, COLOR_TS_ORANGE);
-		nvgText(vg, x, y, "DISABLE", NULL);
+		nvgFillColor(args.vg, TSColors::COLOR_TS_ORANGE);
+		nvgText(args.vg, x, y, "DISABLE", NULL);
 	}
 	return;
 }

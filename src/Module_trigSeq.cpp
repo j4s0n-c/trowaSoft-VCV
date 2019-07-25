@@ -1,8 +1,9 @@
 #include <string.h>
 #include <stdio.h>
+#include <exception>
 #include "TSSequencerModuleBase.hpp"
 #include "trowaSoft.hpp"
-#include "dsp/digital.hpp"
+//#include "dsp/digital.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
 #include "Module_trigSeq.hpp"
@@ -11,19 +12,19 @@
 #include "TSSequencerWidgetBase.hpp"
 
 
-Model* modelTrigSeq = Model::create<trigSeq, trigSeqWidget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "trigSeq", /*name*/ "trigSeq", /*Tags*/ SEQUENCER_TAG, EXTERNAL_TAG);
-Model* modelTrigSeq64 = Model::create<trigSeq64, trigSeq64Widget>(/*manufacturer*/ TROWA_PLUGIN_NAME, /*slug*/ "trigSeq64", /*name*/ "trigSeq64", /*Tags*/ SEQUENCER_TAG, EXTERNAL_TAG);
+Model* modelTrigSeq = createModel<trigSeq, trigSeqWidget>(/*slug*/ "trigSeq");
+Model* modelTrigSeq64 = createModel<trigSeq64, trigSeq64Widget>(/*slug*/ "trigSeq64");
 
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // trigSeq::randomize()
 // Only randomize the current gate/trigger steps.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void trigSeq::randomize()
+void trigSeq::onRandomize()
 {
 	for (int s = 0; s < maxSteps; s++) 
 	{
-		triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = (randomUniform() > 0.5);		
+		triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = (random::uniform() > 0.5);		
 	}
 	reloadEditMatrix = true;
 	return;
@@ -58,12 +59,13 @@ float trigSeq::getPlayingStepValue(int step, int pattern)
 
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// trigSeq::step()
+// process()
+// [Previously step(void)]
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void trigSeq::step() {
+void trigSeq::process(const ProcessArgs &args) 
+{
 	if (!initialized)
-		return;
-
+		return;	
 	bool gOn = true;
 	bool pulse = false;
 	bool reloadMatrix = false;
@@ -72,10 +74,14 @@ void trigSeq::step() {
 	int r = 0;
 	int c = 0;
 
+	try 
+	{
+		
+		
 	//------------------------------------------------------------
 	// Get our common sequencer inputs
 	//------------------------------------------------------------
-	TSSequencerModuleBase::getStepInputs(&pulse, &reloadMatrix, &valueModeChanged);
+	TSSequencerModuleBase::getStepInputs(args, &pulse, &reloadMatrix, &valueModeChanged);
 	if (valueModeChanged)
 	{
 		// Gate Mode has changed
@@ -86,7 +92,7 @@ void trigSeq::step() {
 
 	// Only send OSC if it is enabled, initialized, and we are in EDIT mode.
 	sendOSC = useOSC && oscInitialized; //&& currentCtlMode == ExternalControllerMode::EditMode
-	char addrBuff[50] = { 0 };
+	char addrBuff[TROWA_SEQ_BUFF_SIZE] = { 0 };
 	//-- * Load the trigger we are editing into our button matrix for display:
 	// This is what we are showing not what we playing
 	int gridRow, gridCol; // for touchOSC grids
@@ -99,7 +105,7 @@ void trigSeq::step() {
 		{
 			
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			debug("Sending reload matrix: %s.", oscAddrBuffer[SeqOSCOutputMsg::EditStep]);
+			DEBUG("Sending reload matrix: %s.", oscAddrBuffer[SeqOSCOutputMsg::EditStep]);
 #endif
 			oscStream << osc::BeginBundleImmediate;
 		}
@@ -114,12 +120,14 @@ void trigSeq::step() {
 			if (triggerState[currentPatternEditingIx][currentChannelEditingIx][s])
 			{
 				gateLights[r][c] = 1.0f - stepLights[r][c];
-				gateTriggers[s].state = SchmittTrigger::HIGH;				
+				gateTriggers[s].state = TriggerSignal::HIGH;
+				paramQuantities[ParamIds::CHANNEL_PARAM + s]->setValue(1.0f);// Not momentary anymore
 			} 
 			else
 			{
 				gateLights[r][c] = 0.0f; // Turn light off	
-				gateTriggers[s].state = SchmittTrigger::LOW;
+				gateTriggers[s].state = TriggerSignal::LOW;
+				paramQuantities[ParamIds::CHANNEL_PARAM + s]->setValue(0.0f);// Not momentary anymore
 			}
 			oscMutex.lock();
 			if (sendOSC && oscInitialized)
@@ -193,14 +201,16 @@ void trigSeq::step() {
 		for (int s = 0; s < maxSteps; s++) 
 		{
 			bool sendLightVal = false;
-			if (gateTriggers[s].process(params[ParamIds::CHANNEL_PARAM + s].value)) 
+			//if (gateTriggers[s].process(params[ParamIds::CHANNEL_PARAM + s].getValue())) 
+			// Now normal switches:
+			if (triggerState[currentPatternEditingIx][currentChannelEditingIx][s] != (params[ParamIds::CHANNEL_PARAM + s].getValue() > 0))
 			{
 				triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = !triggerState[currentPatternEditingIx][currentChannelEditingIx][s];
 				sendLightVal = sendOSC; // Value has changed.
 			}
 			r = s / this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
 			c = s % this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
-			stepLights[r][c] -= stepLights[r][c] / lightLambda / engineGetSampleRate();
+			stepLights[r][c] -= stepLights[r][c] / lightLambda / args.sampleRate;
 			
 			gateLights[r][c] = (triggerState[currentPatternEditingIx][currentChannelEditingIx][s]) ? 1.0 - stepLights[r][c] : stepLights[r][c];
 			lights[PAD_LIGHTS + s].value = gateLights[r][c];
@@ -220,7 +230,7 @@ void trigSeq::step() {
 					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s + 1); // Changed to /<step> to accomodate touchOSC's lack of multi-parameter support.
 				}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-				debug("Step changed %d (new val is %.2f), sending OSC %s", s, triggerState[currentPatternEditingIx][currentChannelEditingIx][s], addrBuff);
+				DEBUG("Step changed %d (new val is %.2f), sending OSC %s", s, triggerState[currentPatternEditingIx][currentChannelEditingIx][s], addrBuff);
 #endif
 				oscStream << osc::BeginMessage(addrBuff)
 					<< triggerState[currentPatternEditingIx][currentChannelEditingIx][s]
@@ -253,7 +263,14 @@ void trigSeq::step() {
 	}	
 	// Now we have to keep track of this for OSC...
 	prevIndex = index;
-	return;
+	
+	
+	}
+	catch (std::exception& e)
+	{
+		WARN("Error: %s", e.what());
+	}
+  return;
 } // end step()
 
 
@@ -265,28 +282,30 @@ void trigSeq::step() {
 trigSeqWidget::trigSeqWidget(trigSeq* seqModule) : TSSequencerWidgetBase(seqModule)
 {
 	// [02/24/2018] Adjusted for 0.60 differences. Main issue is possiblity of NULL module...
-	bool isPreview = seqModule == NULL; // If this is null, then this isn't a real module instance but a 'Preview'?
-	//trigSeq *module = new trigSeq();
-	//setModule(module);
+	bool isPreview = this->module == NULL; // If this is null, then this isn't a real module instance but a 'Preview'?	
+	if (!isPreview && seqModule == NULL)
+	{
+		seqModule = dynamic_cast<trigSeq*>(this->module);
+	}
 	
 	//////////////////////////////////////////////
 	// Background
 	//////////////////////////////////////////////	
 	{
-		SVGPanel *panel = new SVGPanel();
+		SvgPanel *panel = new SvgPanel();
 		panel->box.size = box.size;
-		panel->setBackground(SVG::load(assetPlugin(plugin, "res/trigSeq.svg")));
+		panel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/trigSeq.svg")));
 		addChild(panel);
 	}
 	
-	TSSequencerWidgetBase::addBaseControls(false);
+	this->TSSequencerWidgetBase::addBaseControls(false);
 	
 	// (User) Input Pads ==================================================	
 	int y = 115;
 	int x = 79;
 	int dx = 3;
 	Vec lSize = Vec(50 - 2*dx, 50 - 2*dx);
-	NVGcolor lightColor = COLOR_TS_RED; 
+	NVGcolor lightColor = TSColors::COLOR_TS_RED; 
 	int numCols = TROWA_SEQ_STEP_NUM_COLS;
 	int numRows = TROWA_SEQ_STEP_NUM_ROWS;
 	int groupId = 0;
@@ -303,7 +322,7 @@ trigSeqWidget::trigSeqWidget(trigSeq* seqModule) : TSSequencerWidgetBase(seqModu
 		for (int c = 0; c < numCols; c++)
 		{			
 			// Pad buttons:
-			TS_PadSquare* padBtn = dynamic_cast<TS_PadSquare*>(ParamWidget::create<TS_PadSquare>(Vec(x, y), seqModule, TSSequencerModuleBase::CHANNEL_PARAM + id, 0.0, 1.0, 0.0));
+			TS_PadSquare* padBtn = dynamic_cast<TS_PadSquare*>(createParam<TS_PadSquare>(Vec(x, y), seqModule, TSSequencerModuleBase::CHANNEL_PARAM + id));//, 0.0, 1.0, 0.0));
 			padBtn->groupId = groupId;
 			padBtn->btnId = id;
 			addParam(padBtn);
