@@ -7,6 +7,7 @@
 #include "Module_voltSeq.hpp"
 #include "Module_oscCV.hpp"
 #include "Module_multiOscillator.hpp"
+#include "TSBlank.hpp"
 
 // The pluginInstance-wide instance of the Plugin class
 Plugin *pluginInstance;
@@ -26,6 +27,9 @@ void init(rack::Plugin *p) {
 
 	// Oscillator
 	p->addModel(modelMultiOscillator);
+	
+	// Blank
+	p->addModel(modelBlank);
 
 	// Any other pluginInstance initialization may go here.
 	// As an alternative, consider lazy-loading assets and lookup tables within this file or the individual module files to reduce startup times of Rack.	

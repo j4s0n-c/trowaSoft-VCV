@@ -43,6 +43,7 @@ static const NVGcolor COLOR_TS_ORANGE = nvgRGB(0xFF, 0xA5, 0x00);
 static const NVGcolor COLOR_TS_RED = nvgRGB(0xFF, 0x00, 0x00);
 static const NVGcolor COLOR_TS_TEXT = nvgRGB(0xee, 0xee, 0xee);
 static const NVGcolor COLOR_TS_BORDER = nvgRGB(0x66, 0x66, 0x66);
+static const NVGcolor COLOR_TS_BACKGROUND = nvgRGB(0x64, 0x64, 0x64);
 
 
 

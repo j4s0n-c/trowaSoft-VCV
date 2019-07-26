@@ -62,6 +62,14 @@
       "tags": [
         "External"
       ]
+    },
+    {
+      "slug": "tsBlank",
+      "name": "tsBlank",
+      "description": "Simple trowaSoft blank panel (variable width).",
+      "tags": [
+        "Blank"
+      ]
     }	
   ]
 }

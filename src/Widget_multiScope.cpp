@@ -398,6 +398,11 @@ void multiScopeWidget::step() {
 	
 	if (scopeModule->initialized)
 	{
+		if (!sizeLoaded)
+		{
+			box.size.x = scopeModule->widgetWidth;
+			sizeLoaded = true;
+		}
 		// Display toggle
 		if (scopeModule->infoDisplayOnTrigger.process(scopeModule->params[multiScope::INFO_DISPLAY_TOGGLE_PARAM].getValue())) {
 			scopeModule->widgetShowDisplay = !scopeModule->widgetShowDisplay;

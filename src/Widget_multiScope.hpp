@@ -149,6 +149,7 @@ struct multiScopeWidget : TSSModuleWidgetBase {
 	// Keep references to our scale knobs [0: x, 1: y]
 	TS_TinyBlackKnob* scaleKnobs[TROWA_SCOPE_NUM_WAVEFORMS][2];
 	ColorValueLight* fillColorLEDs[TROWA_SCOPE_NUM_WAVEFORMS];
+	bool sizeLoaded = false;
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// multiScopeWidget()
