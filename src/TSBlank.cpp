@@ -217,7 +217,7 @@ struct TSBlankWidget : ModuleWidget {
 	}
 	
 	void step() override {
-		if (!loaded && dynamic_cast<TSBlankModule*>(module)->panelWidth != box.size.x)
+		if (module && !loaded && dynamic_cast<TSBlankModule*>(module)->panelWidth != box.size.x)
 		{
 			box.size.x = dynamic_cast<TSBlankModule*>(module)->panelWidth;
 			loaded = true;
