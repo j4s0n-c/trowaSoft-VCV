@@ -4,7 +4,7 @@ using namespace rack;
 #include "TSColors.hpp"
 #include "trowaSoftComponents.hpp"
 
-#define BLANK_MIN_WIDTH 			(3 * RACK_GRID_WIDTH)
+#define BLANK_MIN_WIDTH 			(1 * RACK_GRID_WIDTH)
 #define	BLANK_TWO_SCREW_WIDTH		(4 * RACK_GRID_WIDTH)
 #define BUFFER_SIZE					512
 
@@ -234,6 +234,11 @@ struct TSBlankWidget : ModuleWidget {
 				topLeftScrew->box.pos.x = RACK_GRID_WIDTH;
 				bottomLeftScrew->box.pos.x = RACK_GRID_WIDTH;				
 			}
+            else if(box.size.x == RACK_GRID_WIDTH)
+            {
+                topLeftScrew->box.pos.x = 0;
+                bottomLeftScrew->box.pos.x = 0;
+            }
 		}
 		else {
 			topRightScrew->visible = bottomRightScrew->visible = true;
