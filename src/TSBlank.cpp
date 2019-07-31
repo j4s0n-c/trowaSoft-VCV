@@ -6,6 +6,7 @@ using namespace rack;
 
 #define BLANK_MIN_WIDTH 			(1 * RACK_GRID_WIDTH)
 #define	BLANK_TWO_SCREW_WIDTH		(4 * RACK_GRID_WIDTH)
+#define BLANK_DEFAULT_WIDTH			(3 * RACK_GRID_WIDTH)
 #define BUFFER_SIZE					512
 
 struct ModuleResizeHandle : Widget {
@@ -55,7 +56,7 @@ struct ModuleResizeHandle : Widget {
 };
 
 struct TSBlankModule : Module {
-	int panelWidth = BLANK_MIN_WIDTH;
+	int panelWidth = BLANK_DEFAULT_WIDTH;
 	
 	TSBlankModule()
 	{
@@ -107,7 +108,7 @@ struct TSBlankWidget : ModuleWidget {
 
 	TSBlankWidget(TSBlankModule *module) : ModuleWidget() 
 	{	
-		box.size = Vec(BLANK_MIN_WIDTH * 1, RACK_GRID_HEIGHT);
+		box.size = Vec(BLANK_DEFAULT_WIDTH, RACK_GRID_HEIGHT);
 		if (module)
 		{
 			box.size.x = module->panelWidth;
