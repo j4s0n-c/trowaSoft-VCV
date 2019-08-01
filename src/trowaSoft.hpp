@@ -8,7 +8,7 @@ using namespace rack;
 extern Plugin *pluginInstance;
 
 // An internal version number (integer) value. Simple int value for quick/dirty easy comparison.
-#define TROWA_INTERNAL_VERSION_INT		14  // 14: 1.0.0
+#define TROWA_INTERNAL_VERSION_INT		15  // 15: 1.0.1
 
 // 7: 0.5.5.2
 // 8: 0.6.5.2dev - For Rack 0.6.0dev
@@ -18,5 +18,6 @@ extern Plugin *pluginInstance;
 //12: 0.6.4
 //13: 0.6.5
 //14: 1.0.0
+//15: 1.0.1
 
 #endif
