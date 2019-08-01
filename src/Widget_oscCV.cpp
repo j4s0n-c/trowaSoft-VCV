@@ -92,15 +92,15 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 	//---------------------------
 	// Button: Enable OSC button
 	//---------------------------
-	LEDButton* btn;
+	TS_LEDButton* btn;
 	y = topScreenSize.y + 30;
 	x = 76; // 80
 	Vec btnSize = Vec(ledSize.x - 2, ledSize.y - 2);
-	btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(x, y), oscModule, oscCV::ParamIds::OSC_SHOW_CONF_PARAM));//, 0, 1, 0));
-	btn->box.size = btnSize;
+	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(x, y), oscModule, oscCV::ParamIds::OSC_SHOW_CONF_PARAM));//, 0, 1, 0));
+	btn->setSize(btnSize);
 	addParam(btn);
-	addChild(TS_createColorValueLight<ColorValueLight>(Vec(x, y), oscModule, oscCV::LightIds::OSC_CONFIGURE_LIGHT, ledSize, TSColors::COLOR_WHITE));
-	addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + 2, y + 2), oscModule, oscCV::LightIds::OSC_ENABLED_LIGHT, Vec(ledSize.x - 4, ledSize.y - 4), TSOSC_STATUS_COLOR));
+	addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + 1.5, y + 1.5), oscModule, oscCV::LightIds::OSC_CONFIGURE_LIGHT, ledSize, TSColors::COLOR_WHITE));
+	addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + 3.5, y + 3.5), oscModule, oscCV::LightIds::OSC_ENABLED_LIGHT, Vec(ledSize.x - 4, ledSize.y - 4), TSOSC_STATUS_COLOR));
 
 
 	xStart = TROWA_HORIZ_MARGIN;
