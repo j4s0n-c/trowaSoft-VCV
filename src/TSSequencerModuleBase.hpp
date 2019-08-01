@@ -767,16 +767,16 @@ struct TSSeqLabelArea : TransparentWidget {
 		y = 103;
 		if (module == NULL || module->allowOSC)
 		{
-			x = 240;
+			x = 242; //240
 			nvgText(args.vg, x, y, "OSC", NULL);
 		}
 		// Copy button labels:
-		x = 302;
+		x = 304; // 302
 		nvgText(args.vg, x, y, "CPY", NULL);
-		x = 362;
+		x = 364; // 364
 		nvgText(args.vg, x, y, "CPY", NULL);
 		// BPM divisor/note label:
-		x = 118;
+		x = 120; //118
 		nvgText(args.vg, x, y, "DIV", NULL);
 
 

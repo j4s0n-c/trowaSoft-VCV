@@ -161,45 +161,48 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	int dx = 28;
 
 	// OSC: Enable OSC button:
-	LEDButton* btn;
+	float xLightOffset = 1.5f;
+	float yLightOffset = 1.5f;	
+	TS_LEDButton* btn;
 	int y = knobRow;
+	knobStart += 2;
 	int x = knobStart + (knobSpacing * 3) + dx; // 30
 	if (isPreview || thisModule->allowOSC)
 	{
-		Vec btnSize = Vec(ledSize.x - 2, ledSize.y - 2);
-		btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(x, y), module, TSSequencerModuleBase::ParamIds::OSC_SHOW_CONF_PARAM));//, 0, 1, 0));
-		btn->box.size = btnSize;
+		Vec ledBtnSize = Vec(ledSize.x - 2, ledSize.y - 2);
+		btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(x, y), module, TSSequencerModuleBase::ParamIds::OSC_SHOW_CONF_PARAM));//, 0, 1, 0));
+		btn->setSize(ledBtnSize);
 		addParam(btn);
-		addChild(TS_createColorValueLight<ColorValueLight>(Vec(x, y), module, TSSequencerModuleBase::LightIds::OSC_CONFIGURE_LIGHT, ledSize, TSColors::COLOR_WHITE));
-		addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + 2, y + 2), module, TSSequencerModuleBase::LightIds::OSC_ENABLED_LIGHT, Vec(ledSize.x - 4, ledSize.y - 4), TSOSC_STATUS_COLOR));
+		addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + xLightOffset, y + yLightOffset), module, TSSequencerModuleBase::LightIds::OSC_CONFIGURE_LIGHT, ledSize, TSColors::COLOR_WHITE));
+		addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + xLightOffset + 2, y + yLightOffset + 2), module, TSSequencerModuleBase::LightIds::OSC_ENABLED_LIGHT, Vec(ledSize.x - 4, ledSize.y - 4), TSOSC_STATUS_COLOR));
 	}
 
 	ColorValueLight* lightPtr = NULL;
 
 	// COPY: Pattern Copy button:
-	btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(knobStart + (knobSpacing * 4) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::COPY_PATTERN_PARAM));//, 0, 1, 0));
-	btn->box.size = ledSize;
+	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(knobStart + (knobSpacing * 4) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::COPY_PATTERN_PARAM));//, 0, 1, 0));
+	btn->setSize(ledSize);
 	addParam(btn);
-	lightPtr = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 4) + dx, knobRow), module, TSSequencerModuleBase::LightIds::COPY_PATTERN_LIGHT, ledSize, TSColors::COLOR_WHITE));
+	lightPtr = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 4) + dx + xLightOffset, knobRow + yLightOffset), module, TSSequencerModuleBase::LightIds::COPY_PATTERN_LIGHT, ledSize, TSColors::COLOR_WHITE));
 	if (!isPreview)
 		thisModule->copyPatternLight = lightPtr;
 	addChild(lightPtr);
 
 	// COPY: Gate Copy button:
-	btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(knobStart + (knobSpacing * 5) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::COPY_CHANNEL_PARAM));//, 0, 1, 0));
-	btn->box.size = ledSize;
+	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(knobStart + (knobSpacing * 5) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::COPY_CHANNEL_PARAM));//, 0, 1, 0));
+	btn->setSize(ledSize);
 	addParam(btn);
-	lightPtr = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 5) + dx, knobRow), module, TSSequencerModuleBase::LightIds::COPY_CHANNEL_LIGHT, ledSize, TSColors::COLOR_WHITE));
+	lightPtr = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 5) + dx + xLightOffset, knobRow + yLightOffset), module, TSSequencerModuleBase::LightIds::COPY_CHANNEL_LIGHT, ledSize, TSColors::COLOR_WHITE));
 	if (!isPreview)
 		thisModule->copyGateLight = lightPtr;
 	addChild(lightPtr);
 
 	// CHANGE BPM CALC NOTE (1/4, 1/8, 1/8T, 1/16)
 	//SELECTED_BPM_MULT_IX_PARAM
-	btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(knobStart + (knobSpacing * 1) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::SELECTED_BPM_MULT_IX_PARAM));//, 0, 1, 0));
-	btn->box.size = ledSize;
+	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(knobStart + (knobSpacing * 1) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::SELECTED_BPM_MULT_IX_PARAM));//, 0, 1, 0));
+	btn->setSize(ledSize);
 	addParam(btn);
-	addChild(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 1) + dx, knobRow), module, TSSequencerModuleBase::LightIds::SELECTED_BPM_MULT_IX_LIGHT, ledSize, TSColors::COLOR_WHITE));
+	addChild(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 1) + dx + xLightOffset, knobRow + yLightOffset), module, TSSequencerModuleBase::LightIds::SELECTED_BPM_MULT_IX_LIGHT, ledSize, TSColors::COLOR_WHITE));
 	
 	// Input Jacks:
 	int xStart = 10;

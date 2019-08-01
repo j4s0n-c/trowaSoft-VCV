@@ -308,6 +308,7 @@ struct TS_PadSvgSwitch : SvgSwitch {
 	int groupId = -1;
 	TS_PadSvgSwitch() : SvgSwitch() {
 		momentary = false;
+		this->shadow->opacity = 0.0f; // Turn off the circular shadows that are everywhere.
 		return;
 	}
 	TS_PadSvgSwitch(Vec size) : TS_PadSvgSwitch() {
@@ -423,6 +424,7 @@ struct TS_PadBtn : SvgSwitch { // MomentarySwitch
 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance,"res/ComponentLibrary/TS_pad_btn_0.svg")));
 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance,"res/ComponentLibrary/TS_pad_btn_1.svg")));
 		sw->wrap();
+		this->shadow->opacity = 0.0f; // Turn off the circular shadows that are everywhere.		
 		box.size = sw->box.size;
 	}	
 };
@@ -438,6 +440,7 @@ struct TS_Pad_Run : SvgSwitch { // MomentarySwitch
 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance,"res/ComponentLibrary/TS_pad_run_0.svg")));
 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance,"res/ComponentLibrary/TS_pad_run_1.svg")));
 		sw->wrap();
+		this->shadow->opacity = 0.0f; // Turn off the circular shadows that are everywhere.
 		box.size = sw->box.size;
 	}	
 };
@@ -453,9 +456,26 @@ struct TS_Pad_Reset : SvgSwitch { // MomentarySwitch
 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance,"res/ComponentLibrary/TS_pad_reset_0.svg")));
 		addFrame(APP->window->loadSvg(asset::plugin(pluginInstance,"res/ComponentLibrary/TS_pad_reset_1.svg")));
 		sw->wrap();
+		this->shadow->opacity = 0.0f; // Turn off the circular shadows that are everywhere.
 		box.size = sw->box.size;
 	}	
 };
+
+struct TS_LEDButton : LEDButton {
+	TS_LEDButton() : LEDButton() {
+		this->shadow->opacity = 0.0f; // Turn off the circular shadows that are everywhere.	
+	}
+	void setSize(Vec newSize)
+	{
+DEBUG("TS_LEDButton: Original size is %5.2f x %5.2f", box.size.x, box.size.y);				
+		box.size = newSize;
+		fb->box.size = newSize;
+		shadow->box.size = Vec(0, 0);
+		sw->box.size = newSize;
+DEBUG("TS_LEDButton: NEW size is %5.2f x %5.2f", newSize.x, newSize.y);		
+	}
+};
+
 
 struct HideableLEDButton : LEDButton
 {
@@ -1460,6 +1480,7 @@ struct TS_Port : SvgPort {
 		//background->wrap();
 		setSvg(APP->window->loadSvg(asset::plugin(pluginInstance, "res/ComponentLibrary/TS_Port.svg")));
 		box.size = sw->box.size;
+		this->shadow->opacity = 0.0f;
 		if (plugLight)
 		{
 			negColor = plugLight->baseColors[1];

@@ -734,15 +734,16 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 	//------------------------------------------
 	const int size = 13;
 	Vec ledBtnSize = Vec(size, size); // LED button size
-	Vec ledSize = Vec(size-2, size-2); // LED size
+	//Vec ledSize = Vec(size-2, size-2); // LED size
 	x += -7;
 	//LEDButton* btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(x, y + 11), thisModule, baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM, 0, 1, 0));
-	LEDButton* btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(x, y + 11), thisModule, baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM));	
-	btn->box.size = ledBtnSize;
+	TS_LEDButton* btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(x, y + 11), thisModule, baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM));	
+	//btn->box.size = ledBtnSize;
+	btn->setSize(ledBtnSize);
 	addChild(btn);
 	parentModuleWidget->params.push_back(btn);
-	ColorValueLight* light = TS_createColorValueLight<ColorValueLight>(Vec(x + 3, y + 14), thisModule,
-		baseLightId + TS_OscillatorOutput::BaseLightIds::OUT_AM_MODE_LED, ledSize, TSColors::COLOR_WHITE);
+	ColorValueLight* light = TS_createColorValueLight<ColorValueLight>(Vec(x + 2.5, y + 13.5), thisModule,
+		baseLightId + TS_OscillatorOutput::BaseLightIds::OUT_AM_MODE_LED, ledBtnSize, TSColors::COLOR_WHITE);
 	addChild(light);
 
 
