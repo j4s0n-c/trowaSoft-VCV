@@ -573,6 +573,7 @@ void TSSequencerModuleBase::setStepValue(int step, float val, int channel, int p
 			if (gateTriggers != NULL)
 				gateTriggers[step].state = TriggerSignal::LOW;
 		}
+		paramQuantities[ParamIds::CHANNEL_PARAM + step]->setValue(val);		
 	}
 	oscMutex.lock();
 	if (useOSC && oscInitialized)
