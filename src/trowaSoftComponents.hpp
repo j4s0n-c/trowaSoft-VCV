@@ -289,7 +289,8 @@ struct TS_PadSwitch : Switch {
 		}
 	}
 	void onButton(const event::Button &e) override {
-		Widget::onButton(e);
+		//Widget::onButton(e);
+		this->ParamWidget::onButton(e); // Need to call this base method to be set as the touchedParam for MIDI mapping to work.
 		e.stopPropagating();
 		if (e.button == GLFW_MOUSE_BUTTON_LEFT) {
 			// if (e.action == GLFW_RELEASE && paramQuantity) // onMouseUp?
@@ -342,7 +343,7 @@ struct TS_PadSvgSwitch : SvgSwitch {
 		if (paramQuantity)
 		{
 			float newVal = (paramQuantity->getValue() < paramQuantity->maxValue) ? paramQuantity->maxValue : paramQuantity->minValue;
-DEBUG("onDragStart(%d) - Current Value is %.1f, toggling to %.1f.", btnId, paramQuantity->getValue(), newVal);			
+//DEBUG("onDragStart(%d) - Current Value is %.1f, toggling to %.1f.", btnId, paramQuantity->getValue(), newVal);			
 			paramQuantity->setValue(newVal); // Toggle Value
 		}
 		return;
@@ -377,7 +378,8 @@ DEBUG("onDragStart(%d) - Current Value is %.1f, toggling to %.1f.", btnId, param
 		return;
 	}
 	void onButton(const event::Button &e) override {
-		Widget::onButton(e);
+		//Widget::onButton(e);
+		this->ParamWidget::onButton(e); // Need to call this base method to be set as the touchedParam for MIDI mapping to work.
 		e.stopPropagating();
 //DEBUG("onButton(%d) - Curr Value is %.1f", paramQuantity->getValue());
 		if (e.button == GLFW_MOUSE_BUTTON_LEFT) {
@@ -467,12 +469,12 @@ struct TS_LEDButton : LEDButton {
 	}
 	void setSize(Vec newSize)
 	{
-DEBUG("TS_LEDButton: Original size is %5.2f x %5.2f", box.size.x, box.size.y);				
+//DEBUG("TS_LEDButton: Original size is %5.2f x %5.2f", box.size.x, box.size.y);				
 		box.size = newSize;
 		fb->box.size = newSize;
 		shadow->box.size = Vec(0, 0);
 		sw->box.size = newSize;
-DEBUG("TS_LEDButton: NEW size is %5.2f x %5.2f", newSize.x, newSize.y);		
+//DEBUG("TS_LEDButton: NEW size is %5.2f x %5.2f", newSize.x, newSize.y);		
 	}
 };
 
@@ -491,35 +493,11 @@ struct HideableLEDButton : LEDButton
 		}
 		return;
 	}
-	// void onMouseDown(const event::MouseDown &e) override {
-		// if (visible) {
-			// LEDButton::onMouseDown(e);
-		// }
-	// };
-	// void onMouseUp(const event::MouseUp &e) override {
-		// if (visible) {
-			// LEDButton::onMouseUp(e);
-		// }
-	// };
-	// /** Called on every frame, even if mouseRel = Vec(0, 0) */
-	// void onMouseMove(const event::MouseMove &e) override {
-		// if (visible) {
-			// LEDButton::onMouseMove(e);
-		// }
-	// }
 	void onHoverKey(const event::HoverKey &e) override {
 		if (visible) {
 			LEDButton::onHoverKey(e);
 		}
 	};
-	///** Called when this widget begins responding to `onMouseMove` events */
-	//virtual void onMouseEnter(const event::MouseEnter &e) {}
-	///** Called when another widget begins responding to `onMouseMove` events */
-	//virtual void onMouseLeave(const event::MouseLeave &e) {}
-	//virtual void onFocus(const event::Focus &e) {}
-	//virtual void onDefocus(const event::Defocus &e) {}
-	//virtual void onScroll(const event::Scroll &e);
-
 	/** Called when a widget responds to `onMouseDown` for a left button press */
 	void onDragStart(const event::DragStart &e) override {
 		if (visible) {
@@ -600,10 +578,6 @@ struct TS_ScreenBtn : Switch {
 
 	TextAlignment textAlign = TextAlignment::Center;
 
-	//TS_ScreenBtn()
-	//{		
-	//	return;
-	//}
 	TS_ScreenBtn(Vec size, Module* module, int paramId, std::string text) : Switch()
 	{
 		box.size = size;
@@ -613,10 +587,6 @@ struct TS_ScreenBtn : Switch {
 		if (module) {
 			if (this->paramQuantity == NULL)
 				this->paramQuantity = module->paramQuantities[paramId];
-			// this->paramQuantity->setValue(0.0);
-			// this->paramQuantity->minValue = minVal;
-			// this->paramQuantity->maxValue = maxVal;
-			// this->paramQuantity->defaultValue = defVal;			
 		}
 		return;
 	}	
@@ -629,10 +599,6 @@ struct TS_ScreenBtn : Switch {
 		if (module) {
 			if (this->paramQuantity == NULL)
 				this->paramQuantity = module->paramQuantities[paramId];
-			// this->paramQuantity->setValue(0.0);
-			// this->paramQuantity->minValue = minVal;
-			// this->paramQuantity->maxValue = maxVal;
-			// this->paramQuantity->defaultValue = defVal;			
 		}
 		return;
 	}
@@ -666,11 +632,6 @@ struct TS_ScreenBtn : Switch {
 			Switch::onDragEnter(e);
 		}
 	}
-	// void onMouseDown(const event::MouseDown &e) override {
-		// if (visible) {
-			// Switch::onMouseDown(e);
-		// }
-	// }
 	void onButton(const event::Button &e) override{
 		if (visible){
 			Switch::onButton(e);
