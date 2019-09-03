@@ -237,10 +237,8 @@ struct TSTextField : TextField {
 	// }
 	
 	void onButton(const event::Button &e) override {
-DEBUG("TSTextField::onButton(%d) - Visible = %d", id, visible);		
 		if (visible && !e.isConsumed()){
 			TextField::onButton(e);	
-DEBUG("TSTextField::onButton(%d) - Consuming. Is Button Click = %d. cursor = %d, selection = %d.", id, e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT, cursor, selection);								
 		}
 	}
 	

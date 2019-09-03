@@ -305,7 +305,6 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 			TS_20_BlackEncoder* tmp = dynamic_cast<TS_20_BlackEncoder*>(createParam<TS_20_BlackEncoder>(Vec(xKnob, yKnob), thisModule, /*id*/ baseParamId + paramId));	
 			knobPtr = tmp;
 			tmp->setRotationAmount(20.f);
-DEBUG("Added Encoder Knob - Param Id %d", baseParamId + paramId);			
 		}
 		addChild(knobPtr);
 		parentWidget->params.push_back(knobPtr);

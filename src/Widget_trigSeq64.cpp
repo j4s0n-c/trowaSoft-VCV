@@ -14,7 +14,6 @@
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 trigSeq64Widget::trigSeq64Widget(trigSeq* seqModule) : TSSequencerWidgetBase(seqModule)
 {
-DEBUG("trigSeq64Widget() - Start");
 	maxSteps = N64_NUM_STEPS;
 	// [02/24/2018] Adjusted for 0.60 differences. Main issue is possiblity of NULL module...
 	bool isPreview = this->module == NULL; // If this is null, then this isn't a real module instance but a 'Preview'?	
@@ -98,6 +97,5 @@ DEBUG("trigSeq64Widget() - Start");
 		seqModule->modeString = seqModule->modeStrings[seqModule->selectedOutputValueMode];
 		seqModule->initialized = true;
 	}
-	DEBUG("trigSeq64Widget() - Finished");	
 	return;
 }

@@ -253,7 +253,9 @@ void voltSeq::shiftValues(/*in*/ int patternIx, /*in*/ int channelIx, /*in*/ flo
 	else
 	{
 		// Just this channel
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED		
 		DEBUG("shiftValues(%d, %d, %f) - Add %f", patternIx, channelIx, volts, add);
+#endif
 		for (int s = 0; s < maxSteps; s++)
 		{
 			float tmp = clamp(triggerState[patternIx][channelIx][s] + add, /*min*/ voltSeq_STEP_KNOB_MIN,  /*max*/ voltSeq_STEP_KNOB_MAX);
@@ -296,6 +298,7 @@ void voltSeq::process(const ProcessArgs &args)
 	if (valueModeChanged)
 	{
 		modeString = currOutputValueMode->displayName;
+		channelValueModes[currentChannelEditingIx] = selectedOutputValueMode;
 		// Change our lights 
 		for (r = 0; r < this->numRows; r++)
 		{
@@ -446,7 +449,9 @@ void voltSeq::process(const ProcessArgs &args)
 				// Now also send the equivalent string:
 				currOutputValueMode->GetDisplayString(currOutputValueMode->GetOutputValue( triggerState[currentPatternEditingIx][currentChannelEditingIx][s] ), valOutputBuffer);
 				sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s + 1);
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED				
 				DEBUG("Send: %s -> %s : %s", oscAddrBuffer[SeqOSCOutputMsg::EditStepString], addrBuff, valOutputBuffer);
+#endif				
 				oscStream << osc::BeginMessage(addrBuff)
 					<< oscLastSentVals[s]
 					<< osc::EndMessage;
@@ -470,11 +475,14 @@ void voltSeq::process(const ProcessArgs &args)
 	// Set Outputs (16 triggers)	
 	for (int g = 0; g < TROWA_SEQ_NUM_CHNLS; g++) 
 	{		
-		float gate = (running && gOn) ? currOutputValueMode->GetOutputValue( triggerState[currentPatternPlayingIx][g][index] ) : 0.0; //***********VOLTAGE OUTPUT
+		//float gate = (running && gOn) ? currOutputValueMode->GetOutputValue( triggerState[currentPatternPlayingIx][g][index] ) : 0.0; //***********VOLTAGE OUTPUT
+		// [v1.1] Each channel has its own output mode now
+		ValueSequencerMode* chMode = ValueModes[channelValueModes[g]];
+		float gate = (running && gOn) ? chMode->GetOutputValue( triggerState[currentPatternPlayingIx][g][index] ) : 0.0; //***********VOLTAGE OUTPUT		
 		outputs[CHANNELS_OUTPUT + g].value= gate;
 		// Output lights (around output jacks for each gate/trigger):
 		gateLightsOut[g] = (gate < 0) ? -gate : gate;
-		lights[CHANNEL_LIGHTS + g].value = gate / currOutputValueMode->outputVoltageMax;
+		lights[CHANNEL_LIGHTS + g].value = gate / chMode->outputVoltageMax;// currOutputValueMode->outputVoltageMax;
 	}
 	return;
 } // end step()
@@ -516,7 +524,8 @@ void TS_ValueSequencerParamQuantity::setValueMode(ValueSequencerMode* vMode)
 	minValue = valueMode->voltageMin;
 	maxValue = valueMode->voltageMax;
 	defaultValue = valueMode->zeroValue;
-	label = valueMode->displayName;
+	unit = std::string(" ") + std::string(vMode->unit);
+	//label = valueMode->displayName;
 	return;
 }
 

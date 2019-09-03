@@ -44,8 +44,22 @@ struct oscCVWidget : TSSModuleWidgetBase {
 	std::vector<TS_ScreenBtn*> btnDrawInputAdvChConfig;
 	// Advanced channel configs
 	std::vector<TS_ScreenBtn*> btnDrawOutputAdvChConfig;
+	// Flag if we have the master oscCV module loaded for configuration or an Expander.
+	bool masterConfigLoaded = true;
 
-
+	bool showConfigScreen = false;
+	// -- EXPANDERS --
+	int showConfigIndex = 0;
+	ColorValueLight* prevLight = NULL;
+	ColorValueLight* nextLight = NULL;	
+	NVGcolor showConfigColor = TSColors::COLOR_WHITE;
+	// Reference to the current expander loaded.
+	oscCVExpander* currentEditExpander = NULL;
+	std::string configName;
+	bool configNameLeft = false;
+	// Text box for an expander's id/name.
+	TSTextField* tbExpanderID;
+	int tbExpanderXPos[2];
 
 	// Channel colors
 	/// TODO: Move this to someplace else
@@ -75,10 +89,42 @@ struct oscCVWidget : TSSModuleWidgetBase {
 
 	// Show or hide the channel configuration
 	void toggleChannelPathConfig(bool show);
-	// Read the channel path configs and store in module's channels.
-	void readChannelPathConfig();
+	// Show or hide the channel configuration
+	void toggleChannelPathConfig(bool showInput, bool showOutput);	
+	// Clear the channel path text boxes.
+	void clearChannelPathConfig();	
 	// Set the channel path text boxes.
 	void setChannelPathConfig();
+	// Read the channel path configs and store in module's channels.
+	//void readChannelPathConfig();	
+	// Read the channel path configs and store in module's channels.
+	void readChannelPathConfig(int index);		
+	// Read the channel path configs and store in module's channels.
+	std::string readChannelPathConfig(TSOSCCVInputChannel* inputChannels, TSOSCCVChannel* outputChannels, int numChannels);	
+	// Set the channel path text boxes.
+	void setChannelPathConfig(TSOSCCVInputChannel* inputChannels, TSOSCCVChannel* outputChannels, int numChannels, std::string expanderName);
+	// OnDragEnd - Revisit what expanders we may be connected to.
+	void onDragEnd(const event::DragEnd &e) override;
+	
+	// Calc color of an expander.
+	static NVGcolor calcColor(int index)
+	{
+		NVGcolor color;
+		int add = 0;
+		if (index == 0)
+		{
+			color = TSColors::COLOR_WHITE;
+		}
+		else 
+		{
+			if (index < 0)
+				add = -index;
+			else
+				add = index;
+			color = TSColors::CHANNEL_COLORS[(add - 1 + TSColors::NUM_CHANNEL_COLORS) % TSColors::NUM_CHANNEL_COLORS];					
+		}
+		return color;		
+	}
 };
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -226,12 +272,17 @@ struct TSOscCVChannelConfigScreen : OpaqueWidget {
 
 	// OSC Data Type select/dropdown
 	TSOscCVDataTypeSelectBtn* btnSelectDataType;
+	
 	// Turn on / off translating values.
 	bool translateValsEnabled = false;
-	//HideableLEDButton* btnToggleTranslateVals;
-	TS_ScreenCheckBox* btnToggleTranslateVals;
-	//ColorValueLight* lightTranslateVals;
+	TS_ScreenCheckBox* btnToggleTranslateVals;	
 	dsp::SchmittTrigger translateTrigger;
+
+	// Clip values (MIN/MAX input voltage) if we are translating.	
+	bool clipValsEnabled = false;
+	TS_ScreenCheckBox* btnToggleTranslateClipVals;
+	dsp::SchmittTrigger clipChannelInputTrigger;
+	
 
 	// Save button
 	TS_ScreenBtn* btnSave;
@@ -380,7 +431,7 @@ struct TSOscCVTopDisplay : TransparentWidget {
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// TSOscCVMiddleDisplay(void)
+	// TSOscCVTopDisplay()
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSOscCVTopDisplay(oscCVWidget* widget)
 	{
@@ -419,8 +470,14 @@ struct TSOscCVMiddleDisplay : TransparentWidget {
 	//bool showDisplay = true;
 
 	enum DisplayMode {
+		// None - It's in configuration mode.
 		None = 0,
-		Default = 1
+		// Info
+		Default = 1,
+		// Show only the config name
+		ConfigName = 2,
+		// Show the config name and label for the ID.
+		ConfigNameAndLabel = 3
 	};
 
 	DisplayMode displayMode = DisplayMode::Default;

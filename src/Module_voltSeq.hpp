@@ -34,7 +34,7 @@ struct voltSeq : TSSequencerModuleBase
 	
 	ValueSequencerMode* ValueModes[TROWA_SEQ_NUM_MODES] = { 
 		// Voltage Mode 
-		new ValueSequencerMode(/*displayName*/ "VOLT",
+		new ValueSequencerMode(/*displayName*/ "VOLT", /*unit*/ "V",
 			/*minDisplayValue*/ -10, /*maxDisplayValue*/ 10, 
 			/*inVoltageMin*/ voltSeq_STEP_KNOB_MIN, /*inVoltageMax*/ voltSeq_STEP_KNOB_MAX, 
 			/*outVoltageMin*/ -10, /*outVoltageMax*/ 10, 
@@ -49,7 +49,7 @@ struct voltSeq : TSSequencerModuleBase
 			/*inVoltageMin*/ voltSeq_STEP_KNOB_MIN, /*inVoltageMax*/ voltSeq_STEP_KNOB_MAX),
 			
 		// Sequence Mode (1-64 for the patterns)			
-		new ValueSequencerMode(/*displayName*/ "PATT",
+		new ValueSequencerMode(/*displayName*/ "PATT",  /*unit*/ "pattern",
 			/*minDisplayValue*/ 1, /*maxDisplayValue*/ TROWA_SEQ_NUM_PATTERNS, 
 			/*inVoltageMin*/ voltSeq_STEP_KNOB_MIN, /*inVoltageMax*/ voltSeq_STEP_KNOB_MAX, 
 			/*outVoltageMin*/ TROWA_SEQ_PATTERN_MIN_V, /*outVoltageMax*/ TROWA_SEQ_PATTERN_MAX_V, 

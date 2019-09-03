@@ -210,6 +210,8 @@ struct ValueSequencerMode
 	const char * displayFormatString;
 	// The display name.
 	const char * displayName;
+	// The unit.
+	const char * unit;
 	
 	float zeroValue;
 	
@@ -218,12 +220,13 @@ struct ValueSequencerMode
 		return;
 	}
 	
-	ValueSequencerMode(const char* displayName, float minDisplayValue, float maxDisplayValue, float min_V, float max_V, 
+	ValueSequencerMode(const char* displayName, const char* unit, float minDisplayValue, float maxDisplayValue, float min_V, float max_V, 
 		float outVoltageMin, float outVoltageMax,
 		bool wholeNumbersOnly, float zeroPointAngle, const char * formatStr,
 		float roundDisplay, float roundOutput, float zeroValue)
 	{
 		this->displayName = displayName;
+		this->unit = unit; // add unit
 		this->displayFormatString = formatStr;
 		this->minDisplayValue = minDisplayValue; // I.e. 1
 		this->maxDisplayValue = maxDisplayValue; // I.e. 64 
@@ -293,7 +296,8 @@ struct NoteValueSequencerMode : ValueSequencerMode
 	NoteValueSequencerMode(const char* displayName,
 		float min_V, float max_V)
 	{
-		this->displayName = displayName;		
+		this->displayName = displayName;	
+		this->unit = "note";
 		//this->minDisplayValue = -TROWA_SEQ_ZERO_OCTAVE; // -4
 		//this->maxDisplayValue = TROWA_SEQ_NUM_OCTAVES - TROWA_SEQ_ZERO_OCTAVE; // 10-4 = 6
 		this->minDisplayValue = TROWA_SEQ_NOTES_MIN_V; // Back to -5V

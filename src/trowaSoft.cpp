@@ -2,12 +2,13 @@
 #include "Module_trigSeq.hpp"
 #include "Module_voltSeq.hpp"
 #include "Widget_multiScope.hpp"
-#include "Widget_multiScope_Old.hpp"
+//#include "Widget_multiScope_Old.hpp"
 #include "TSSequencerModuleBase.hpp"
 #include "Module_voltSeq.hpp"
 #include "Module_oscCV.hpp"
 #include "Module_multiOscillator.hpp"
 #include "TSBlank.hpp"
+#include "Module_oscCVExpander.hpp"
 
 // The pluginInstance-wide instance of the Plugin class
 Plugin *pluginInstance;
@@ -21,6 +22,8 @@ void init(rack::Plugin *p) {
 
 	// Osc <==> CV:
 	p->addModel(modelOscCV);
+	p->addModel(modelOscCVExpanderInput);
+	p->addModel(modelOscCVExpanderOutput);
 	
 	// Scope Modules:
 	p->addModel(modelMultiScope);

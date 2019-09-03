@@ -8,6 +8,8 @@ using namespace rack;
 #include "trowaSoftUtilities.hpp"
 #include "Module_oscCV.hpp"
 
+#define OSCCV_CHOOSE_UNUSED_PORTS		0
+
 // Channel colors
 const NVGcolor oscCVWidget::CHANNEL_COLORS[TROWA_OSCCV_NUM_COLORS] = {
 	TSColors::COLOR_TS_RED, TSColors::COLOR_DARK_ORANGE, TSColors::COLOR_YELLOW, TSColors::COLOR_TS_GREEN,
@@ -90,17 +92,33 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 	dx = 28;
 
 	//---------------------------
-	// Button: Enable OSC button
+	// Button: Show Config
 	//---------------------------
 	TS_LEDButton* btn;
+	Vec btnSize = Vec(ledSize.x - 2, ledSize.y - 2);	
 	y = topScreenSize.y + 30;
-	x = 76; // 80
-	Vec btnSize = Vec(ledSize.x - 2, ledSize.y - 2);
+	x = (box.size.x - ledSize.x)/2; //76; // 80
 	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(x, y), oscModule, oscCV::ParamIds::OSC_SHOW_CONF_PARAM));//, 0, 1, 0));
 	btn->setSize(btnSize);
 	addParam(btn);
 	addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + 1.5, y + 1.5), oscModule, oscCV::LightIds::OSC_CONFIGURE_LIGHT, ledSize, TSColors::COLOR_WHITE));
 	addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + 3.5, y + 3.5), oscModule, oscCV::LightIds::OSC_ENABLED_LIGHT, Vec(ledSize.x - 4, ledSize.y - 4), TSOSC_STATUS_COLOR));
+
+	// Previous
+	x = (box.size.x - ledSize.x)/2.f - 110;
+	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(x, y), oscModule, oscCV::ParamIds::OSC_EXPANDER_CONFIG_PREV_PARAM));
+	btn->setSize(btnSize);
+	addParam(btn);
+	prevLight = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(x + 1.5, y + 1.5), oscModule, oscCV::LightIds::OSC_CONFIGURE_PREV_LIGHT, ledSize, TSColors::COLOR_RED));
+	addChild(prevLight);
+	
+	// Next
+	x = (box.size.x - ledSize.x)/2.f + 110;
+	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(x, y), oscModule, oscCV::ParamIds::OSC_EXPANDER_CONFIG_NEXT_PARAM));
+	btn->setSize(btnSize);
+	addParam(btn);
+	nextLight = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(x + 1.5, y + 1.5), oscModule, oscCV::LightIds::OSC_CONFIGURE_NEXT_LIGHT, ledSize, TSColors::COLOR_RED));
+	addChild(nextLight);
 
 
 	xStart = TROWA_HORIZ_MARGIN;
@@ -173,6 +191,7 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 		//---* OSC Channel Configuration *---
 		// OSC Input Path (this is OSC outgoing message, our input)
 		x += dx + tbXOffset;
+		tbExpanderXPos[0] = x;
 		std::string path = (isPreview) ? "/ch/" + std::to_string(r + 1) : oscModule->inputChannels[r].path;
 		TSTextField* txtField = new TSTextField(TSTextField::TextType::Any, TROWA_OSCCV_OSC_PATH_SIZE);
 		txtField->box.size = tbPathSize;
@@ -208,8 +227,7 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 
 		y += dy;
 	} // end input channels
-
-
+	
 	////////////////////////////////////
 	// Output Ports
 	////////////////////////////////////
@@ -221,6 +239,7 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 		//---* OSC Channel Configuration *---
 		// OSC Output Path (this is OSC incoming message, our output)
 		x = xStart - tbXOffset - tbPathSize.x;
+		tbExpanderXPos[1] = x;
 		std::string path = (isPreview) ? "/ch/" + std::to_string(r + 1) : oscModule->outputChannels[r].path;
 		TSTextField* txtField = new TSTextField(TSTextField::TextType::Any, TROWA_OSCCV_OSC_PATH_SIZE);
 		txtField->box.size = tbPathSize;
@@ -237,6 +256,7 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 #if TROWA_OSSCV_SHOW_ADV_CH_CONFIG
 		// OSC Advanced Channel Config (OUTPUT)
 		x -= btnSize.x;
+		tbExpanderXPos[1] = x;		
 		//int paramId = oscCV::ParamIds::CH_PARAM_START + (r*TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG) * 2 + 1;
 		//int paramId = oscCV::ParamIds::CH_PARAM_START 
 		//	+ ( *TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
@@ -276,6 +296,20 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 
 		y += dy;
 	} // end output channels
+	
+	// Expander Name
+	tbExpanderID = new TSTextField(TSTextField::TextType::Any, TROWA_OSCCV_OSC_PATH_SIZE);
+	tbExpanderID->box.size = tbPathSize;
+	tbExpanderID->box.size.x += btnSize.x;
+	tbExpanderID->box.pos = Vec(tbOscInputPaths[0]->box.pos.x, tbOscInputPaths[0]->box.pos.y + 14);//Vec(x, y + tbYOffset);
+	tbExpanderID->visible = false;
+	tbExpanderID->maxLength = 50;
+	if (colorizeChannels) {
+		tbExpanderID->borderColor = CHANNEL_COLORS[0];
+		tbExpanderID->caretColor = CHANNEL_COLORS[0];
+		tbExpanderID->caretColor.a = 0.70;
+	}
+	addChild(tbExpanderID);	
 
 	// Set Tab Order:
 	for (int c = 0; c < numberChannels; c++)
@@ -288,7 +322,11 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 		}
 		else
 		{
-			tbOscInputPaths[c]->prevField = tbOscOutputPaths[numberChannels - 1];
+			// Loop back around.
+			//tbOscInputPaths[c]->prevField = tbOscOutputPaths[numberChannels - 1];			
+			// Inject expander id.
+			tbOscInputPaths[c]->prevField = tbExpanderID;
+			tbExpanderID->prevField = tbOscOutputPaths[numberChannels - 1];
 		}
 		if (c < numberChannels - 1)
 		{
@@ -296,11 +334,15 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 		}
 		else
 		{
-			tbOscOutputPaths[c]->nextField = tbOscInputPaths[0]; // Loop back around
+			// Loop back around.
+			//tbOscOutputPaths[c]->nextField = tbOscInputPaths[0]; // Loop back around
+			// Inject expander id.			
+			tbOscOutputPaths[c]->nextField = tbExpanderID;			
+			tbExpanderID->nextField = tbOscInputPaths[0];
 		}
 	} // end loop through channels - put tab order on text fields
-
-
+	
+	
 	// Screws:
 	addChild(createWidget<ScrewBlack>(Vec(0, 0)));
 	addChild(createWidget<ScrewBlack>(Vec(box.size.x - 15, 0)));
@@ -326,11 +368,59 @@ void oscCVWidget::step()
 		return;
 
 	oscCV* thisModule = dynamic_cast<oscCV*>(module);
-
-	if (thisModule->oscConfigTrigger.process(thisModule->params[oscCV::ParamIds::OSC_SHOW_CONF_PARAM].getValue()))
+	
+	bool loadModuleToConfig = false;
+	if (showConfigScreen != thisModule->oscShowConfigurationScreen)
 	{
-		//DEBUG("Button clicked");
-		thisModule->oscShowConfigurationScreen = !thisModule->oscShowConfigurationScreen;
+		// State change
+		if (thisModule->oscShowConfigurationScreen)
+		{
+			// Show screens:
+			loadModuleToConfig = true;
+#if OSCCV_CHOOSE_UNUSED_PORTS			
+			if (!thisModule->oscInitialized)
+			{
+				// Make sure the ports are available
+				int p = TSOSCConnector::PortInUse(thisModule->currentOSCSettings.oscTxPort);
+				if (p > 0 && p != thisModule->oscId)
+					thisModule->currentOSCSettings.oscTxPort = TSOSCConnector::GetAvailablePortTrans(thisModule->oscId, thisModule->currentOSCSettings.oscTxPort, /*sharingAllowed*/ true);
+				p = TSOSCConnector::PortInUse(thisModule->currentOSCSettings.oscRxPort);
+				if (p > 0 && p != thisModule->oscId)
+					thisModule->currentOSCSettings.oscRxPort = TSOSCConnector::GetAvailablePortRecv(thisModule->oscId, thisModule->currentOSCSettings.oscRxPort, /*sharingAllowed*/ true);
+
+			}
+#endif			
+			this->oscConfigurationScreen->setValues(thisModule->currentOSCSettings.oscTxIpAddress, thisModule->currentOSCSettings.oscTxPort, thisModule->currentOSCSettings.oscRxPort, thisModule->oscNamespace);
+			this->oscConfigurationScreen->ckAutoReconnect->checked = thisModule->oscReconnectAtLoad;
+			this->oscConfigurationScreen->btnActionEnable = !thisModule->oscInitialized;			
+		}
+		else 
+		{
+			// Hide configuration screens:
+			this->oscConfigurationScreen->setVisible(false);
+			readChannelPathConfig(showConfigIndex); // Read any changes that may have happened. (we don't have room for a save button)			
+			toggleChannelPathConfig(false);
+			oscChannelConfigScreen->setVisibility(false); // Hide
+			//--------------------------------------------------------------------
+			// [2019-09-02] Save the ip, ports, and namespace even if we haven't successfully connected, so that presets and copying will work 
+			// even if user doesn't actually connect at least once.
+			thisModule->setOscNamespace(this->oscConfigurationScreen->tbNamespace->text);			
+			// Save IP only if it is a valid IP
+			if (this->oscConfigurationScreen->isValidIpAddress())
+			{
+				thisModule->oscNewSettings.oscTxIpAddress = this->oscConfigurationScreen->tbIpAddress->text.c_str();
+			}
+			// Save Tx Port only if it is a valid port
+			if (this->oscConfigurationScreen->isValidTxPort())
+			{
+				thisModule->oscNewSettings.oscTxPort = this->oscConfigurationScreen->getTxPort();
+			}
+			// Save Rx Port only if it is valid port
+			if (this->oscConfigurationScreen->isValidRxPort())
+			{
+				thisModule->oscNewSettings.oscRxPort = this->oscConfigurationScreen->getRxPort();				
+			}
+		} // end else (hide config)
 		thisModule->lights[oscCV::LightIds::OSC_CONFIGURE_LIGHT].value = (thisModule->oscShowConfigurationScreen) ? 1.0 : 0.0;
 		this->oscConfigurationScreen->setVisible(thisModule->oscShowConfigurationScreen);
 		this->display->showDisplay = !thisModule->oscShowConfigurationScreen;
@@ -339,43 +429,58 @@ void oscCVWidget::step()
 		}
 		else {
 			this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::Default);
+		}		
+	}
+	else if (thisModule->oscShowConfigurationScreen)
+	{
+		// Configuration screen is showing, but we have changed which channels we are configuring.
+		if (thisModule->expCurrentEditExpanderIx != showConfigIndex)
+		{	
+DEBUG("Edit index changed for %d to %d.", showConfigIndex, 	thisModule->expCurrentEditExpanderIx);
+			// Module being configured has changed.
+			loadModuleToConfig = true;
+			// Read any changes that may have happened. (we don't have room for a save button)
+			// For the old module:
+			readChannelPathConfig(showConfigIndex); 
 		}
-		if (thisModule->oscShowConfigurationScreen)
+	}
+	
+	
+	if (loadModuleToConfig)// (thisModule->oscConfigTrigger.process(thisModule->params[oscCV::ParamIds::OSC_SHOW_CONF_PARAM].getValue()))
+	{
+		masterConfigLoaded = thisModule->expCurrentEditExpanderIx == 0 || thisModule->expCurrentEditExpander == NULL;
+		currentEditExpander = thisModule->expCurrentEditExpander; // Save reference
+		setChannelPathConfig(); // Set the channel text boxes
+		oscChannelConfigScreen->setVisibility(false); // Hide
+		if (masterConfigLoaded)
 		{
-			if (!thisModule->oscInitialized)
-			{
-				// Make sure the ports are available
-				int p = TSOSCConnector::PortInUse(thisModule->currentOSCSettings.oscTxPort);
-				if (p > 0 && p != thisModule->oscId)
-					thisModule->currentOSCSettings.oscTxPort = TSOSCConnector::GetAvailablePort(thisModule->oscId, thisModule->currentOSCSettings.oscTxPort);
-				p = TSOSCConnector::PortInUse(thisModule->currentOSCSettings.oscRxPort);
-				if (p > 0 && p != thisModule->oscId)
-					thisModule->currentOSCSettings.oscRxPort = TSOSCConnector::GetAvailablePort(thisModule->oscId, thisModule->currentOSCSettings.oscRxPort);
-
-			}
-			this->oscConfigurationScreen->setValues(thisModule->currentOSCSettings.oscTxIpAddress, thisModule->currentOSCSettings.oscTxPort, thisModule->currentOSCSettings.oscRxPort, thisModule->oscNamespace);
-			this->oscConfigurationScreen->ckAutoReconnect->checked = thisModule->oscReconnectAtLoad;
-			//this->oscConfigurationScreen->setSelectedClient(thisModule->oscCurrentClient); // OSC Client
-			this->oscConfigurationScreen->btnActionEnable = !thisModule->oscInitialized;
-
-			setChannelPathConfig(); // Set the channel text boxes
 			toggleChannelPathConfig(true);
-
-			this->oscConfigurationScreen->errorMsg = "";
-			if (thisModule->oscError)
-			{
-				this->oscConfigurationScreen->errorMsg = "Error connecting to " + thisModule->currentOSCSettings.oscTxIpAddress;
-			}
-			this->oscConfigurationScreen->setVisible(true);
+			thisModule->expCurrentEditExpanderIx = 0;
+			showConfigColor = TSColors::COLOR_WHITE;
+			configName = std::string("");
+			this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::None);
 		}
 		else
 		{
-			this->oscConfigurationScreen->setVisible(false);
-			toggleChannelPathConfig(false);
-			readChannelPathConfig(); // Read any changes that may have happened. (we don't have room for a save button)
-			oscChannelConfigScreen->setVisibility(false); // Hide
+			// Show only input or output
+			showConfigColor = calcColor(thisModule->expCurrentEditExpanderIx);			
+			toggleChannelPathConfig(thisModule->expCurrentEditExpanderIx < 0, thisModule->expCurrentEditExpanderIx > 0);
+			configName = (thisModule->expCurrentEditExpanderIx < 0) ? "CV -> OSC" : "OSC -> CV";
+			this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::ConfigNameAndLabel);			
+			configNameLeft = thisModule->expCurrentEditExpanderIx > 0;
 		}
+		this->oscConfigurationScreen->errorMsg = "";
+		if (thisModule->oscError)
+		{
+			this->oscConfigurationScreen->errorMsg = "Error connecting to " + thisModule->currentOSCSettings.oscTxIpAddress;
+		}
+		this->oscConfigurationScreen->setVisible(true);
+		
+		// Buttons for Next/Previous - Change color if there is a next/previous
+		prevLight->setColor(calcColor(thisModule->expCurrentEditExpanderIx - 1));
+		nextLight->setColor(calcColor(thisModule->expCurrentEditExpanderIx + 1));
 	}
+	
 	if (thisModule->oscShowConfigurationScreen)
 	{
 		//------------------------------------------
@@ -383,13 +488,26 @@ void oscCVWidget::step()
 		//------------------------------------------
 		TSOSCCVChannel* editChannelPtr = NULL;
 		bool isInput = false;
+		/// TODO: Accomodate if Expanders ever have more or less # channels than the main module.
 		for (int c = 0; c < thisModule->numberChannels; c++) {
 			// Input Channel:
 			int paramId = oscCV::ParamIds::CH_PARAM_START 
 				+ c*TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
 			if (thisModule->inputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].getValue())) {
 				//DEBUG("btnClick: Input Ch %d, paramId = %d", c, paramId);
-				editChannelPtr = &(thisModule->inputChannels[c]);
+				if (masterConfigLoaded)					
+					editChannelPtr = &(thisModule->inputChannels[c]);
+				else if (thisModule->expCurrentEditExpander != NULL)
+				{
+					try
+					{
+						editChannelPtr = &(thisModule->expCurrentEditExpander->inputChannels[c]);
+					}
+					catch (const std::exception& expanderNull)
+					{
+						WARN("Error %s - Expander - ", expanderNull.what());
+					}
+				}
 				isInput = true;
 				break;
 			}
@@ -398,34 +516,52 @@ void oscCVWidget::step()
 			// Output Channel:
 			if (thisModule->outputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].getValue())) {
 				//DEBUG("btnClick: Output Ch %d, paramId = %d", c, paramId);
-				editChannelPtr = &(thisModule->outputChannels[c]);
+				if (masterConfigLoaded)
+					editChannelPtr = &(thisModule->outputChannels[c]);
+				else if (thisModule->expCurrentEditExpander != NULL)
+				{
+					try
+					{
+						editChannelPtr = &(thisModule->expCurrentEditExpander->outputChannels[c]);
+					}
+					catch (const std::exception& expanderNull)
+					{
+						WARN("Error %s - Expander - ", expanderNull.what());
+					}
+				}				
 				isInput = false;
 				break;
 			}
 		} // end for (loop through channels)
+			
 		if (editChannelPtr != NULL) 
 		{
 			this->toggleChannelPathConfig(false); // Hide the channel paths
 			this->oscChannelConfigScreen->showControl(editChannelPtr, isInput);
+			this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::ConfigName);
+			configNameLeft = false;
 		}
 		else if (this->oscChannelConfigScreen->visible)
 		{
 			// Check for enable/disable data massaging
 			// Check for Save or Cancel
+			bool screenDone = false;
 			if (oscChannelConfigScreen->saveTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_SAVE_PARAM].getValue())) {
-				//DEBUG("Save Clicked");
 				// Validate form & save
-				if (oscChannelConfigScreen->saveValues()) {
-					oscChannelConfigScreen->setVisibility(false); // Hide
-					this->toggleChannelPathConfig(true); // Show paths again
-					//thisModule->params[oscCV::ParamIds::OSC_CH_SAVE_PARAM].setValue(0.0f); // Reset
-				}
+				screenDone = oscChannelConfigScreen->saveValues();
 			}
 			else if (oscChannelConfigScreen->cancelTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_CANCEL_PARAM].getValue())) {
 				// Just hide and go back to paths
+				screenDone = true;
 				oscChannelConfigScreen->setVisibility(false); // Hide
 				this->toggleChannelPathConfig(true); // Show paths again
-				//thisModule->params[oscCV::ParamIds::OSC_CH_CANCEL_PARAM].setValue(0.0f); // Reset
+			}
+			if (screenDone) {
+DEBUG("Configure Channel Done - Showing the text boxes again for each channel.");				
+				oscChannelConfigScreen->setVisibility(false); // Hide
+				this->toggleChannelPathConfig(thisModule->expCurrentEditExpanderIx <= 0, thisModule->expCurrentEditExpanderIx >= 0); // Show paths again
+				configNameLeft = thisModule->expCurrentEditExpanderIx > 0;
+				this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::ConfigNameAndLabel);				
 			}
 		}
 
@@ -469,7 +605,7 @@ void oscCVWidget::step()
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 					DEBUG("Save OSC Configuration clicked, save information for module.");
 #endif
-					readChannelPathConfig();
+					readChannelPathConfig(thisModule->expCurrentEditExpanderIx);
 					this->oscConfigurationScreen->errorMsg = "";
 					thisModule->oscNewSettings.oscTxIpAddress = this->oscConfigurationScreen->tbIpAddress->text.c_str();
 					thisModule->oscNewSettings.oscTxPort = this->oscConfigurationScreen->getTxPort();
@@ -512,38 +648,138 @@ void oscCVWidget::step()
 			this->oscConfigurationScreen->btnActionEnable = true;
 		}
 	} // end if show OSC config screen
-
+		
+	showConfigIndex = thisModule->expCurrentEditExpanderIx; // Save this for next time.
+	showConfigScreen = thisModule->oscShowConfigurationScreen;	
+	
+	
+	
 	ModuleWidget::step();
 	return;
-}
+} // end oscCVWidget()
+
+//-- Events --//
+// onDragEnd() - See if are still 
+void oscCVWidget::onDragEnd(const event::DragEnd &e)
+{
+	if (e.button != GLFW_MOUSE_BUTTON_LEFT)
+		return;	
+	ModuleWidget::onDragEnd(e);
+	if (this->module != NULL && showConfigScreen)
+	{
+		oscCV* thisModule = dynamic_cast<oscCV*>(this->module);	
+		if (!masterConfigLoaded && showConfigIndex != 0)
+		{
+			oscCVExpander* expander = thisModule->getExpansionModule(showConfigIndex);
+			if (expander != currentEditExpander)
+			{
+				// We were configuring an Expander, but we *just* moved. 
+				// This guy is NOT valid anymore.
+				// Reset
+				thisModule->expCurrentEditExpanderIx = 0; // Reset, our process() function should detect this is different and reload the main.
+				thisModule->expCurrentEditExpander = NULL;
+				this->oscChannelConfigScreen->visible = false;
+				this->clearChannelPathConfig();			
+			}
+		}
+	}
+	return;
+} // end onDragEnd()
 
 
 // Show or hide the channel configuration
 void oscCVWidget::toggleChannelPathConfig(bool show)
 {
+	toggleChannelPathConfig(show, show);
+	return;
+}
+// Show or hide the channel configuration
+void oscCVWidget::toggleChannelPathConfig(bool showInput, bool showOutput)
+{
 	for (int i = 0; i < this->numberChannels; i++)
 	{
-		this->tbOscInputPaths[i]->visible = show;
-		this->tbOscOutputPaths[i]->visible = show;
+		this->tbOscInputPaths[i]->visible = showInput;
+		this->tbOscOutputPaths[i]->visible = showOutput;
 #if TROWA_OSSCV_SHOW_ADV_CH_CONFIG
-		btnDrawInputAdvChConfig[i]->setVisible(show);
-		btnDrawOutputAdvChConfig[i]->setVisible(show);
+		btnDrawInputAdvChConfig[i]->setVisible(showInput);
+		btnDrawOutputAdvChConfig[i]->setVisible(showOutput);
 #endif
+	}
+	
+	// EXPANDERS ================================
+	if (showInput == showOutput)
+	{
+		// Hide our expander text box.
+		// (Everything is hidden OR every channel text box is show).
+		tbExpanderID->visible = false;
+	}
+	else
+	{
+		tbExpanderID->visible = true;		
+		if (showInput)
+		{
+			// Move expander to the right
+			tbExpanderID->box.pos.x = tbExpanderXPos[1];
+		}
+		else 
+		{
+			tbExpanderID->box.pos.x = tbExpanderXPos[0];			
+		}
+		if (colorizeChannels) {
+			tbExpanderID->borderColor = showConfigColor;
+			tbExpanderID->caretColor = showConfigColor;
+			tbExpanderID->caretColor.a = 0.70;
+		}
 	}
 	return;
 }
 // Read the channel path configs and store in module's channels.
-void oscCVWidget::readChannelPathConfig()
+std::string oscCVWidget::readChannelPathConfig(TSOSCCVInputChannel* inputChannels, TSOSCCVChannel* outputChannels, int nChannels)
+{
+	std::string expanderName = std::string("");
+	if (tbExpanderID->visible)
+	{
+		expanderName = tbExpanderID->text;
+	}	
+	if (inputChannels != NULL || outputChannels != NULL)
+	{
+		try
+		{
+			for (int i = 0; i < nChannels; i++)
+			{
+				if (inputChannels)
+					inputChannels[i].setPath(this->tbOscInputPaths[i]->text);
+				if (outputChannels)
+					outputChannels[i].setPath(this->tbOscOutputPaths[i]->text);					
+			}
+		}
+		catch (const std::exception& e)
+		{
+			WARN("Error %s.", e.what());
+		}
+	}
+	return expanderName;
+} // end readChannelPathConfig()
+
+// Read the channel path configs and store in module's channels.
+void oscCVWidget::readChannelPathConfig(int index)
 {
 	if (module != NULL)
 	{
-		oscCV* thisModule = dynamic_cast<oscCV*>(module);
+		oscCV* thisModule = dynamic_cast<oscCV*>(module);		
 		try
 		{
-			for (int i = 0; i < this->numberChannels; i++)
+			if (masterConfigLoaded)
 			{
-				thisModule->inputChannels[i].setPath(this->tbOscInputPaths[i]->text);
-				thisModule->outputChannels[i].setPath(this->tbOscOutputPaths[i]->text);
+				readChannelPathConfig(thisModule->inputChannels, thisModule->outputChannels, this->numberChannels);				
+			}
+			else if (index != 0)
+			{
+				oscCVExpander* exp = thisModule->getExpansionModule(index);
+				if (exp)
+				{
+					exp->displayName = readChannelPathConfig(exp->inputChannels, exp->outputChannels, exp->numberChannels);					
+				}
 			}
 		}
 		catch (const std::exception& e)
@@ -553,6 +789,34 @@ void oscCVWidget::readChannelPathConfig()
 	}
 	return;
 } // end readChannelPathConfig()
+
+// Set the channel path text boxes.
+void oscCVWidget::setChannelPathConfig(TSOSCCVInputChannel* inputChannels, TSOSCCVChannel* outputChannels, int nChannels, std::string expanderName) 
+{
+	if (inputChannels != NULL || outputChannels != NULL)
+	{
+		try
+		{
+			for (int i = 0; i < nChannels; i++)
+			{
+				if (inputChannels)
+					this->tbOscInputPaths[i]->text = inputChannels[i].getPath();
+				else
+					this->tbOscInputPaths[i]->text = std::string("");
+				if (outputChannels)
+					this->tbOscOutputPaths[i]->text = outputChannels[i].getPath();
+				else
+					this->tbOscOutputPaths[i]->text = std::string("");					
+			}
+			tbExpanderID->text = expanderName;
+		}
+		catch (const std::exception& e)
+		{
+			WARN("Error %s.", e.what());
+		}
+	}
+	return;
+} // end setChannelPathConfig()
 // Set the channel path text boxes.
 void oscCVWidget::setChannelPathConfig() {
 	if (module != NULL)
@@ -560,10 +824,13 @@ void oscCVWidget::setChannelPathConfig() {
 		oscCV* thisModule = dynamic_cast<oscCV*>(module);
 		try
 		{
-			for (int i = 0; i < this->numberChannels; i++)
+			if (masterConfigLoaded)
 			{
-				this->tbOscInputPaths[i]->text = thisModule->inputChannels[i].getPath();
-				this->tbOscOutputPaths[i]->text = thisModule->outputChannels[i].getPath();
+				setChannelPathConfig(thisModule->inputChannels, thisModule->outputChannels, this->numberChannels, std::string(""));				
+			}
+			else if (thisModule->expCurrentEditExpanderIx != 0 && thisModule->expCurrentEditExpander)
+			{
+				setChannelPathConfig(thisModule->expCurrentEditExpander->inputChannels, thisModule->expCurrentEditExpander->outputChannels, thisModule->expCurrentEditExpander->numberChannels, thisModule->expCurrentEditExpander->displayName);
 			}
 		}
 		catch (const std::exception& e)
@@ -573,6 +840,17 @@ void oscCVWidget::setChannelPathConfig() {
 	}
 	return;
 } // end setChannelPathConfig()
+
+// Clear the channel paths in the configuration window..
+void oscCVWidget::clearChannelPathConfig() 
+{
+	for (int i = 0; i < numberChannels; i++)
+	{
+		this->tbOscInputPaths[i]->text = std::string("");
+		this->tbOscOutputPaths[i]->text = std::string("");
+	}
+	return;
+} // end clearChannelPathConfig()
 
 
 
@@ -591,7 +869,8 @@ void TSOscCVLabels::draw(/*in*/ const DrawArgs &args) {
 	nvgFillColor(args.vg, textColor);
 	nvgFontSize(args.vg, fontSize);
 
-	int x, y, dx;// , dy;
+	float x, y;
+	int dx;
 	int xStart, yStart;
 	xStart = 0;
 	yStart = 25; // 17
@@ -600,10 +879,31 @@ void TSOscCVLabels::draw(/*in*/ const DrawArgs &args) {
 
 	//-- * Top Buttons *--//
 	x = 84;
-	y = 18;
+	y = 18.5;
+	// nvgTextAlign(args.vg, NVG_ALIGN_LEFT);
+	// nvgText(args.vg, x, y, "CONFIG", NULL);
+	
+	Vec ledSize = Vec(15, 15);	
+	int offset = 5;
+	x = (box.size.x - ledSize.x)/2.f - offset + 1;
+	nvgTextAlign(args.vg, NVG_ALIGN_RIGHT);
+	nvgText(args.vg, x, y, "MASTER", NULL);
+	
+	x = (box.size.x + ledSize.x)/2.f + offset;
 	nvgTextAlign(args.vg, NVG_ALIGN_LEFT);
 	nvgText(args.vg, x, y, "CONFIG", NULL);
+	
+	offset = 4;
+	//x = (box.size.x)/2.f + ledSize.x - offset;
+	x = (box.size.x + ledSize.x) /2.f - 110 + 6;
+	nvgTextAlign(args.vg, NVG_ALIGN_LEFT);
+	nvgText(args.vg, x, y, "LEFT", NULL);
 
+	//x = (box.size.x - ledSize.x)/2.f + offset;
+	x = (box.size.x - ledSize.x)/2.f + 110 - 4;
+	nvgTextAlign(args.vg, NVG_ALIGN_RIGHT);
+	nvgText(args.vg, x, y, "RIGHT", NULL);
+	
 
 	//--- * Inputs *---//
 	// (Left hand side)
@@ -795,175 +1095,151 @@ void TSOscCVMiddleDisplay::draw(/*in*/ const DrawArgs &args) {
 	if (!displayMode)
 		return;
 	
-	oscCV* thisModule = (isPreview) ? NULL : dynamic_cast<oscCV*>(parentWidget->module);
-	// Default Font:
-	nvgFontSize(args.vg, 9);
-	nvgFontFaceId(args.vg, font->handle);
-	nvgTextLetterSpacing(args.vg, 1);
-	NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-	nvgFillColor(args.vg, textColor);
+	if (displayMode == DisplayMode::Default)
+	{
+		// Default Display Mode
+		oscCV* thisModule = (isPreview) ? NULL : dynamic_cast<oscCV*>(parentWidget->module);
+		// Default Font:
+		nvgFontSize(args.vg, 9);
+		nvgFontFaceId(args.vg, font->handle);
+		nvgTextLetterSpacing(args.vg, 1);
+		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
+		nvgFillColor(args.vg, textColor);
 
-	int dy = 2;
-	int dx = 4;
-	int height = 28;
-	int width = box.size.x / 2.0 - 4;
-	int y = 2;
-	float txtBounds[4] = { 0,0,0,0 };
-	const int txtPadding = 4;
-	int txtWidth = width - txtPadding;
-	bool drawBoxes = false;
-	int numChannels = (isPreview) ? TROWA_OSCCV_DEFAULT_NUM_CHANNELS : thisModule->numberChannels;
-	char buffer[50];
-	for (int c = 0; c < numChannels; c++) {
-		int ix = 0;
-		float nextX;
+		int dy = 2;
+		int dx = 4;
+		int height = 28;
+		int width = box.size.x / 2.0 - 4;
+		int y = 2;
+		float txtBounds[4] = { 0,0,0,0 };
+		const int txtPadding = 4;
+		int txtWidth = width - txtPadding;
+		bool drawBoxes = false;
+		int numChannels = (isPreview) ? TROWA_OSCCV_DEFAULT_NUM_CHANNELS : thisModule->numberChannels;
+		char buffer[50];
+		for (int c = 0; c < numChannels; c++) {
+			int ix = 0;
+			float nextX;
 
-		//---- INPUT ----
-		int x = 2;
-		if (drawBoxes) {
-			// Debug draw box:
-			nvgBeginPath(args.vg);
-			nvgRect(args.vg, x, y, width, height);
-			nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[c]);
-			nvgStrokeWidth(args.vg, 1.0);
-			nvgStroke(args.vg);
-		}
-		// Label:
-		const char* lbl = NULL;
-		int len = 0;
-		if (isPreview)
+			//---- INPUT ----
+			int x = 2;
+			if (drawBoxes) {
+				// Debug draw box:
+				nvgBeginPath(args.vg);
+				nvgRect(args.vg, x, y, width, height);
+				nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[c]);
+				nvgStrokeWidth(args.vg, 1.0);
+				nvgStroke(args.vg);
+			}
+			// Label:
+			const char* lbl = NULL;
+			int len = 0;
+			if (isPreview)
+			{
+				sprintf(buffer, "/ch/%d", c + 1);
+				lbl = buffer;
+				len = strlen(lbl);
+			}
+			else
+			{
+				lbl = thisModule->inputChannels[c].path.c_str();
+				// Chart:
+				drawChannelChart(args, &(thisModule->inputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
+				len = thisModule->inputChannels[c].path.length();
+			}
+			nextX = nvgTextBounds(args.vg, x, y, lbl, NULL, txtBounds);
+			ix = 0;
+			if (nextX > txtWidth) {
+				ix = chPathPosition * len;
+			}
+			nvgScissor(args.vg, x, y, txtWidth, height);
+			nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+			nvgText(args.vg, x, y + 1, &(lbl[ix]), NULL);
+			nvgResetScissor(args.vg);
+
+			//---- OUTPUT ----
+			x += dx + width;
+			if (drawBoxes) {
+				// Debug draw box:
+				nvgBeginPath(args.vg);
+				nvgRect(args.vg, x, y, width, height);
+				nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[thisModule->numberChannels - c - 1]);
+				nvgStrokeWidth(args.vg, 1.0);
+				nvgStroke(args.vg);
+			}
+			// Label:
+			if (isPreview)
+			{
+				sprintf(buffer, "/ch/%d", c + 1);
+				lbl = buffer;
+				len = strlen(lbl);			
+			}
+			else
+			{
+				lbl = thisModule->outputChannels[c].path.c_str();
+				// Chart:
+				drawChannelChart(args, &(thisModule->outputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
+				len = thisModule->outputChannels[c].path.length();
+			}
+			nextX = nvgTextBounds(args.vg, x, y, lbl, NULL, txtBounds);
+			ix = len;
+			if (nextX > txtWidth) {
+				ix = len - chPathPosition * len;
+			}
+			nvgScissor(args.vg, x + txtPadding, y, txtWidth, height);
+			nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
+			nvgText(args.vg, x + width, y + 1, lbl, &(lbl[ix]));
+			nvgResetScissor(args.vg);
+
+			y += dy + height;
+		} // end loop		
+	} // end if default display
+	else 
+	{		
+		// Just show the config name
+		const int margin = 20;
+		int mult = 1;
+		//int xOffset = box.size.y/2;
+		//int yOffset = box.size.x/2;
+		int x = box.size.y - margin;
+		int y = box.size.x - margin;//(parentWidget->configNameLeft) ? box.size.x - margin : margin ;
+		int align = NVG_ALIGN_RIGHT;
+		if (!parentWidget->configNameLeft)
 		{
-			sprintf(buffer, "/ch/%d", c + 1);
-			lbl = buffer;
-			len = strlen(lbl);
+			x = margin;
+			align = NVG_ALIGN_LEFT;
+			mult = -1;
 		}
-		else
+
+		nvgSave(args.vg);
+		nvgTranslate(args.vg, box.size.x / 2.0, box.size.y / 2.0);		
+		nvgRotate(args.vg, mult*NVG_PI*0.5);
+		nvgTranslate(args.vg, -box.size.y / 2.0, -box.size.x / 2.0);		
+		
+		// Default Font:
+		nvgFontSize(args.vg, 14);
+		nvgFontFaceId(args.vg, font->handle);
+		nvgTextLetterSpacing(args.vg, 0.2);
+		//NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
+		nvgTextAlign(args.vg, align | NVG_ALIGN_MIDDLE);
+		nvgFillColor(args.vg, parentWidget->showConfigColor);		
+		nvgText(args.vg, x, y, parentWidget->configName.c_str(), NULL); 
+		
+		nvgRestore(args.vg);
+		
+		if (displayMode == DisplayMode::ConfigNameAndLabel)
 		{
-			lbl = thisModule->inputChannels[c].path.c_str();
-			// Chart:
-			drawChannelChart(args, &(thisModule->inputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
-			len = thisModule->inputChannels[c].path.length();
+			// Label for ID textbox:
+			x = (parentWidget->configNameLeft) ? 3 : box.size.x/2.0 + 4;  //parentWidget->tbExpanderID->box.pos.x;
+			y = 5;
+			nvgFontSize(args.vg, 11);
+			nvgFontFaceId(args.vg, labelFont->handle);
+			nvgFillColor(args.vg, parentWidget->showConfigColor);				
+			nvgTextLetterSpacing(args.vg, 0);
+			nvgTextAlign(args.vg, NVG_ALIGN_TOP | NVG_ALIGN_LEFT);
+			nvgText(args.vg, x, y, "Expander Name", NULL); 			
 		}
-		nextX = nvgTextBounds(args.vg, x, y, lbl, NULL, txtBounds);
-		ix = 0;
-		if (nextX > txtWidth) {
-			ix = chPathPosition * len;
-		}
-		nvgScissor(args.vg, x, y, txtWidth, height);
-		nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-		nvgText(args.vg, x, y + 1, &(lbl[ix]), NULL);
-		nvgResetScissor(args.vg);
-
-		//---- OUTPUT ----
-		x += dx + width;
-		if (drawBoxes) {
-			// Debug draw box:
-			nvgBeginPath(args.vg);
-			nvgRect(args.vg, x, y, width, height);
-			nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[thisModule->numberChannels - c - 1]);
-			nvgStrokeWidth(args.vg, 1.0);
-			nvgStroke(args.vg);
-		}
-		// Label:
-		if (isPreview)
-		{
-			sprintf(buffer, "/ch/%d", c + 1);
-			lbl = buffer;
-			len = strlen(lbl);			
-		}
-		else
-		{
-			lbl = thisModule->outputChannels[c].path.c_str();
-			// Chart:
-			drawChannelChart(args, &(thisModule->outputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
-			len = thisModule->outputChannels[c].path.length();
-		}
-		nextX = nvgTextBounds(args.vg, x, y, lbl, NULL, txtBounds);
-		ix = len;
-		if (nextX > txtWidth) {
-			ix = len - chPathPosition * len;
-		}
-		nvgScissor(args.vg, x + txtPadding, y, txtWidth, height);
-		nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
-		nvgText(args.vg, x + width, y + 1, lbl, &(lbl[ix]));
-		nvgResetScissor(args.vg);
-
-		y += dy + height;
-	} // end loop
-	
-
-	// if (!isPreview)
-	// {
-		// oscCV* thisModule = dynamic_cast<oscCV*>(parentWidget->module);
-		// // Default Font:
-		// nvgFontSize(args.vg, 9);
-		// nvgFontFaceId(args.vg, font->handle);
-		// nvgTextLetterSpacing(args.vg, 1);
-		// NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-		// nvgFillColor(args.vg, textColor);
-
-		// int dy = 2;
-		// int dx = 4;
-		// int height = 28;
-		// int width = box.size.x / 2.0 - 4;
-		// int y = 2;
-		// float txtBounds[4] = { 0,0,0,0 };
-		// const int txtPadding = 4;
-		// int txtWidth = width - txtPadding;
-		// bool drawBoxes = false;
-		// for (int c = 0; c < thisModule->numberChannels; c++) {
-			// int ix = 0;
-			// float nextX;
-
-			// //---- INPUT ----
-			// int x = 2;
-			// drawChannelChart(args.vg, &(thisModule->inputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
-			// if (drawBoxes) {
-				// // Debug draw box:
-				// nvgBeginPath(args.vg);
-				// nvgRect(args.vg, x, y, width, height);
-				// nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[c]);
-				// nvgStrokeWidth(args.vg, 1.0);
-				// nvgStroke(args.vg);
-			// }
-
-			// // Label:
-			// nextX = nvgTextBounds(args.vg, x, y, thisModule->inputChannels[c].path.c_str(), NULL, txtBounds);
-			// ix = 0;
-			// if (nextX > txtWidth) {
-				// ix = chPathPosition * thisModule->inputChannels[c].path.length();
-			// }
-			// nvgScissor(args.vg, x, y, txtWidth, height);
-			// nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-			// nvgText(args.vg, x, y + 1, &(thisModule->inputChannels[c].path.c_str()[ix]), NULL);
-			// nvgResetScissor(args.vg);
-
-			// //---- OUTPUT ----
-			// x += dx + width;
-			// drawChannelChart(args.vg, &(thisModule->outputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
-			// if (drawBoxes) {
-				// // Debug draw box:
-				// nvgBeginPath(args.vg);
-				// nvgRect(args.vg, x, y, width, height);
-				// nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[thisModule->numberChannels - c - 1]);
-				// nvgStrokeWidth(args.vg, 1.0);
-				// nvgStroke(args.vg);
-			// }
-
-			// // Label:
-			// nextX = nvgTextBounds(args.vg, x, y, thisModule->outputChannels[c].path.c_str(), NULL, txtBounds);
-			// ix = thisModule->outputChannels[c].path.length();
-			// if (nextX > txtWidth) {
-				// ix = thisModule->outputChannels[c].path.length() - chPathPosition * thisModule->outputChannels[c].path.length();
-			// }
-			// nvgScissor(args.vg, x + txtPadding, y, txtWidth, height);
-			// nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
-			// nvgText(args.vg, x + width, y + 1, thisModule->outputChannels[c].path.c_str(), &(thisModule->outputChannels[c].path.c_str()[ix]));
-			// nvgResetScissor(args.vg);
-
-			// y += dy + height;
-		// } // end loop
-	// } // end if we actually have a module
+	} // end if show config name
 	return;
 } // end draw()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -1109,11 +1385,9 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 	y = startY;
 	Vec ledSize = Vec(15, 15);
 
-	//NVGcolor backgroundColor = nvgRGBA(0, 0, 0, 0);
-	//NVGcolor color = COLOR_TS_GRAY;
-	//NVGcolor borderColor = COLOR_TS_GRAY;
 	Vec btnSize = Vec(100, 20);
 	x = box.size.x - startX - btnSize.x;
+	// Translate values
 	btnToggleTranslateVals = new TS_ScreenCheckBox(/*size*/ btnSize, /*module*/ thisModule, /*paramId*/ oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM, /*text*/ "Convert Values", /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
 	btnToggleTranslateVals->fontSize = 9;
 	btnToggleTranslateVals->color = TSColors::COLOR_TS_GRAY;
@@ -1121,37 +1395,24 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 	btnToggleTranslateVals->padding = 2;
 	btnToggleTranslateVals->textAlign = TS_ScreenBtn::TextAlignment::Right;
 	btnToggleTranslateVals->box.pos = Vec(x, y);
-	//btnToggleTranslateVals->minValue = 0.0f;
-	//btnToggleTranslateVals->maxValue = 1.0f;
 	addChild(btnToggleTranslateVals);
+	
+	// Clip values
+	btnToggleTranslateClipVals = new TS_ScreenCheckBox(/*size*/ btnSize, /*module*/ thisModule, /*paramId*/ oscCV::ParamIds::OSC_CH_CLIP_CV_VOLT_PARM, /*text*/ "Clip Values", /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
+	btnToggleTranslateClipVals->fontSize = 9;
+	btnToggleTranslateClipVals->color = TSColors::COLOR_TS_GRAY;
+	btnToggleTranslateClipVals->borderWidth = 0;
+	btnToggleTranslateClipVals->padding = 2;
+	btnToggleTranslateClipVals->textAlign = TS_ScreenBtn::TextAlignment::Right;
+	y = startY + ledSize.y + dy + fontSize * 2 + 5; // 13 + 15 + 20 + fontSize
+	btnToggleTranslateClipVals->box.pos = Vec(x, y);
+	addChild(btnToggleTranslateClipVals);
 
 
-	//if (widget != NULL)
-	//{
-	//	// Offset the position.
-	//	btnToggleTranslateVals->box.pos.x += box.pos.x;
-	//	btnToggleTranslateVals->box.pos.y += box.pos.y;
-	//	widget->addParam(btnToggleTranslateVals); //widget->addParam(btnToggleTranslateVals);
-	//}
-	//else
-	//	addChild(btnToggleTranslateVals);
-
-	//DEBUG("Light at (%d, %d). %.2fx%.2f.", x, y, ledSize.x, ledSize.y);
-	//lightTranslateVals = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(x+3, y), thisModule, oscCV::LightIds::OSC_CH_TRANSLATE_LIGHT, ledSize, COLOR_WHITE));
-	//if (widget != NULL)
-	//{
-	//	lightTranslateVals->box.pos.x += this->box.pos.x;
-	//	lightTranslateVals->box.pos.y += this->box.pos.y;
-	//	widget->addChild(lightTranslateVals);
-	//}
-	//else
-	//	addChild(lightTranslateVals);
-
-
-	//DEBUG("Starting text boxes");
 	// -- Min/Max Text Boxes
 	btnSize = Vec(70, 20);
 	tbSize = Vec(70, 20);
+	dx = 15;
 	x = startX;
 	y = startY + ledSize.y + dy + fontSize * 2 + 5; // 13 + 15 + 20 + fontSize
 	for (int i = 0; i < TextBoxIx::NumTextBoxes; i++) {
@@ -1202,27 +1463,19 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 	//DEBUG("Save Btn");
 	// Save Button
 	y += btnSelectDataType->box.size.y + dy;
-	//DEBUG("Save Button at (%d, %d). %.2fx%.2f.", x, y, btnSize.x, btnSize.y);
-	//Vec size, Module* module, int paramId, std::string text, float minVal, float maxVal, float defVal
 	btnSave = new TS_ScreenBtn(/*size*/ btnSize, /*module*/ thisModule, /*paramId*/ oscCV::ParamIds::OSC_CH_SAVE_PARAM, /*text*/ "Save", /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
 	btnSave->box.pos = Vec(x, y);
 	btnSave->visible = false;
-	if (widget != NULL)
-		addChild(btnSave);// widget->addParam(btnSave);
-	else
-		addChild(btnSave);
+	addChild(btnSave);
 
 	//DEBUG("Cancel Btn");
 	// Cancel button
-	x += btnSize.x + dx;
+	x += btnSize.x + dx * 2;
 	//DEBUG("Cancel Button at (%d, %d). %.2fx%.2f.", x, y, btnSize.x, btnSize.y);
 	btnCancel = new TS_ScreenBtn(/*size*/ btnSize, /*module*/ thisModule, /*paramId*/ oscCV::ParamIds::OSC_CH_CANCEL_PARAM, /*text*/ "Cancel", /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
 	btnCancel->box.pos = Vec(x, y);
 	btnCancel->visible = false;
-	if (widget != NULL)
-		addChild(btnCancel);// widget->addParam(btnCancel);
-	else
-		addChild(btnCancel);
+	addChild(btnCancel);
 	return;
 } // end TSOscCVChannelConfigScreen()
 
@@ -1333,76 +1586,81 @@ void TSOscCVChannelConfigScreen::showControl(TSOSCCVChannel* channel, bool isInp
 	this->currentChannelPtr = channel;
 	this->isInput = isInput;
 
-	// Translation On/Off
-	translateValsEnabled = currentChannelPtr->convertVals;
-	if (currentChannelPtr->convertVals)
-	{		
-		this->btnToggleTranslateVals->setValue(1.0f);
-		//parentWidget->module->lights[oscCV::LightIds::OSC_CH_TRANSLATE_LIGHT].value = 1.0f;
-	}
-	else
+	try
 	{
-		this->btnToggleTranslateVals->setValue(0.0f);
-		//parentWidget->module->lights[oscCV::LightIds::OSC_CH_TRANSLATE_LIGHT].value = 0.0f;
+		// Translation On/Off
+		translateValsEnabled = currentChannelPtr->convertVals;
+		if (currentChannelPtr->convertVals)
+		{		
+			this->btnToggleTranslateVals->setValue(1.0f);
+		}
+		else
+		{
+			this->btnToggleTranslateVals->setValue(0.0f);
+		}
+		btnToggleTranslateVals->checked = translateValsEnabled;
+		
+		clipValsEnabled = currentChannelPtr->clipVals;
+		this->btnToggleTranslateClipVals->setValue((clipValsEnabled) ? 1.0f : 0.0f);
+		this->btnToggleTranslateClipVals->checked = clipValsEnabled;
+
+		for (int i = 0; i < TextBoxIx::NumTextBoxes; i++)
+		{
+			tbErrors[i] = std::string("");
+		}
+
+		// Text Box Values
+		char buffer[50] = { '\0' };
+		sprintf(buffer, "%.3f", currentChannelPtr->minVoltage);
+		tbNumericBounds[TextBoxIx::MinCVVolt]->text = std::string(buffer);
+		sprintf(buffer, "%.3f", currentChannelPtr->maxVoltage);
+		tbNumericBounds[TextBoxIx::MaxCVVolt]->text = std::string(buffer);
+
+		tbNumericBounds[TextBoxIx::MinOSCVal]->enabled = true;
+		tbNumericBounds[TextBoxIx::MaxOSCVal]->enabled = true;
+		switch (currentChannelPtr->dataType)
+		{
+		case TSOSCCVChannel::ArgDataType::OscInt:
+		{
+			const char * format = "%.0f";
+			sprintf(buffer, format, currentChannelPtr->minOscVal);
+			tbNumericBounds[TextBoxIx::MinOSCVal]->text = std::string(buffer);
+			sprintf(buffer, format, currentChannelPtr->maxOscVal);
+			tbNumericBounds[TextBoxIx::MaxOSCVal]->text = std::string(buffer);
+			break;
+		}
+		case TSOSCCVChannel::ArgDataType::OscBool:
+		{
+			tbNumericBounds[TextBoxIx::MinOSCVal]->enabled = false;
+			tbNumericBounds[TextBoxIx::MaxOSCVal]->enabled = false;
+
+			tbNumericBounds[TextBoxIx::MinOSCVal]->text = std::string("0");
+			tbNumericBounds[TextBoxIx::MaxOSCVal]->text = std::string("1");
+			break;
+		}
+		case TSOSCCVChannel::ArgDataType::OscFloat:
+		default:
+		{
+			const char * format = "%.3f";
+			sprintf(buffer, format, currentChannelPtr->minOscVal);
+			tbNumericBounds[TextBoxIx::MinOSCVal]->text = std::string(buffer);
+			sprintf(buffer, format, currentChannelPtr->maxOscVal);
+			tbNumericBounds[TextBoxIx::MaxOSCVal]->text = std::string(buffer);
+			break;
+		}
+		} // end switch (data type)
+
+		// Data Type
+		selectedDataType = currentChannelPtr->dataType;
+		this->btnSelectDataType->setSelectedValue(static_cast<int>(currentChannelPtr->dataType));
+
+		setVisibility(true);
+		
 	}
-	btnToggleTranslateVals->checked = translateValsEnabled;
-
-	for (int i = 0; i < TextBoxIx::NumTextBoxes; i++)
+	catch (const std::exception& chEx)
 	{
-		tbErrors[i] = std::string("");
+		WARN("Error Configuring Channel: %s.", chEx.what());
 	}
-
-	// Text Box Values
-	char buffer[50] = { '\0' };
-	sprintf(buffer, "%.3f", currentChannelPtr->minVoltage);
-	tbNumericBounds[TextBoxIx::MinCVVolt]->text = std::string(buffer);
-	sprintf(buffer, "%.3f", currentChannelPtr->maxVoltage);
-	tbNumericBounds[TextBoxIx::MaxCVVolt]->text = std::string(buffer);
-
-	tbNumericBounds[TextBoxIx::MinOSCVal]->enabled = true;
-	tbNumericBounds[TextBoxIx::MaxOSCVal]->enabled = true;
-	switch (currentChannelPtr->dataType)
-	{
-	case TSOSCCVChannel::ArgDataType::OscInt:
-	{
-		const char * format = "%.0f";
-		sprintf(buffer, format, currentChannelPtr->minOscVal);
-		tbNumericBounds[TextBoxIx::MinOSCVal]->text = std::string(buffer);
-		sprintf(buffer, format, currentChannelPtr->maxOscVal);
-		tbNumericBounds[TextBoxIx::MaxOSCVal]->text = std::string(buffer);
-		break;
-	}
-	case TSOSCCVChannel::ArgDataType::OscBool:
-	{
-		tbNumericBounds[TextBoxIx::MinOSCVal]->enabled = false;
-		tbNumericBounds[TextBoxIx::MaxOSCVal]->enabled = false;
-
-		tbNumericBounds[TextBoxIx::MinOSCVal]->text = std::string("0");
-		tbNumericBounds[TextBoxIx::MaxOSCVal]->text = std::string("1");
-		//const char * format = "%.0f";
-		//sprintf(buffer, format, currentChannelPtr->minOscVal);
-		//tbNumericBounds[TextBoxIx::MinOSCVal]->text = std::string(buffer);
-		//sprintf(buffer, format, currentChannelPtr->maxOscVal);
-		//tbNumericBounds[TextBoxIx::MaxOSCVal]->text = std::string(buffer);
-		break;
-	}
-	case TSOSCCVChannel::ArgDataType::OscFloat:
-	default:
-	{
-		const char * format = "%.3f";
-		sprintf(buffer, format, currentChannelPtr->minOscVal);
-		tbNumericBounds[TextBoxIx::MinOSCVal]->text = std::string(buffer);
-		sprintf(buffer, format, currentChannelPtr->maxOscVal);
-		tbNumericBounds[TextBoxIx::MaxOSCVal]->text = std::string(buffer);
-		break;
-	}
-	} // end switch (data type)
-
-	// Data Type
-	selectedDataType = currentChannelPtr->dataType;
-	this->btnSelectDataType->setSelectedValue(static_cast<int>(currentChannelPtr->dataType));
-
-	setVisibility(true);
 	return;
 } // end showControl()
 
@@ -1420,8 +1678,13 @@ void TSOscCVChannelConfigScreen::step()
 				//DEBUG("Translate button clicked");
 				translateValsEnabled = !translateValsEnabled;
 			}
+			// Check for enable/disable clipping in data massaging:
+			if (clipChannelInputTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_CLIP_CV_VOLT_PARM].getValue())){
+				clipValsEnabled = !clipValsEnabled;
+			}
 		}
 		btnToggleTranslateVals->checked = translateValsEnabled;
+		btnToggleTranslateClipVals->checked = clipValsEnabled;
 		OpaqueWidget::step(); // Parent
 	}
 	return;
@@ -1479,12 +1742,14 @@ bool TSOscCVChannelConfigScreen::saveValues(/*out*/ TSOSCCVChannel* channelPtr)
 {
 	bool saved = false;
 		
+	
 	if (channelPtr != NULL && validateValues())
 	{
-		channelPtr->convertVals = translateValsEnabled;// btnToggleTranslateVals->value > 0;
-		channelPtr->dataType = static_cast<TSOSCCVChannel::ArgDataType>(btnSelectDataType->selectedVal);
 		try
 		{
+			channelPtr->convertVals = translateValsEnabled;
+			channelPtr->clipVals = clipValsEnabled;
+			channelPtr->dataType = static_cast<TSOSCCVChannel::ArgDataType>(btnSelectDataType->selectedVal);			
 			channelPtr->minVoltage = std::stof(tbNumericBounds[TextBoxIx::MinCVVolt]->text);
 			channelPtr->maxVoltage = std::stof(tbNumericBounds[TextBoxIx::MaxCVVolt]->text);
 			channelPtr->minOscVal = std::stof(tbNumericBounds[TextBoxIx::MinOSCVal]->text);
@@ -1498,3 +1763,4 @@ bool TSOscCVChannelConfigScreen::saveValues(/*out*/ TSOSCCVChannel* channelPtr)
 	}
 	return saved;
 } // end saveValues()
+

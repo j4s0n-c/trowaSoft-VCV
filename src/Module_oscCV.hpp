@@ -7,6 +7,8 @@ using namespace rack;
 #include "trowaSoftUtilities.hpp"
 #include "TSOSCCommon.hpp"
 #include "TSOSCCommunicator.hpp"
+#include "TSOSCCV_Common.hpp"
+#include "Module_oscCVExpander.hpp"
 #include <thread> // std::thread
 #include <mutex>
 #include <string>
@@ -21,253 +23,7 @@ using namespace rack;
 extern Model* modelOscCV;
 
 #define TROWA_OSSCV_SHOW_ADV_CH_CONFIG			1 // Flag to showing advanced config or hiding it (while it is not finished)
-
-#define TROWA_OSCCV_DEFAULT_NUM_CHANNELS		8 // Default number of channels
-#define TROWA_OSCCV_NUM_PORTS_PER_INPUT			2 // Each input port should have a trigger input and actual value input.
-#define TROWA_OSCCV_DEFAULT_NAMESPACE		"trowacv" // Default namespace for this module (should not be the same as the sequencers)
-#define TROWA_OSCCV_MAX_VOLTAGE				 10.0 // Max output voltage
-#define TROWA_OSCCV_MIN_VOLTAGE				-10.0 // Min output voltage
-#define TROWA_OSCCV_VAL_BUFFER_SIZE			  512 // Buffer size for value history
-#define TROWA_OSCCV_TRIGGER_ON_V			 10.0 // Trigger on/high output voltage
-#define TROWA_OSCCV_TRIGGER_OFF_V			  0.0 // Trigger off/low output voltage
-#define TROWA_OSCCV_MIDI_VALUE_MIN_V		     -5 // -5v : Midi Value 0 (C-1)
-#define TROWA_OSCCV_MIDI_VALUE_MAX_V		5.58333 // +5.5833v : Midi Value 127
-#define TROWA_OSCCV_MIDI_VALUE_MIN		         0 // Midi value 0
-#define TROWA_OSCCV_MIDI_VALUE_MAX			   127 // Midi value 127
-#define TROWA_OSCCV_DEFAULT_SEND_HZ			   100 // If no trigger input, bang out OSC when val changes this many times per second.
-#define TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL		2
-
-// A channel for OSC.
-struct TSOSCCVChannel {
-	// Base param ids for the channel
-	enum BaseParamIds {
-		CH_SHOW_CONFIG,
-		CH_NUM_PARAMS
-	};
-	// Path for this channel. Must start with '/'.
-	std::string path;
-	// The value
-	float val = 0.0;
-	// The translated value
-	float translatedVal = 0.0;
-	//// The last value we SENT over OSC (for tracking changes).
-	//float lastVal = -20.0;
-	//// The last translated value we SENT over OSC (for tracking changes).
-	//float lastTranslatedVal = -20.0;
-	uint32_t uintVal = 0;
-	//uint32_t lastUintVal = 0;
-	// Channel number (1-based)
-	int channelNum;
-	// What our parameter type should be. We can't really translate strings to voltage, so that is not available.
-	enum ArgDataType : int {
-		OscFloat = 1,
-		OscInt = 2,
-		OscBool = 3,
-		// An OSC Midi message -- Not sure what actually supports this natively.
-		OscMidi = 20
-	};
-	ArgDataType dataType = ArgDataType::OscFloat;
-	// Message received.
-	//float msgReceived = 0.0;
-
-	// Value buffer
-	float valBuffer[TROWA_OSCCV_VAL_BUFFER_SIZE] = { 0.0 };
-	// Value buffer current index to insert into.
-	int valBuffIx = 0;
-	// The frame index.
-	int frameIx = 0;
-
-	// Show channel configuration for this channel.
-	dsp::SchmittTrigger showChannelConfigTrigger;
-
-
-	/// TODO: Configuration for conversion & use the conversion stuff.
-	/// TODO: Eventually allow strings? Basically user would have to enumerate and we should have an index into the array of strings.
-
-	// Min Rack input or output voltage
-	float minVoltage = TROWA_OSCCV_MIN_VOLTAGE;
-	// Max Rack input or output voltage
-	float maxVoltage = TROWA_OSCCV_MAX_VOLTAGE;
-	// Min OSC input or output value.
-	float minOscVal = 0;
-	// Max OSC input or output value.
-	float maxOscVal = 127;
-	// If we should translate between the min and max values.
-	bool convertVals = false;
-
-	std::mutex mutPath;
-
-	TSOSCCVChannel()
-	{
-		return;
-	}
-
-	TSOSCCVChannel(int chNum, std::string path) : TSOSCCVChannel()
-	{
-		this->channelNum = chNum;
-		this->path = path;
-		initialize();
-		return;
-	}
-
-	virtual void initialize() {
-		this->convertVals = false;
-		this->val = 0.0;
-		this->translatedVal = getValOSC2CV();
-		this->dataType = ArgDataType::OscFloat;
-		// Min Rack input or output voltage
-		minVoltage = TROWA_OSCCV_MIDI_VALUE_MIN_V;
-		// Max Rack input or output voltage
-		maxVoltage = TROWA_OSCCV_MIDI_VALUE_MAX_V;
-		// Min OSC input or output value.
-		minOscVal = 0;
-		// Max OSC input or output value.
-		maxOscVal = 127;
-		for (int i = 0; i < TROWA_OSCCV_VAL_BUFFER_SIZE; i++)
-		{
-			valBuffer[i] = 0.0f;
-		}
-		valBuffIx = 0;
-		convertVals = false;
-		return;
-	} // end initialize()
-
-
-	// Get the value translated from OSC to CV voltage.
-	float getValOSC2CV() {
-		float tVal = val;
-		if (convertVals) {
-			tVal = rescale(val, minOscVal, maxOscVal, minVoltage, maxVoltage);
-		}
-		return tVal;
-	}
-	// Get the value translated from CV voltage to OSC value.
-	float getValCV2OSC() {
-		float tVal = val;
-		if (convertVals) {
-			tVal = rescale(val, minVoltage, maxVoltage, minOscVal, maxOscVal);
-			switch (this->dataType)
-			{
-			case TSOSCCVChannel::ArgDataType::OscInt:
-				tVal = static_cast<float>(static_cast<int>(tVal));
-				break;
-			case TSOSCCVChannel::ArgDataType::OscBool:
-				tVal = static_cast<float>(static_cast<bool>(tVal));
-				break;
-			case TSOSCCVChannel::ArgDataType::OscFloat:
-			default:
-				break;
-			}
-		}
-		return tVal;
-	}
-	void setOSCInValue(float oscVal) {
-		val = oscVal;
-		translatedVal = getValOSC2CV();
-		return;
-	}
-	void addValToBuffer(float buffVal);
-
-	void setValue(float newVal) {
-		val = newVal;
-		if (convertVals)
-			translatedVal = getValCV2OSC();
-		addValToBuffer(newVal);
-		return;
-	}
-	void setPath(std::string path)
-	{
-		std::lock_guard<std::mutex> lock(mutPath);		
-		if (path.length() > 0 && path.at(0) != '/') 
-			this->path = "/" + path;
-		else
-			this->path = path;
-		return;
-	}
-	std::string getPath() {
-		std::lock_guard<std::mutex> lock(mutPath);
-		return path;
-	}
-
-	//--------------------------------------------------------
-	// serialize()
-	// @returns : The channel json node.
-	//--------------------------------------------------------
-	virtual json_t* serialize();
-	//--------------------------------------------------------
-	// deserialize()
-	// @rootJ : (IN) The channel json node.
-	//--------------------------------------------------------
-	virtual void deserialize(json_t* rootJ);
-
-};
-// Channel specifically for CV Input -> OSC.
-// Extra stuff for knowing when to send output.
-struct TSOSCCVInputChannel : TSOSCCVChannel {
-	// The last value we SENT over OSC (for tracking changes).
-	float lastVal = -20.0;
-	// The last translated value we SENT over OSC (for tracking changes).
-	float lastTranslatedVal = -20.0;
-	// If trigger is not set up (input type channel), how much input change is needed to send a message out.
-	float channelSensitivity = 0.05f;
-	// If we should send. Working value for module.
-	bool doSend = false;
-
-	TSOSCCVInputChannel() : TSOSCCVChannel()
-	{
-		return;
-	}
-
-	TSOSCCVInputChannel(int chNum, std::string path)
-	{
-		this->channelNum = chNum;
-		this->path = path;
-		this->initialize();
-		return;
-	}
-	void initialize() override {
-		this->lastVal = -20.0;
-		this->lastTranslatedVal = -20.0;
-		channelSensitivity = 0.05f;
-		TSOSCCVChannel::initialize();
-		doSend = false;
-		return;
-	} // end initialize()
-
-	//--------------------------------------------------------
-	// serialize()
-	// @returns : The channel json node.
-	//--------------------------------------------------------
-	json_t* serialize() override;
-	//--------------------------------------------------------
-	// deserialize()
-	// @rootJ : (IN) The channel json node.
-	//--------------------------------------------------------
-	void deserialize(json_t* rootJ) override;
-};
-
-struct TSOSCCVSimpleMessage {
-	// Channel Number (1-N)
-	int channelNum;
-	float rxVal;
-	uint32_t uintRxVal;
-
-	TSOSCCVSimpleMessage(int chNum, float recvVal)
-	{
-		channelNum = chNum;
-		rxVal = recvVal;
-	}
-	TSOSCCVSimpleMessage(int chNum, float recvVal, uint32_t uintVal)
-	{
-		channelNum = chNum;
-		rxVal = recvVal;
-		uintRxVal = uintVal;
-	}
-
-};
-
-
-class TSOSCCVSimpleMsgListener;
+#define OSC_CV_OUTPUT_BUFFER_SIZE			1024*128 // Hopefully large enough (may not be from adding poly cables).  
 
 //===============================================================================
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -297,8 +53,11 @@ struct oscCV : Module {
 		OSC_CH_MAX_CV_VOLT_PARAM, // Channel: Maximum CV Voltage
 		OSC_CH_MIN_OSC_VAL_PARAM, // Channel: Minimum OSC Value
 		OSC_CH_MAX_OSC_VAL_PARAM, // Channel: Maximum OSC Value
+		OSC_CH_CLIP_CV_VOLT_PARM, // Channel: Clip/truncate the input voltage to the MIN and MAX if we are translating vals.		
 		OSC_CH_SEND_FREQ_PARAM, // [TBI] Channel [INPUT->OSC only]: Send frequency (if trigger not active)
 		OSC_CH_SEND_THRESHOLD_PARAM, // [TBI] Channell [INPUT->OSC only]: CV value change needed to trigger send (if trigger not active)
+		OSC_EXPANDER_CONFIG_PREV_PARAM, // Expander: Configure Previous	(goes towards Left/Input)
+		OSC_EXPANDER_CONFIG_NEXT_PARAM, // Expander: Configure Next (goes towards Right/Output)
 		CH_PARAM_START,
 		NUM_PARAMS = CH_PARAM_START // Add #channels * 2 to this
 	};
@@ -314,6 +73,8 @@ struct oscCV : Module {
 		OSC_CONFIGURE_LIGHT, // The light for configuring OSC.
 		OSC_ENABLED_LIGHT, // Light for OSC enabled and currently running/active.
 		OSC_CH_TRANSLATE_LIGHT, // Light for Channel Translate enabled.
+		OSC_CONFIGURE_PREV_LIGHT, // Light if there are 'previous' modules to configure.
+		OSC_CONFIGURE_NEXT_LIGHT, // Light if there are 'next' modules to configure.		
 		CH_LIGHT_START,
 		NUM_LIGHTS = CH_LIGHT_START // Add # channels *2 to this
 	};
@@ -332,7 +93,7 @@ struct oscCV : Module {
 	// The received messages.
 	std::queue<TSOSCCVSimpleMessage> rxMsgQueue;
 	dsp::SchmittTrigger* inputTriggers;
-
+		
 	int oscId;
 	/// TODO: OSC members should be dumped into an OSC base class....
 	// Mutex for osc messaging.
@@ -344,6 +105,19 @@ struct oscCV : Module {
 	dsp::SchmittTrigger oscConnectTrigger;
 	// Show the OSC configuration screen or not.
 	bool oscShowConfigurationScreen = false;
+	
+	//----- EXPANDERS -----
+	// [Expander] Current edit expander:
+	oscCVExpander* expCurrentEditExpander = NULL;
+	// [Expander] Current edit expander index. 0 is none. Negative is to the LEFT (input), Positive to the right (output).
+	int expCurrentEditExpanderIx = 0;
+	// [Expander] Current edit name.
+	std::string expCurrentEditExpanderName;
+	
+	// Configure - Previous (goes Left or towards Inputs).
+	dsp::SchmittTrigger oscConfigPrevTrigger;
+	// Configure - Next (goes Right or towards Output).
+	dsp::SchmittTrigger oscConfigNextTrigger;	
 
 	float sendDt = 0.0f;
 	int sendFrequency_Hz = TROWA_OSCCV_DEFAULT_SEND_HZ;
@@ -361,7 +135,7 @@ struct oscCV : Module {
 	// Sending OSC socket
 	UdpTransmitSocket* oscTxSocket = NULL;
 	// OSC message listener
-	TSOSCCVSimpleMsgListener* oscListener = NULL;
+	//TSOSCCVSimpleMsgListener* oscListener = NULL;
 	// Receiving OSC socket
 	UdpListeningReceiveSocket* oscRxSocket = NULL;
 	// The OSC listener thread
@@ -436,6 +210,11 @@ struct oscCV : Module {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void setOscNamespace(std::string oscNamespace);
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getOscNamespace()
+	// Get the osc namespace.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	std::string getOscNamespace();	
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// process()
 	// [Previously step(void)]
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -453,56 +232,31 @@ struct oscCV : Module {
 	// dataFromJson(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	void dataFromJson(json_t *rootJ) override;
-
-};
-
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// Listener for OSC incoming messages.
-// Currently each module must have its own listener object & slave thread since I'm not 100% sure about the threading in Rack (if we could keep
-// one thread alive throughout the deaths of other modules). This way, its easy to clean up (when module dies, it kills its slave listener thread)
-// instead of tracking how many modules are still alive and using OSC.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-class TSOSCCVSimpleMsgListener : public osc::OscPacketListener {
-public:
-	// Pointer to OSC module with a message queue to dump into.
-	oscCV * oscModule;
-	// OSC namespace to use. Currently, if message doesn't have this namespace, we will ignore it. In future, maybe one listener can feed multiple modules with different namespaces?
-	std::string oscNamespace;
-	// Instantiate a listener.
-	TSOSCCVSimpleMsgListener();
-	// Instantiate a listener.
-	TSOSCCVSimpleMsgListener(std::string oscNs, oscCV* oscModule)
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getNumExpansionModules()	
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-			
+	int getNumExpansionModules(TSOSCCVExpanderDirection dir);
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getNumExpansionModulesInput()
+	// Get the number of input expanders (left).
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-			
+	int getNumExpansionModulesInput()
 	{
-		this->oscModule = oscModule;
-		if (!oscNs.empty() && oscNs.at(0) != '/')
-			this->oscNamespace = "/" + oscNs;
-		else
-			this->oscNamespace = oscNs;
-		return;
+		return getNumExpansionModules(TSOSCCVExpanderDirection::Input);
 	}
-	void setNamespace(std::string oscNs)
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getNumExpansionModulesOutput()
+	// Get the number of output expanders (right).
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-			
+	int getNumExpansionModulesOutput()
 	{
-		//DEBUG("Listener.setNamespace(): %s, first char is %c.", oscNs.c_str(), oscNs.at(0));
-		std::lock_guard<std::mutex> lock(mutExNamespace);
-		if (!oscNs.empty() && oscNs.at(0) != '/')
-			this->oscNamespace = "/" + oscNs;
-		else
-			this->oscNamespace = oscNs;
-		return;
+		return getNumExpansionModules(TSOSCCVExpanderDirection::Output);
 	}
-protected:
-	// Mutex for setting the namespace.
-	std::mutex mutExNamespace;
-
-	//--------------------------------------------------------------------------------------------------------------------------------------------
-	// ProcessMessage()
-	// @rxMsg : (IN) The received message from the OSC library.
-	// @remoteEndPoint: (IN) The remove end point (sender).
-	// Handler for receiving messages from the OSC library. Taken from their example listener.
-	// Should create a generic TSExternalControlMessage for our trowaSoft sequencers and dump it in the module instance's queue.
-	//--------------------------------------------------------------------------------------------------------------------------------------------
-	virtual void ProcessMessage(const osc::ReceivedMessage& rxMsg, const IpEndpointName& remoteEndpoint) override;
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getExpansionModule()
+	// @index: 0 is this master module (invalid). Negative to the left. Positive to the right.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
+	oscCVExpander* getExpansionModule(int index);
 };
-
 
 #endif // !MODULE_OSCCV_HPP

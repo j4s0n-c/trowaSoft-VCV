@@ -54,7 +54,6 @@ RandStructure TSSequencerModuleBase::RandomPatterns[TROWA_SEQ_NUM_RANDOM_PATTERN
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 TSSequencerModuleBase::TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int numRows, /*in*/ int numCols, /*in*/ float defStateVal) // : Module(NUM_PARAMS + numSteps, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS + numSteps)
 {
-DEBUG("TSSequencerModuleBase() - Instantiate Module! - Num Steps: %d", numSteps);
 	config(NUM_PARAMS + numSteps, NUM_INPUTS, NUM_OUTPUTS, NUM_LIGHTS + numSteps);
 	
 	// Configure Parameters:
@@ -108,8 +107,10 @@ DEBUG("TSSequencerModuleBase() - Instantiate Module! - Num Steps: %d", numSteps)
 	// Copy the default colors over. ? Or just reference them. This leaves it open to customize the colors eventually.
 	for (int i = 0; i < TROWA_SEQ_NUM_CHNLS; i++){
 		voiceColors[i] = TSColors::CHANNEL_COLORS[i % TSColors::NUM_CHANNEL_COLORS];
+		// Initialize channel modes:
+		// v1.1 - Each channel will have its own mode.		
+		channelValueModes[i] = ValueMode::VALUE_TRIGGER;
 	}
-	
 	useOSC = false;
 	oscInitialized = false;
 	oscBuffer = NULL;
@@ -256,6 +257,11 @@ void TSSequencerModuleBase::onReset()
 			}
 		}
 	}
+	// [v1.1] Also reset all channel value modes to default:
+	for (int c = 0; c < TROWA_SEQ_NUM_CHNLS; c++)
+	{
+		channelValueModes[c] = ValueMode::VALUE_TRIGGER;
+	}
 	/// TODO: Also clear our clipboard and turn off OSC?
 	reloadEditMatrix = true;
 	valuesChanging = false;
@@ -361,10 +367,10 @@ void TSSequencerModuleBase::setOSCNamespace(const char* oscNs)
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSequencerModuleBase::initOSC(const char* ipAddress, int outputPort, int inputPort)
 {
-	oscMutex.lock();
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
 	DEBUG("TSSequencerModuleBase::initOSC() - Initializing OSC");
-#endif
+#endif	
+	oscMutex.lock();
 	try
 	{
 		// Try to register these ports:
@@ -573,7 +579,7 @@ void TSSequencerModuleBase::setStepValue(int step, float val, int channel, int p
 			if (gateTriggers != NULL)
 				gateTriggers[step].state = TriggerSignal::LOW;
 		}
-		paramQuantities[ParamIds::CHANNEL_PARAM + step]->setValue(val);		
+		paramQuantities[ParamIds::CHANNEL_PARAM + step]->setValue(val);
 	}
 	oscMutex.lock();
 	if (useOSC && oscInitialized)
@@ -647,9 +653,11 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 	switch (this->oscCurrentAction)
 	{
 	case OSCAction::Disable:
+DEBUG("Osc Current Action = Disable.");	
 		this->cleanupOSC(); // Try to clean up OSC
 		break;
 	case OSCAction::Enable:
+DEBUG("Osc Current Action = Enable.");		
 		this->cleanupOSC(); // Try to clean up OSC if we already have something
 		this->initOSC(this->oscNewSettings.oscTxIpAddress.c_str(), this->oscNewSettings.oscTxPort, this->oscNewSettings.oscRxPort);
 		this->useOSC = true;
@@ -781,8 +789,19 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 	int r = 0;
 	int c = 0;
 
-	// Current output value mode	
-	selectedOutputValueMode = static_cast<ValueMode>((int)clamp(static_cast<int>(roundf(params[SELECTED_OUTPUT_VALUE_MODE_PARAM].getValue())), 0, TROWA_SEQ_NUM_MODES - 1));
+	if (!editChannelChanged) // [v1.1] Only read in if edit channel hasn't changed
+	{
+		// If the channel hasn't changed, read this in
+		// Current output value mode	
+		selectedOutputValueMode = static_cast<ValueMode>((int)clamp(static_cast<int>(roundf(params[SELECTED_OUTPUT_VALUE_MODE_PARAM].getValue())), 0, TROWA_SEQ_NUM_MODES - 1));		
+	}
+	else if (selectedOutputValueMode != channelValueModes[currentChannelEditingIx])
+	{
+		// If the channel changed, then set the selected output mode to this channel's
+		selectedOutputValueMode = channelValueModes[currentChannelEditingIx];
+		// Modify the knob
+		this->paramQuantities[ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM]->setValue(selectedOutputValueMode);
+	}
 
 	int lastNumberSteps = currentNumberSteps;
 	if (inputs[STEPS_INPUT].isConnected())
@@ -1589,8 +1608,17 @@ json_t *TSSequencerModuleBase::dataToJson() {
 	json_object_set_new(rootJ, "currentTriggerEditIx", json_integer((int)currentChannelEditingIx));
 	// The current output / knob mode.
 	json_object_set_new(rootJ, "selectedOutputValueMode", json_integer((int)selectedOutputValueMode));
+	
 	// Current BPM calculation note (i.e. 1/4, 1/8, 1/8T, 1/16)
 	json_object_set_new(rootJ, "selectedBPMNoteIx", json_integer((int)selectedBPMNoteIx));
+	
+	json_t* channelValModesJ = json_array();
+	for (int ch = 0; ch < TROWA_SEQ_NUM_CHNLS; ch++)
+	{
+		json_t* itemJ = json_integer((int)channelValueModes[ch]);
+		json_array_append_new(channelValModesJ, itemJ);
+	}
+	json_object_set_new(rootJ, "chValModes", channelValModesJ);
 
 	// triggers
 	json_t *triggersJ = json_array();
@@ -1641,12 +1669,37 @@ void TSSequencerModuleBase::dataFromJson(json_t *rootJ) {
 	currJ = json_object_get(rootJ, "currentTriggerEditIx");
 	if (currJ)
 		currentChannelEditingIx = json_integer_value(currJ);
+	
+	
 	currJ = json_object_get(rootJ, "selectedOutputValueMode");
 	if (currJ)
 	{
 		selectedOutputValueMode = static_cast<ValueMode>(json_integer_value(currJ));
 		modeString = modeStrings[selectedOutputValueMode];
+	}	
+		
+	json_t* channelValModesJ = json_object_get(rootJ, "chValModes");
+	if (channelValModesJ)
+	{ // v1.0.1 (16) or higher:
+		for (int ch = 0; ch < TROWA_SEQ_NUM_CHNLS; ch++)
+		{
+			currJ = json_array_get(channelValModesJ, ch);
+			if (currJ)
+			{
+				channelValueModes[ch] = static_cast<ValueMode>(json_integer_value(currJ));
+			}
+		}
+		modeString = modeStrings[channelValueModes[currentChannelEditingIx]]; // Mode string will be the channel we are currently showing/editing
 	}
+	else 
+	{
+		// Set them all to selectedOutputValueMode (this is from an older save where there was only one output mode).
+		for (int ch = 0; ch < TROWA_SEQ_NUM_CHNLS; ch++)
+		{
+			channelValueModes[ch] = selectedOutputValueMode;
+		}
+	}
+	
 	// Current BPM calculation note (i.e. 1/4, 1/8, 1/8T, 1/16)
 	currJ = json_object_get(rootJ, "selectedBPMNoteIx");
 	if (currJ)

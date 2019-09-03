@@ -74,10 +74,6 @@ void trigSeq::process(const ProcessArgs &args)
 	int r = 0;
 	int c = 0;
 
-	try 
-	{
-		
-		
 	//------------------------------------------------------------
 	// Get our common sequencer inputs
 	//------------------------------------------------------------
@@ -86,7 +82,8 @@ void trigSeq::process(const ProcessArgs &args)
 	{
 		// Gate Mode has changed
 		gateMode = static_cast<GateMode>((short)(selectedOutputValueMode));
-		modeString = modeStrings[selectedOutputValueMode];
+		modeString = modeStrings[selectedOutputValueMode];		
+		channelValueModes[currentChannelEditingIx] = selectedOutputValueMode;
 	}
 
 
@@ -98,7 +95,7 @@ void trigSeq::process(const ProcessArgs &args)
 	int gridRow, gridCol; // for touchOSC grids
 	if (reloadMatrix)
 	{
-		reloadEditMatrix = false;
+		reloadEditMatrix = false;		
 		oscMutex.lock();
 		osc::OutboundPacketStream oscStream(oscBuffer, OSC_OUTPUT_BUFFER_SIZE);
 		if (sendOSC && oscInitialized)
@@ -248,14 +245,26 @@ void trigSeq::process(const ProcessArgs &args)
 		oscMutex.unlock();
 	} // end else (read buttons)
 	
-	// Set Outputs (16 triggers)	
-	gOn = true;
-	if (gateMode == TRIGGER)
-		gOn = pulse;  // gateOn = gateOn && pulse;
-	else if (gateMode == RETRIGGER)
-		gOn = !pulse; // gateOn = gateOn && !pulse;		
+	// Set Outputs (16 Channels)	
+	// gOn = true;
+	// if (gateMode == TRIGGER)
+		// gOn = pulse;  // gateOn = gateOn && pulse;
+	// else if (gateMode == RETRIGGER)
+		// gOn = !pulse; // gateOn = gateOn && !pulse;		
 	for (int g = 0; g < TROWA_SEQ_NUM_CHNLS; g++) 
 	{
+		switch (channelValueModes[g]) // [v1.1] Each channel can have its own output mode (trigger/retrigger/gate).
+		{
+			case VALUE_TRIGGER:
+				gOn = pulse;
+				break;
+			case VALUE_RETRIGGER:
+				gOn = !pulse;
+				break;
+			default:
+				gOn = true;
+				break;
+		}
 		float gate = (running && gOn && (triggerState[currentPatternPlayingIx][g][index])) ? trigSeq_GATE_ON_OUTPUT : trigSeq_GATE_OFF_OUTPUT;
 		outputs[CHANNELS_OUTPUT + g].value= gate;
 		// Output lights (around output jacks for each gate/trigger):		
@@ -263,13 +272,6 @@ void trigSeq::process(const ProcessArgs &args)
 	}	
 	// Now we have to keep track of this for OSC...
 	prevIndex = index;
-	
-	
-	}
-	catch (std::exception& e)
-	{
-		WARN("Error: %s", e.what());
-	}
   return;
 } // end step()
 

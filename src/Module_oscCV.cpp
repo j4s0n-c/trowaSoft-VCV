@@ -3,7 +3,8 @@
 using namespace rack;
 #include "TSOSCCommunicator.hpp"
 #include "Widget_oscCV.hpp"
-#include <cmath>  
+#include <cmath>
+#include "TSOSCCV_RxConnector.hpp"
 
 // Model for trowa OSC2CV
 Model* modelOscCV = createModel<oscCV, oscCVWidget>(/*slug*/ "cvOSCcv");
@@ -70,11 +71,11 @@ oscCV::~oscCV()
 		free(oscBuffer);
 		oscBuffer = NULL;
 	}
-	if (oscListener != NULL)
-	{
-		delete oscListener;
-		oscListener = NULL;
-	}
+	// if (oscListener != NULL)
+	// {
+		// delete oscListener;
+		// oscListener = NULL;
+	// }
 	if (inputChannels != NULL)
 		delete[] inputChannels;
 	if (outputChannels != NULL)
@@ -128,15 +129,16 @@ void oscCV::initOSC(const char* ipAddress, int outputPort, int inputPort)
 		bool portsRegistered = false;
 		// Try to register these ports:
 		if (!doCVPort2OSC) {
-			// No output
-			portsRegistered = TSOSCConnector::RegisterPort(oscId, inputPort);
+			// No output - Rx Port can't be shared
+			portsRegistered = TSOSCConnector::RegisterPortRecv(oscId, inputPort, /*rxSharedAllowed*/ true);
 		}
 		else if (!doOSC2CVPort) {
-			// No OSC Input
-			portsRegistered = TSOSCConnector::RegisterPort(oscId, outputPort);
+			// No OSC Input - Tx Port can be shared:
+			portsRegistered = TSOSCConnector::RegisterPortTrans(oscId, outputPort, /*sharingAllowed*/ true);
 		}
 		else {
-			portsRegistered = TSOSCConnector::RegisterPorts(oscId, outputPort, inputPort);
+			// New version - Tx Port can be shared:			
+			portsRegistered = TSOSCConnector::RegisterPorts(oscId, outputPort, inputPort, /*txSharedAllowed*/ true, /*rxSharedAllowed*/ true);
 		}
 
 		if (portsRegistered)
@@ -145,7 +147,7 @@ void oscCV::initOSC(const char* ipAddress, int outputPort, int inputPort)
 			this->currentOSCSettings.oscTxIpAddress = ipAddress;
 			if (oscBuffer == NULL)
 			{
-				oscBuffer = (char*)malloc(OSC_OUTPUT_BUFFER_SIZE * sizeof(char));
+				oscBuffer = (char*)malloc(OSC_CV_OUTPUT_BUFFER_SIZE * sizeof(char));
 			}
 			if (doCVPort2OSC) {
 				// CV Port -> OSC Tx
@@ -158,29 +160,15 @@ void oscCV::initOSC(const char* ipAddress, int outputPort, int inputPort)
 					this->currentOSCSettings.oscTxPort = outputPort;
 				}
 			}
+			oscInitialized = true;			
 			if (doOSC2CVPort) {
 				// OSC Rx -> CV Port
-				if (oscRxSocket == NULL)
-				{
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-					DEBUG("oscCV::initOSC() - Create RECV socket at any address, port %d. Osc Namespace %s.", inputPort, oscNamespace.c_str());
-#endif
-					if (oscListener == NULL)
-						oscListener = new TSOSCCVSimpleMsgListener(this->oscNamespace, this);
-					else
-						oscListener->setNamespace(this->oscNamespace);
-					oscRxSocket = new UdpListeningReceiveSocket(IpEndpointName(IpEndpointName::ANY_ADDRESS, inputPort), oscListener);
-					this->currentOSCSettings.oscRxPort = inputPort;
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-					DEBUG("oscCV::initOSC() - Starting listener thread...");
-#endif
-					oscListenerThread = std::thread(&UdpListeningReceiveSocket::Run, oscRxSocket);
-				}
+				oscInitialized = OscCVRxConnector::StartListener(inputPort, this);
+				this->currentOSCSettings.oscRxPort = inputPort;
 			}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
 			DEBUG("oscCV::initOSC() - OSC Initialized");
 #endif
-			oscInitialized = true;
 		}
 		else
 		{
@@ -213,21 +201,16 @@ void oscCV::cleanupOSC()
 #endif
 		oscInitialized = false;
 		oscError = false;
-
-
 		TSOSCConnector::ClearPorts(oscId, currentOSCSettings.oscTxPort, currentOSCSettings.oscRxPort);
-		if (oscRxSocket != NULL)
-		{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-			DEBUG("oscCV::cleanupOSC() - Cleaning up RECV socket.");
+		DEBUG("oscCV::cleanupOSC() - Cleaning up RECV socket.");
 #endif
-			oscRxSocket->AsynchronousBreak();
-			oscListenerThread.join(); // Wait for him to finish
-			delete oscRxSocket;
-			oscRxSocket = NULL;
-			//delete oscListener;
-			//oscListener = NULL;
+		if (doOSC2CVPort)
+		{
+			OscCVRxConnector::StopListener(currentOSCSettings.oscRxPort, this);
 		}
+
+
 		if (oscTxSocket != NULL)
 		{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
@@ -389,6 +372,85 @@ void oscCV::process(const ProcessArgs &args)
 		break;
 	}
 	this->oscCurrentAction = OSCAction::None;
+	
+	// Handle inputs:
+	int numExpandersLeft = getNumExpansionModulesInput();
+	int numExpandersRight = getNumExpansionModulesOutput();
+	// 1. Main configuration button:
+	if (this->oscConfigTrigger.process(this->params[oscCV::ParamIds::OSC_SHOW_CONF_PARAM].getValue()))
+	{
+		this->oscShowConfigurationScreen = !this->oscShowConfigurationScreen;
+		if (!oscShowConfigurationScreen)
+		{
+			// Reset
+			expCurrentEditExpanderIx = 0;
+			expCurrentEditExpander = NULL;
+		}
+	}
+	// 2. Previous Config
+	else if (this->oscConfigPrevTrigger.process(this->params[oscCV::ParamIds::OSC_EXPANDER_CONFIG_PREV_PARAM].getValue()))
+	{
+		// Previous button hit
+		expCurrentEditExpanderIx--;
+		expCurrentEditExpander = getExpansionModule(expCurrentEditExpanderIx);
+		if (expCurrentEditExpander)
+		{
+			this->oscShowConfigurationScreen = true;
+		}
+		else 
+		{
+			if (expCurrentEditExpanderIx < 0)
+			{
+				expCurrentEditExpanderIx = -numExpandersLeft; // Last one
+				expCurrentEditExpander = getExpansionModule(expCurrentEditExpanderIx);				
+			}
+			else
+			{
+				expCurrentEditExpanderIx = 0;
+				expCurrentEditExpander = NULL;
+			}
+		}
+	}
+	// 3. Next Config
+	else if (this->oscConfigNextTrigger.process(this->params[oscCV::ParamIds::OSC_EXPANDER_CONFIG_NEXT_PARAM].getValue()))
+	{
+		// Previous button hit
+		expCurrentEditExpanderIx++;
+		expCurrentEditExpander = getExpansionModule(expCurrentEditExpanderIx);
+		if (expCurrentEditExpander)
+		{
+			this->oscShowConfigurationScreen = true;
+		}
+		else 
+		{
+			if (expCurrentEditExpanderIx > 0)
+			{
+				expCurrentEditExpanderIx = numExpandersRight; // Last one
+				expCurrentEditExpander = getExpansionModule(expCurrentEditExpanderIx);				
+			}
+			else
+			{
+				expCurrentEditExpanderIx = 0;				
+				expCurrentEditExpander = NULL;				
+			}
+		}
+	}
+	if (expCurrentEditExpander)
+	{
+		try
+		{
+			expCurrentEditExpanderName = expCurrentEditExpander->displayName;
+		}
+		catch (const std::exception& expansionEx)
+		{
+			WARN("Error expander must be deleted...", expansionEx.what());	
+			expCurrentEditExpanderName = "Connection Lost";
+		}
+	}
+	
+	lights[LightIds::OSC_CONFIGURE_PREV_LIGHT].value = (-numExpandersLeft < expCurrentEditExpanderIx) ? 1 : 0.2;
+	lights[LightIds::OSC_CONFIGURE_NEXT_LIGHT].value = (numExpandersRight > expCurrentEditExpanderIx) ? 1 : 0.2;	
+	
 
 	// OSC is Enabled and Active light
 	lights[LightIds::OSC_ENABLED_LIGHT].value = (oscInitialized) ? 1.0 : 0.0;
@@ -408,27 +470,42 @@ void oscCV::process(const ProcessArgs &args)
 		// Look for inputs from Rack --> Send Out OSC
 		//------------------------------------------------------------
 		bool packetOpened = false;
-		osc::OutboundPacketStream oscStream(oscBuffer, OSC_OUTPUT_BUFFER_SIZE);
+		osc::OutboundPacketStream oscStream(oscBuffer, OSC_CV_OUTPUT_BUFFER_SIZE);
 		char addressBuffer[512];
+		// ### Our own channels ###
 		for (int c = 0; c < this->numberChannels; c++)
-		{
-			inputChannels[c].setValue(inputs[InputIds::CH_INPUT_START + c * 2 + 1].getVoltage()); // 2nd one is value
+		{			
 			bool sendVal = false;
 			if (oscInitialized && inputs[InputIds::CH_INPUT_START + c * 2 + 1].isConnected())
 			{
-				if (inputs[InputIds::CH_INPUT_START + c * 2].isConnected()) // Input Trigger Port
+				// Read Input
+				if (inputs[InputIds::CH_INPUT_START + c * 2 + 1].getChannels() > 1)
 				{
+					// Poly CV
+					for (int i = 0; i < inputs[InputIds::CH_INPUT_START + c * 2 + 1].getChannels(); i++)
+					{
+						inputChannels[c].setValue(inputs[InputIds::CH_INPUT_START + c * 2 + 1].getVoltage(i), i);
+					}
+				}
+				else
+				{
+					// Mono CV
+					inputChannels[c].setValue(inputs[InputIds::CH_INPUT_START + c * 2 + 1].getVoltage());
+				}				
+				
+				// Check for sending the value:
+				if (inputs[InputIds::CH_INPUT_START + c * 2].isConnected()) 
+				{
+					// Input Trigger Port
 					sendVal = inputTriggers[c].process(inputs[InputIds::CH_INPUT_START + c * 2].getVoltage());
 				} // end if trigger is active
 				else
 				{
+					// See if value has changed enough 
 					if (!inputChannels[c].doSend) {
 						// Only send if changed enough. Maybe about 0.01 V? Defined on channel.
 						// 1. Check for change:
-						if (inputChannels[c].convertVals)
-							sendVal = std::abs(inputChannels[c].translatedVal - inputChannels[c].lastTranslatedVal) > inputChannels[c].channelSensitivity;
-						else
-							sendVal = std::abs(inputChannels[c].val - inputChannels[c].lastVal) > inputChannels[c].channelSensitivity;
+						sendVal = inputChannels[c].valChanged();
 						// 2. Mark channel as needing to output
 						if (sendVal) {
 							inputChannels[c].doSend = true;
@@ -436,8 +513,8 @@ void oscCV::process(const ProcessArgs &args)
 					}
 					// 3. Check if it is time to send out
 					sendVal = sendTime && inputChannels[c].doSend;
-				}
-				float outVal = inputChannels[c].translatedVal;
+				} // end else check if value has changed enough
+				
 				if (sendVal)
 				{
 					lights[LightIds::CH_LIGHT_START + c * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL].value = 1.0f;
@@ -458,35 +535,41 @@ void oscCV::process(const ProcessArgs &args)
 							sprintf(addressBuffer, "/%s%s", oscNamespace.c_str(), inputChannels[c].getPath().c_str());							
 						}
 						oscStream << osc::BeginMessage(addressBuffer);
-						if (inputChannels[c].convertVals)
-						{
-							// Enforce Data Type:
-							switch (inputChannels[c].dataType)
-							{
-							case TSOSCCVChannel::ArgDataType::OscInt:
-								oscStream << static_cast<int>(inputChannels[c].translatedVal);
-								outVal = static_cast<float>(static_cast<int>(inputChannels[c].translatedVal));
-								break;
-							case TSOSCCVChannel::ArgDataType::OscBool:
-								oscStream << static_cast<bool>(inputChannels[c].translatedVal);
-								outVal = static_cast<float>(static_cast<bool>(inputChannels[c].translatedVal));
-								break;
-							case TSOSCCVChannel::ArgDataType::OscFloat:
-							default:
-								oscStream << inputChannels[c].translatedVal;
-								break;
-							}
-						}
-						else
-						{
-							// Raw value out
-							oscStream << inputChannels[c].val;
-						}
-						oscStream << osc::EndMessage;
 						
+						for (int j = 0; j < inputChannels[c].numVals; j++)
+						{
+							if (inputChannels[c].convertVals)
+							{
+								// Enforce Data Type:
+								switch (inputChannels[c].dataType)
+								{
+								case TSOSCCVChannel::ArgDataType::OscInt:
+									oscStream << static_cast<int>(inputChannels[c].translatedVals[j]);
+									//outVal = static_cast<float>(static_cast<int>(inputChannels[c].translatedVal[j]));
+									break;
+								case TSOSCCVChannel::ArgDataType::OscBool:
+									oscStream << static_cast<bool>(inputChannels[c].translatedVals[j]);
+									//outVal = static_cast<float>(static_cast<bool>(inputChannels[c].translatedVals[j]));
+									break;
+								case TSOSCCVChannel::ArgDataType::OscFloat:
+								default:
+									oscStream << inputChannels[c].translatedVals[j];
+									break;
+								}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-						DEBUG("SEND OSC[%d]: %s %7.3f", c, addressBuffer, inputChannels[c].getValCV2OSC());
-#endif					
+								DEBUG("SEND OSC[%d,%d]: %s %7.3f", c, j, addressBuffer, inputChannels[c].translatedVals[j]);
+#endif													
+							}
+							else
+							{
+								// Raw value out
+								oscStream << inputChannels[c].vals[j];
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+								DEBUG("SEND OSC[%d]: %s %7.3f", c, addressBuffer, inputChannels[c].vals[j]);
+#endif													
+							}							
+						} // end loop through values.				
+						oscStream << osc::EndMessage;						
 					}
 					catch (const std::exception& e)
 					{
@@ -494,9 +577,9 @@ void oscCV::process(const ProcessArgs &args)
 					}
 					oscMutex.unlock();
 					// Save our last sent values
-					//inputChannels[c].lastTranslatedVal = inputChannels[c].translatedVal;
-					inputChannels[c].lastTranslatedVal = outVal;
-					inputChannels[c].lastVal = inputChannels[c].val;
+					//inputChannels[c].lastTranslatedVal = outVal;
+					//inputChannels[c].lastVal = inputChannels[c].val;
+					inputChannels[c].storeLastValues();
 					inputChannels[c].doSend = false; // Reset
 				} // end if send value 
 			} // end if oscInitialied
@@ -505,6 +588,25 @@ void oscCV::process(const ProcessArgs &args)
 				lights[LightIds::CH_LIGHT_START + c * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL].value -= lightLambda;
 			}
 		} // end for loop
+		
+		// ### Expansion Modules ###		
+		// Expansion CV -> OSC:
+		try
+		{
+			// Input
+			Expander* exp = &(this->leftExpander);
+			while (exp != NULL && exp->module && exp->module->model == modelOscCVExpanderInput)
+			{				
+				dynamic_cast<oscCVExpander*>(exp->module)->processInputs(oscNamespace, oscInitialized, sendTime, packetOpened, oscMutex, oscStream);			
+				exp = &(exp->module->leftExpander); // Go to next so we can see if that's another expander.
+			}
+		}
+		catch (const std::exception& expansionEx)
+		{
+			WARN("Error with Expansion Module Input: %s.", expansionEx.what());
+		}
+		
+		
 		if (packetOpened)
 		{
 			oscMutex.lock();
@@ -541,7 +643,7 @@ void oscCV::process(const ProcessArgs &args)
 				// Process the message
 				pulseGens[chIx].trigger(TROWA_PULSE_WIDTH); // Trigger (msg received)
 				//outputChannels[chIx].setValue(rxOscMsg.rxVal);
-				outputChannels[chIx].setOSCInValue(rxOscMsg.rxVal);
+				outputChannels[chIx].setOSCInValue(rxOscMsg.rxVals);
 				lights[LightIds::CH_LIGHT_START + chIx * 2 + 1].value = 1.0f;
 			} // end if valid channel
 		} // end while (loop through message queue)
@@ -551,16 +653,37 @@ void oscCV::process(const ProcessArgs &args)
 		{
 			// Output the value first
 			// We should limit this value (-10V to +10V). Rack says nothing should be higher than +/- 12V.
-			// Do any massaging?
-			float outVal = outputChannels[c].getValOSC2CV();
-			outputs[OutputIds::CH_OUTPUT_START + c * 2 + 1].setVoltage(clamp(outVal, TROWA_OSCCV_MIN_VOLTAGE, TROWA_OSCCV_MAX_VOLTAGE));
-			outputChannels[c].addValToBuffer(outVal);
+			// Polyphonic output :::::::::::::::::::::::
+			outputs[OutputIds::CH_OUTPUT_START + c * 2 + 1].setChannels(outputChannels[c].numVals);
+			for (int j = 0; j < outputChannels[c].numVals; j++)
+			{
+				outputs[OutputIds::CH_OUTPUT_START + c * 2 + 1].setVoltage(/*v*/clamp(outputChannels[c].translatedVals[j], TROWA_OSCCV_MIN_VOLTAGE, TROWA_OSCCV_MAX_VOLTAGE), /*channel*/ j);				
+			}
+			outputChannels[c].addValToBuffer(outputChannels[c].translatedVals[0]);
+			
 			// Then trigger if needed.
 			bool trigger = pulseGens[c].process(dt);
 			outputs[OutputIds::CH_OUTPUT_START + c * 2].setVoltage((trigger) ? TROWA_OSCCV_TRIGGER_ON_V : TROWA_OSCCV_TRIGGER_OFF_V);
-			lights[LightIds::CH_LIGHT_START + c * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + 1].value = clamp(lights[LightIds::CH_LIGHT_START + c * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + 1].value - lightLambda, 0.0f, 1.0f);
+			lights[LightIds::CH_LIGHT_START + c * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + 1].value = clamp(lights[LightIds::CH_LIGHT_START + c * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + 1].value - lightLambda, 0.0f, 1.0f);			
 		}
-	}
+		
+		// ### Expansion Modules ###		
+		// Expansion OSC->CV:
+		try
+		{
+			// Input
+			Module::Expander* exp = &(this->rightExpander);
+			while (exp != NULL && exp->module && exp->module->model == modelOscCVExpanderOutput)
+			{				
+				dynamic_cast<oscCVExpander*>(exp->module)->processOutputs(dt);			
+				exp = &(exp->module->rightExpander); // Go to next so we can see if that's another expander.
+			}
+		}
+		catch (const std::exception& expansionEx)
+		{
+			WARN("Error with Expansion Module Output: %s.", expansionEx.what());
+		}				
+	} // end OSC->CV
 	return;
 } // end step()
 
@@ -576,248 +699,69 @@ void oscCV::setOscNamespace(std::string oscNs)
 		this->oscNamespace = oscNs.substr(1);
 	else
 		this->oscNamespace = oscNs;
-	if (this->oscListener != NULL)
-	{
-		try
-		{
-			this->oscListener->setNamespace(oscNamespace);
-		}
-		catch (const std::exception& e)
-		{
-			WARN("Error %s.", e.what());
-		}
-	}
 	return;
 } // end setOscNamespace()
 
-
-//--------------------------------------------------------------------------------------------------------------------------------------------
-// ProcessMessage()
-// @rxMsg : (IN) The received message from the OSC library.
-// @remoteEndPoint: (IN) The remove end point (sender).
-// Handler for receiving messages from the OSC library. Taken from their example listener.
-// Should create a generic TSOSCCVSimpleMessage and dump it in the module instance's queue.
-//--------------------------------------------------------------------------------------------------------------------------------------------
-void TSOSCCVSimpleMsgListener::ProcessMessage(const osc::ReceivedMessage& rxMsg, const IpEndpointName& remoteEndpoint)
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// getOscNamespace()
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+std::string oscCV::getOscNamespace()
 {
-	(void)remoteEndpoint; // suppress unused parameter warning
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-	DEBUG("[RECV] OSC Message: %s", rxMsg.AddressPattern());
-#endif
-	try 
+	std::lock_guard<std::mutex> lock(oscMutex);
+	return this->oscNamespace;
+} // end getOscNamespace()
+
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// getNumExpansionModules()
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
+int oscCV::getNumExpansionModules(TSOSCCVExpanderDirection dir)
+{
+	int n = 0;
+	Module::Expander* exp = (dir == TSOSCCVExpanderDirection::Input) ? &(this->leftExpander) : &(this->rightExpander);
+	while (exp != NULL && exp->module && 
+		((dir == TSOSCCVExpanderDirection::Input && exp->module->model == modelOscCVExpanderInput) 
+			|| (dir == TSOSCCVExpanderDirection::Output && exp->module->model == modelOscCVExpanderOutput)))
+	{				
+		n++;
+		exp = (dir == TSOSCCVExpanderDirection::Input) ? &(exp->module->leftExpander) : &(exp->module->rightExpander);
+	}	
+	return n;
+}
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// getExpansionModule()
+// @index: 0 is this master module (invalid). Negative to the left. Positive to the right.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
+oscCVExpander* oscCV::getExpansionModule(int index)
+{
+	oscCVExpander* item = NULL;
+	if (index != 0)
 	{
-		mutExNamespace.lock();
-		const char* ns = this->oscNamespace.c_str();
-		mutExNamespace.unlock();
-		std::string addr = rxMsg.AddressPattern();
-		int len = (oscNamespace.empty()) ? 0 : oscNamespace.length();
-		// [2019-04-03] Allow empty namespaces
-		if (!oscNamespace.empty() && std::strcmp(addr.substr(0, len).c_str(), ns) != 0) // Message is not for us
+		int n = 0;
+		bool left = false;
+		int count = index;
+		if (index < 0)
 		{
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-			DEBUG("Message is not for our namespace (%s).", ns);
-#endif
-			return;
+			left = true;
+			count = -index;
 		}
-		std::string subAddr = addr.substr(len);
-		const char* path = subAddr.c_str();
-
-		/// TODO: Support MIDI message type
-
-//		std::vector<std::string> parts = str_split(subAddr.substr(1), '/');
-//		int numParts = parts.size();
-//
-//#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-//		DEBUG("[RECV] %s - %d parts.", path, numParts);
-//#endif
-
-		// Get the argument (not strongly typed.... We'll read in as float and cast as what we need in case > 1 channel is receiving this message)
-		// (touchOSC will only ever send floats)
-		osc::ReceivedMessageArgumentStream args = rxMsg.ArgumentStream();
-		osc::int32 intArg = 0;
-		float floatArg = 0.0;
-		bool boolArg = false;
-		osc::MidiMessage midiArg;
-		uint32_t uintArg = 0;
-		try
-		{
-			int numArgs = rxMsg.ArgumentCount();
-			if (numArgs > 0)
+		Module::Expander* exp = (left) ? &(this->leftExpander) : &(this->rightExpander);
+		while (exp != NULL && exp->module && item == NULL && 
+			((left && exp->module->model == modelOscCVExpanderInput) || (!left && exp->module->model == modelOscCVExpanderOutput))
+			)
+		{				
+			n++;
+			if (n == count)
 			{
-				switch (*(rxMsg.TypeTags())) {
-				case osc::TypeTagValues::INT32_TYPE_TAG:
-					args >> intArg >> osc::EndMessage;
-					boolArg = intArg > 0;
-					floatArg = static_cast<float>(floatArg);
-					break;
-				case osc::TypeTagValues::TRUE_TYPE_TAG:
-				case osc::TypeTagValues::FALSE_TYPE_TAG:
-					args >> boolArg >> osc::EndMessage;
-					floatArg = static_cast<float>(boolArg);
-					intArg = static_cast<int>(boolArg);
-					break;
-				case osc::TypeTagValues::MIDI_MESSAGE_TYPE_TAG:
-					args >> midiArg >> osc::EndMessage;
-					uintArg = midiArg.value;
-					break;
-				case osc::TypeTagValues::FLOAT_TYPE_TAG:
-				default:
-					args >> floatArg >> osc::EndMessage;
-					intArg = static_cast<int>(floatArg);
-					boolArg = floatArg > 0;
-					break;
-				}
+				item =  dynamic_cast<oscCVExpander*>(exp->module);
 			}
-		}
-		catch (osc::WrongArgumentTypeException &touchOSCEx)
-		{
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-			DEBUG("Wrong argument type: Error %s message: ", path, touchOSCEx.what());
-			DEBUG("We received (float) %05.2f.", floatArg);
-#endif
-		}
-
-		// Make a message for each channel that may be listening to this address.
-		for (int c = 0; c < oscModule->numberChannels; c++)
-		{
-			if (strlen(path) == strlen(oscModule->outputChannels[c].path.c_str()) && std::strcmp(path, oscModule->outputChannels[c].path.c_str()) == 0)
+			else
 			{
-				switch (oscModule->outputChannels[c].dataType)
-				{
-					case TSOSCCVChannel::ArgDataType::OscBool:
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-						DEBUG("OSC Recv Ch %d: Bool %d at %s.", c+1, boolArg, oscModule->outputChannels[c].path.c_str());
-#endif
-						oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, boolArg));
-						break;
-					case TSOSCCVChannel::ArgDataType::OscInt:
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-						DEBUG("OSC Recv Ch %d: Int %d at %s.", c + 1, intArg, oscModule->outputChannels[c].path.c_str());
-#endif
-						oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, intArg));
-						break;
-					case TSOSCCVChannel::ArgDataType::OscMidi:
-						// Actually, I don't think anything natively supports this, so this would be unused.
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-						DEBUG("OSC Recv Ch %d: MIDI %08x at %s.", c + 1, uintArg, oscModule->outputChannels[c].path.c_str());
-#endif
-						oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, floatArg, uintArg));
-						break;
-					case TSOSCCVChannel::ArgDataType::OscFloat:
-					default:
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-						DEBUG("OSC Recv Ch %d: Float %7.4f at %s.", c + 1, floatArg, oscModule->outputChannels[c].path.c_str());
-#endif
-						oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, floatArg));
-						break;
-				} // end switch
-			} // end if path matches
-		} // end loop through channels
-	}
-	catch (osc::Exception& e) {
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
-		DEBUG("Error parsing OSC message %s: %s", rxMsg.AddressPattern(), e.what());
-#endif
-	} // end catch
-	return;
-} // end ProcessMessage()
+				exp = (left) ? &(exp->module->leftExpander) : &(exp->module->rightExpander);				
+			}
+		}	
+	}			
+	return item;
+}
 
-//--------------------------------------------------------
-// addValToBuffer()
-// Add a value to the buffer.
-// @buffVal : (IN) The value to possibly add.
-//--------------------------------------------------------
-void TSOSCCVChannel::addValToBuffer(float buffVal)
-{
-	float deltaTime = powf(2.0, -12.0);
-	int frameCount = (int)ceilf(deltaTime * APP->engine->getSampleRate());
-	// Add frame to buffer
-	if (valBuffIx < TROWA_OSCCV_VAL_BUFFER_SIZE) {
-		if (++frameIx > frameCount) {
-			frameIx = 0;
-			valBuffer[valBuffIx++] = buffVal;
-		}
-	}
-	else {
-		frameIx++;
-		const float holdTime = 0.1;
-		if (frameIx >= APP->engine->getSampleRate() * holdTime) {
-			valBuffIx = 0;
-			frameIx = 0;
-		}
-	}
-	return;
-} // end addValToBuffer()
 
-//--------------------------------------------------------
-// serialize()
-// @returns : The channel json node.
-//--------------------------------------------------------
-json_t* TSOSCCVChannel::serialize()
-{
-	json_t* channelJ = json_object();
-	json_object_set_new(channelJ, "path", json_string(getPath().c_str()));
-	json_object_set_new(channelJ, "dataType", json_integer(dataType));
-	json_object_set_new(channelJ, "convertVals", json_integer(convertVals));
-	json_object_set_new(channelJ, "minV", json_real(minVoltage));
-	json_object_set_new(channelJ, "maxV", json_real(maxVoltage));
-	json_object_set_new(channelJ, "minOSC", json_real(minOscVal));
-	json_object_set_new(channelJ, "maxOSC", json_real(maxOscVal));
-	return channelJ;
-} // end serialize()
-//--------------------------------------------------------
-// deserialize()
-// @rootJ : (IN) The channel json node.
-//--------------------------------------------------------
-void TSOSCCVChannel::deserialize(json_t* rootJ) {
-	json_t* currJ = NULL;
-	if (rootJ) {
-		currJ = json_object_get(rootJ, "path");
-		if (currJ)
-			setPath(json_string_value(currJ));
-		currJ = json_object_get(rootJ, "dataType");
-		if (currJ)
-			dataType = static_cast<TSOSCCVChannel::ArgDataType>(json_integer_value(currJ));
-		currJ = json_object_get(rootJ, "convertVals");
-		if (currJ)
-			convertVals = static_cast<bool>(json_integer_value(currJ));
-		currJ = json_object_get(rootJ, "minV");
-		if (currJ)
-			minVoltage = json_number_value(currJ);
-		currJ = json_object_get(rootJ, "maxV");
-		if (currJ)
-			maxVoltage = json_number_value(currJ);
-		currJ = json_object_get(rootJ, "minOSC");
-		if (currJ)
-			minOscVal = json_number_value(currJ);
-		currJ = json_object_get(rootJ, "maxOSC");
-		if (currJ)
-			maxOscVal = json_number_value(currJ);
-	}
-	return;
-} // end deserialize()
 
-//--------------------------------------------------------
-// serialize()
-// @returns : The channel json node.
-//--------------------------------------------------------
-json_t* TSOSCCVInputChannel::serialize()
-{
-	json_t* channelJ = TSOSCCVChannel::serialize();
-	json_object_set_new(channelJ, "channelSensitivity", json_real(channelSensitivity));
-	return channelJ;
-} // end serialize()
-//--------------------------------------------------------
-// deserialize()
-// @rootJ : (IN) The channel json node.
-//--------------------------------------------------------
-void TSOSCCVInputChannel::deserialize(json_t* rootJ) {
-	TSOSCCVChannel::deserialize(rootJ);
-	if (rootJ) {
-		json_t* currJ = NULL;
-		currJ = json_object_get(rootJ, "channelSensitivity");
-		if (currJ)
-			channelSensitivity = json_number_value(currJ);
-	}
-	return;
-} // end deserialize()

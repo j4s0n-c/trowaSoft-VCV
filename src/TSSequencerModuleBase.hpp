@@ -4,6 +4,15 @@
 #include <rack.hpp>
 using namespace rack;
 
+/// TODO: Updates to sequencers:
+/// 1. Allow output type per Channel (TRIG/RTRG/GATE or VOLT/NOTE/PATT).
+/// Maybe/TODO:
+/// 1. Each Channel has own length or Each Pattern-Channel has it's own length. Then each channel needs its own playhead and length.
+/// 2. Song Mode: Auto go to the next Pattern --> The playhead from Channel i will stay the in the step??? This is funky...
+/// --> Redo into Channel structure with Length, StepValues, OutputType, PlayHead.
+/// --> 64 Patterns * 16 Channels...
+ 
+
 #include <thread> // std::thread
 #include <mutex>
 #include <queue>
@@ -28,7 +37,7 @@ using namespace rack;
 #include "../lib/oscpack/osc/OscPacketListener.h"
 
 #define TROWA_SEQ_NUM_CHNLS		16	// Num of channels/triggers/voices
-#define TROWA_SEQ_NUM_STEPS		16  // Num of steps per gate/voice
+#define TROWA_SEQ_NUM_STEPS		16  // Num of steps per channel/gate/voice
 #define TROWA_SEQ_MAX_NUM_STEPS	64  // Maximum number of steps
 
 #define N64_NUM_STEPS	64
@@ -41,7 +50,7 @@ using namespace rack;
 #define OSC_UPDATE_CURRENT_STEP_LED		1
 
 // We only show 4x4 grid of steps at time.
-#define TROWA_SEQ_STEP_NUM_ROWS	4	// Num of rows for display of the Steps (single Gate displayed at a time)
+#define TROWA_SEQ_STEP_NUM_ROWS	4	// Num of rows for display of the Steps (single channel displayed at a time)
 #define TROWA_SEQ_STEP_NUM_COLS	(TROWA_SEQ_NUM_STEPS/TROWA_SEQ_STEP_NUM_ROWS)
 
 #define TROWA_SEQ_NUM_MODES		3
@@ -54,7 +63,7 @@ using namespace rack;
 #define TROWA_SEQ_SWING_STEPS		4
 // 0 WILL BE NO SWING
 
-// To copy all gates/triggers in the selected target Pattern
+// To copy all channels in the selected target Pattern
 #define TROWA_SEQ_COPY_CHANNELIX_ALL		TROWA_INDEX_UNDEFINED 
 
 #define TROWA_SEQ_NUM_RANDOM_PATTERNS			27
@@ -161,6 +170,7 @@ struct TSSequencerModuleBase : Module {
 		RETRIGGER = 1,
 		CONTINUOUS = 2,
 	};
+	// Gate mode from the knob.
 	GateMode gateMode = TRIGGER;
 	dsp::PulseGenerator gatePulse;
 
@@ -178,6 +188,8 @@ struct TSSequencerModuleBase : Module {
 	// Selected output value mode.
 	ValueMode selectedOutputValueMode = VALUE_TRIGGER;
 	ValueMode lastOutputValueMode = VALUE_TRIGGER;
+	// [v1.1] Each channel will now have its own mode.
+	ValueMode channelValueModes[TROWA_SEQ_NUM_CHNLS];	
 
 	// Maximum number of steps for this sequencer.
 	int maxSteps = 16;

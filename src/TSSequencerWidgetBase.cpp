@@ -249,7 +249,6 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	{
 		channelColors = TSColors::CHANNEL_COLORS; // Point to our default array
 	}
-	DEBUG("TSSequencerWidgetBase::addBaseControls() - Adding outputs");
 	
 	for (int r = 0; r < 8; r++)
 	{
@@ -298,10 +297,10 @@ void TSSequencerWidgetBase::step()
 				// Make sure the ports are available
 				int p = TSOSCConnector::PortInUse(thisModule->currentOSCSettings.oscTxPort);
 				if (p > 0 && p != thisModule->oscId)
-					thisModule->currentOSCSettings.oscTxPort = TSOSCConnector::GetAvailablePort(thisModule->oscId, thisModule->currentOSCSettings.oscTxPort);
+					thisModule->currentOSCSettings.oscTxPort = TSOSCConnector::GetAvailablePortTrans(thisModule->oscId, thisModule->currentOSCSettings.oscTxPort);
 				p = TSOSCConnector::PortInUse(thisModule->currentOSCSettings.oscRxPort);
 				if (p > 0 && p != thisModule->oscId)
-					thisModule->currentOSCSettings.oscRxPort = TSOSCConnector::GetAvailablePort(thisModule->oscId, thisModule->currentOSCSettings.oscRxPort);
+					thisModule->currentOSCSettings.oscRxPort = TSOSCConnector::GetAvailablePortRecv(thisModule->oscId, thisModule->currentOSCSettings.oscRxPort);
 
 			}
 			this->oscConfigurationScreen->setValues(thisModule->currentOSCSettings.oscTxIpAddress, thisModule->currentOSCSettings.oscTxPort, thisModule->currentOSCSettings.oscRxPort);
@@ -368,6 +367,9 @@ void TSSequencerWidgetBase::step()
 					thisModule->oscCurrentClient = this->oscConfigurationScreen->getSelectedClient();
 					thisModule->oscCurrentAction = TSSequencerModuleBase::OSCAction::Enable;
 					thisModule->oscReconnectAtLoad = this->oscConfigurationScreen->ckAutoReconnect->checked;
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+					DEBUG("Set osc current action to %d.", thisModule->oscCurrentAction);
+#endif					
 				}
 			} // end if enable osc
 			else
