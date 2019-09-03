@@ -1,16 +1,14 @@
 ﻿# trowaSoft-VCV
-<div>
-<img src="http://www.geekasaurusrex.net/image.axd?picture=2018%2f6%2f0.6.3_screenshot.png" />
-</div>
+![trowaSoft Modules for VCV Rack](http://www.geekasaurusrex.net/image.axd?picture=2018%2f6%2f0.6.3_screenshot.png "trowaSoft Modules for VCV Rack")
 
 trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.x, v0.6.x, v1.x. 
-Current pack includes [trigSeq &amp; trigSeq64](#trigseq--trigseq64), [voltSeq](#voltseq), [multiWave](#multiwave), [multiScope](#multiscope), and [cvOSCcv](#cvosccv).
+The current pack includes [trigSeq & trigSeq64](#trigseq--trigseq64), [voltSeq](#voltseq), [multiWave](#multiwave), [multiScope](#multiscope), [cvOSCcv](#cvosccv), and [cvOSC & OSCcv](#cvosccv-expansion-modules).
 
 For more information about these modules, please visit:
-http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx.
+[http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx](http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx).
 
 For more information about Rack, please visit:
-https://vcvrack.com/.
+[https://vcvrack.com/](https://vcvrack.com/).
 
 If you like the modules and wish to donate, you may do so [here](https://paypal.me/j4s0n). Any donation is much appreciated!
 
@@ -19,7 +17,7 @@ Any builds that are currently available are at [Github Releases page](https://gi
 Recent builds should also be available in the [VCV plugin manager](https://vcvrack.com/plugins.html).
 
 **VCV Rack v1.x.x**:
-**2019-07-31**: The latest version is [v1.0.1](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v1.0.1) (for Rack v1.x).
+**2019-09-03**: The latest version is [v1.0.2](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v1.0.2) (for Rack v1.x).
 
 **VCV Rack v0.6.x**:
 2018-09-20: The latest version is [v0.6.4a](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.6.4a) (for Rack v0.6.2).
@@ -34,11 +32,8 @@ To build for your platform, please visit the [VCV rack documentation](https://vc
 ## Sequencers
 Currently there are three (3) sequencer modules.
 
-### trigSeq &amp; trigSeq64
-<div>
-<img width="390" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2ftrigSeq_screenshot.jpg" />
-<img width="390" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2ftrigSeq64_screenshot.jpg" />
-</div>
+### trigSeq & trigSeq64
+![trigSeq](https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/trigSeq_screenshot.png?raw=true "trigSeq 16 step sequencer") ![trigSeq64](https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/trigSeq64_screenshot.png?raw=true "trigSeq64 64 step sequencer")
   
 These are basic boolean on/off pad step sequencers (0V or 10V), based off the [Fundamentals SEQ3 sequencer](https://github.com/VCVRack/Fundamental).
 
@@ -46,36 +41,33 @@ These are basic boolean on/off pad step sequencers (0V or 10V), based off the [F
 + Now 64 patterns. ~~16 patterns.~~
 + 16 channels (outputs).
 + Output modes: **TRIG** (trigger), **RTRG** (retrigger), **GATE** (continuous) (0 or 10V).
+  (as of v1.0.2) Each channel may have its own separate output mode.
 + Inputs: Pattern, BPM, (step) Length, Clock, Reset.
 + Copy & Paste of channel or entire pattern.
-+ Open Sound Control (OSC) interface (as of v.0.5.5.1). [more info](https://github.com/j4s0n-c/trowaSoft-VCV/wiki/Open-Sound-Control-(OSC)-Interface)
++ Open Sound Control (OSC) interface (as of v.0.5.5.1). [(more info)](https://github.com/j4s0n-c/trowaSoft-VCV/wiki/Open-Sound-Control-(OSC)-Interface)
 + Advanced Randomization options (as of v.0.5.5.2) for all patterns, current edit pattern, or only the displayed channel. Chose from 'normal random' or 'structured' random patterns.
 + Hold mouse down and set multiple pads by dragging.
 
 ### voltSeq
-<div>
-<img width="390" src="http://www.geekasaurusrex.net/image.axd?picture=2017%2f12%2fvoltSeq_screenshot.jpg" />
-</div>
-  
+![voltSeq variable voltage sequencer](https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/voltSeq_screenshot.png?raw=true "voltSeq variable voltage sequencer")
+
 **voltSeq** is a variable voltage output step sequencer (-10V to +10V), based off the [Fundamentals SEQ3 sequencer](https://github.com/VCVRack/Fundamental).
 
 + **voltSeq** is 16-step.
 + Now 64 patterns. ~~16 patterns.~~
 + 16 channels (outputs).
-+ Output modes:
++ Output modes: (as of v1.0.2) Each channel may have its own separate output mode.
     + **VOLT** - Voltage (-10V to +10V): Output whatever voltage you want.
     + **NOTE** - Midi Note (-5V to +5V) ~~(-4V to +6V)~~: Output notes (12 notes per 1 V; 10 octaves). [Base pitch (0V)](https://github.com/j4s0n-c/trowaSoft-VCV/issues/9) is now C4 (as of v0.5.5.2). Range is C-1 to C9 as of v0.6.0.
     + **PATT** - Pattern (-10V to +10V): To control the currently playing Pattern (or Length) on another **trigSeq** or **voltSeq**. (Now 1 to 64 in range).  
 + Inputs: Pattern, BPM, (step) Length, Clock, Reset.
 + Copy & Paste of channel or entire pattern.
-+ Open Sound Control (OSC) interface (as of v.0.5.5.1). [more info](https://github.com/j4s0n-c/trowaSoft-VCV/wiki/Open-Sound-Control-(OSC)-Interface)
++ Open Sound Control (OSC) interface (as of v.0.5.5.1). [(more info)](https://github.com/j4s0n-c/trowaSoft-VCV/wiki/Open-Sound-Control-(OSC)-Interface)
 + Advanced Randomization options (as of v.0.5.5.2) for all patterns, current edit pattern, or only the displayed channel. Chose from 'normal random' or 'structured' random patterns.
 + Shift Values (as of v0.5.5.2): +/- 1 Volt or 1 Octave or 1 Pattern for all patterns, current edit pattern, or only the displayed channel.
 
 ## multiWave
-<div>
-<img width="700" src="https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/multiWave_screenshot.png?raw=true" />
-</div>
+![multiWave](https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/multiWave_screenshot.png?raw=true "multiWave digitial oscillator")
 
 **multiWave** is a digital oscillator module with three (3) oscillators/clocks, each with two (2) configurable wave channel outputs. This module has been made to complement <a href="#multiscope">multiScope</a>
 and is new in v0.6.3.
@@ -110,9 +102,7 @@ and is new in v0.6.3.
         + **MOD** - The modulated waveform (based on the MOD knob and the incoming MOD signal input).
 
 ## multiScope
-<div>
-<img width="700" src="https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/multiScope_screenshot_02.png?raw=true" />
-</div>
+![multiScope](https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/multiScope_screenshot_02.png?raw=true "multiScope")
 
 **multiScope** is a visual effects scope, with lissajous mode, that allows three (3) waveforms to be drawn on the same screen/canvas. (code based on [JW Modules FullScope](https://github.com/jeremywen) and [Fundamental Scope](https://github.com/VCVRack/Fundamental))
 
@@ -154,24 +144,24 @@ and is new in v0.6.3.
 	+ **Background Color Picker** - Displayed on screen. Hue-Saturation-Light (HSL) sliders to pick the background color.
 
 ## cvOSCcv
-<div>
-<img width="700" src="https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/cvOSCcv_screenshot_01.png?raw=true" />
-</div>
+![cvOSCcv default screen and configuration screen.](https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/cvOSCcv_screenshot_01.png?raw=true "cvOSCcv default screen and configuration screen")
   
-**cvOSCcv** is a simple, generic Open Sound Control (OSC) module for outputting Rack CVs to OSC and reading in simple OSC messages into Rack CVs. This module is new in version 0.6.0.
+**cvOSCcv** is a simple, generic [Open Sound Control](http://opensoundcontrol.org/introduction-osc) (OSC) module for outputting Rack CVs to OSC and reading in simple OSC messages into Rack CVs. This module is new in version 0.6.0.
 
 + **CV Inputs** - CV => OSC (8 Channels), each channel:
-    + **TRG** - If active, then OSC messages will output the **VAL** CV input when triggered.
-    + **VAL** - The value that will output over OSC. Currently sent as a float.
+    + **TRG** - (mono) If active, then OSC messages will output the **VAL** CV input when triggered.
+    + **VAL** - (poly as of v1.0.2) The value(s) that will output over OSC.
       If there is no trigger present, the module will output whenever **VAL** changes at least 0.05 up to 100 Hz.
 + **CV Outputs** - OSC => CV (8 channels), each channel:
-    + **TRG** - (0-10V) Triggers whenever an OSC message is received.
-	+ **VAL** - (Gate) Outputs the last OSC value received.
+    + **TRG** - (mono) (0-10V) Triggers whenever an OSC message is received.
+	+ **VAL** - (poly as of v1.0.2) (Gate) Outputs the last OSC value(s) received. Note that polyphonic cables are limited to 16 channels.
 + **User Controls**:
 	+ **CONFIG** - (Toggle) Button to toggle the configuration view. When an OSC connection is active, a blue light will appear on the button.
+	+ **LEFT** / **RIGHT** - (as of v1.0.2) Buttons to navigate between the configuration of the module itself or any expansion modules ([cvOSC or OSCcv](#cvosccv-expansion-modules)) connected to it.
 	+ **OSC IP Address** - The IP address of the OSC client/server.  Default is `127.0.0.1`.
 	+ **Out Port** - Port for sending messages. 
-	+ **In Port** - Port for receiving messages. Currently, trowaSoft modules can NOT share the same ports.
+	+ **In Port** - Port for receiving messages. ~~Currently, trowaSoft modules can NOT share the same ports.~~
+      (as of v1.0.2) **cvOSCcv** modules may **share the same ports** to either speak to the same endpoint or talk to each other.
 	+ **Namespace** - The OSC namespace. Default is `trowacv`.
 	+ **Auto Con** - Automatically reconnect on load from save. The connection will be restore if the connection was active (in the save file) and this is checked.
     + Per Channel:  
@@ -179,4 +169,24 @@ and is new in v0.6.3.
 		+ **ADV** - (as of v0.6.2) Advanced settings for simple value conversions. Specify simple OSC data types (float, int, bool) and the CV and OSC ranges.
 
 	NOTE: To save Channel Address changes after a connection is active, simply hide the configuration screen again.
+
+### cvOSCcv Expansion Modules
+![Expansion modules for cvOSCcv: cvOSC and OSCcv.](https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/cvOSC_OSCcv_Expanders_screenshot.png?raw=true "Expansion modules for cvOSCcv: cvOSC and OSCcv")
+
+**cvOSC** and **OSCcv** are expansion modules for **cvOSCcv**. They add extra inputs or outputs respectively. These modules are new in version 1.0.2.
+
++ **cvOSC**: CV => OSC. 
+	+ Adds 8 more input channels. Each channel has a **TRG** (mono) and a **VAL** (poly) input.
+	+ Module will only connect to a master if it is placed to the **LEFT** of the master cvOSCcv module. It must be touching it or another cvOSC.
++ **OSCcv**: OSC => CV. 
+	+ Adds 8 more output channels. Each channel has a **TRG** (mono) and a **VAL** (poly) output.
+	+ Module will only connect to a master if it is placed to the **RIGHT** of the master cvOSCcv module. It must be touching it or another OSCcv.
++ Multiple expansion modules may be chained.
++ Expansion modules have no user controls. They must be configured in their master cvOSCcv module. Configurable items are:
+    + Expansion Module Name (only used for display, not used in OSC)
+	+ Channel Addresses
+	+ Channel Conversions
++ By default, channels start at #9. After connecting to a master [cvOSCcv](#cvosccv) module, initializing the expansion module will "re-number" its channels (i.e. `/ch/9` will become `/ch/17`).
+
+  NOTE: The expander's name is only for display purposes to help identify which expander you are configuring in the master module.
 
