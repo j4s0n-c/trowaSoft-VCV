@@ -53,7 +53,7 @@ oscCVExpander::oscCVExpander(int numChannels, TSOSCCVExpanderDirection direction
 	initChannels(baseChannels);
 	
 	_expID = (direction == TSOSCCVExpanderDirection::Input) ? "I" : "O";
-	char buff[3];
+	char buff[4]; 
 	buff[0] = static_cast<char>('A' + random::uniform() * 26);
 	buff[1] = static_cast<char>('A' + random::uniform() * 26);
 	buff[2] = '-';
