@@ -13,6 +13,7 @@ using namespace rack;
 #include <mutex>
 #include <string>
 #include <queue>
+#include <vector>
 
 #include "../lib/oscpack/osc/OscOutboundPacketStream.h"
 #include "../lib/oscpack/ip/UdpSocket.h"
@@ -24,6 +25,7 @@ extern Model* modelOscCV;
 
 #define TROWA_OSSCV_SHOW_ADV_CH_CONFIG			1 // Flag to showing advanced config or hiding it (while it is not finished)
 #define OSC_CV_OUTPUT_BUFFER_SIZE			1024*128 // Hopefully large enough (may not be from adding poly cables).  
+
 
 //===============================================================================
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -91,8 +93,14 @@ struct oscCV : Module {
 	TSOSCCVChannel* outputChannels = NULL;
 	dsp::PulseGenerator* pulseGens = NULL;
 	// The received messages.
-	std::queue<TSOSCCVSimpleMessage> rxMsgQueue;
+	std::queue<TSOSCCVSimpleMessage*> rxMsgQueue;
 	dsp::SchmittTrigger* inputTriggers;
+	std::mutex rxMsgMutex;
+#if USE_MODULE_STATIC_RX	
+	// Add static buffer (debug MAC OSC issues)
+	TSOSCCVSimpleMessage rxMsgBuffer[OSC_RX_MSG_BUFFER_SIZE];
+	int rxMsgBufferIx = 0;
+#endif	
 		
 	int oscId;
 	/// TODO: OSC members should be dumped into an OSC base class....
@@ -257,6 +265,30 @@ struct oscCV : Module {
 	// @index: 0 is this master module (invalid). Negative to the left. Positive to the right.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
 	oscCVExpander* getExpansionModule(int index);
+#if USE_MODULE_STATIC_RX	
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getRxMsgObj()
+	// Gets next msg object in circular buffer. 
+	// RxConnector should use these objects.
+	// Will overwrite if we are not fast enough reading. 
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	TSOSCCVSimpleMessage* getRxMsgObj()
+	{
+		if (rxMsgBufferIx >= OSC_RX_MSG_BUFFER_SIZE)
+			rxMsgBufferIx = 0;
+		return &(rxMsgBuffer[rxMsgBufferIx++]);
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// addRxMsgToQueue()
+	// Adds the message to the queue.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	void addRxMsgToQueue(int chNum, float val);
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// addRxMsgToQueue()
+	// Adds the message to the queue.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	void addRxMsgToQueue(int chNum, std::vector<float> vals);	
+#endif	
 };
 
 #endif // !MODULE_OSCCV_HPP

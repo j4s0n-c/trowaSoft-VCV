@@ -5,6 +5,7 @@ using namespace rack;
 #include <random.hpp>
 
 #include <stdio.h>
+#include "TSOSCCV_Common.hpp"
 #include "Module_oscCVExpander.hpp"
 #include "Module_oscCV.hpp"
 #include "Widget_oscCVExpander.hpp"
@@ -74,6 +75,19 @@ oscCVExpander::~oscCVExpander()
 		delete[] inputChannels;
 	if (outputChannels != NULL)
 		delete[] outputChannels;
+	
+
+#if !USE_MODULE_STATIC_RX	
+	// Message queue is now pointers, so delete
+	rxMsgMutex.lock();	
+	while (rxMsgQueue.size() > 0)
+	{		
+		TSOSCCVSimpleMessage* rxOscMsg = rxMsgQueue.front();
+		rxMsgQueue.pop();
+		delete rxOscMsg;
+	} // end while (loop through message queue)
+	rxMsgMutex.unlock();
+#endif 	
 	return;
 } // end destructor
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -443,18 +457,25 @@ void oscCVExpander::processOutputs(float sampleTime)
 		//------------------------------------------------------------
 		while (rxMsgQueue.size() > 0)
 		{
-			TSOSCCVSimpleMessage rxOscMsg = rxMsgQueue.front();
-			rxMsgQueue.pop();
-
-			int chIx = rxOscMsg.channelNum - 1;
+			rxMsgMutex.lock();			
+			TSOSCCVSimpleMessage* rxOscMsg = rxMsgQueue.front();
+			rxMsgMutex.unlock();				
+			int chIx = rxOscMsg->channelNum - 1;
 			if (chIx > -1 && chIx < numberChannels)
 			{
 				// Process the message
 				pulseGens[chIx].trigger(TROWA_PULSE_WIDTH); // Trigger (msg received)
 				//outputChannels[chIx].setOSCInValue(rxOscMsg.rxVal);
-				outputChannels[chIx].setOSCInValue(rxOscMsg.rxVals);
+				// Now we are using float array not vector for rxVals
+				outputChannels[chIx].setOSCInValue(rxOscMsg->rxVals, rxOscMsg->rxLength);
 				lights[LightIds::CH_LIGHT_START + chIx * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + 1].value = 1.0f;
-			} // end if valid channel
+			} // end if valid channel			
+			rxMsgMutex.lock();			
+			rxMsgQueue.pop();
+			rxMsgMutex.unlock();	
+#if !USE_MODULE_STATIC_RX			
+			delete rxOscMsg;
+#endif	
 		} // end while (loop through message queue)
 		// ::: OUTPUTS :::
 		float dt = sampleTime;
@@ -588,3 +609,31 @@ void oscCVExpander::dataFromJson(json_t *rootJ) {
 	} // end loop through channels
 	return;
 } // end dataFromJson() 
+#if USE_MODULE_STATIC_RX
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// addRxMsgToQueue()
+// Adds the message to the queue.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+void oscCVExpander::addRxMsgToQueue(int chNum, float val)
+{
+	rxMsgMutex.lock();	
+	TSOSCCVSimpleMessage* item = getRxMsgObj();
+	item->SetValues(chNum, val);
+	rxMsgQueue.push(item);
+	rxMsgMutex.unlock();
+	return;
+}
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// addRxMsgToQueue()
+// Adds the message to the queue.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+void oscCVExpander::addRxMsgToQueue(int chNum, std::vector<float> vals)
+{
+	rxMsgMutex.lock();	
+	TSOSCCVSimpleMessage* item = getRxMsgObj();
+	item->SetValues(chNum, vals);
+	rxMsgQueue.push(item);
+	rxMsgMutex.unlock();
+	return;
+}
+#endif

@@ -1,6 +1,7 @@
 #include "Module_oscCV.hpp"
 #include <rack.hpp>
 using namespace rack;
+#include "TSOSCCV_Common.hpp"
 #include "TSOSCCommunicator.hpp"
 #include "Widget_oscCV.hpp"
 #include <cmath>
@@ -71,11 +72,19 @@ oscCV::~oscCV()
 		free(oscBuffer);
 		oscBuffer = NULL;
 	}
-	// if (oscListener != NULL)
-	// {
-		// delete oscListener;
-		// oscListener = NULL;
-	// }
+
+#if !USE_MODULE_STATIC_RX	
+	// Message queue is now pointers, so delete
+	rxMsgMutex.lock();	
+	while (rxMsgQueue.size() > 0)
+	{		
+		TSOSCCVSimpleMessage* rxOscMsg = rxMsgQueue.front();
+		rxMsgQueue.pop();
+		delete rxOscMsg;
+	} // end while (loop through message queue)
+	rxMsgMutex.unlock();
+#endif 
+	
 	if (inputChannels != NULL)
 		delete[] inputChannels;
 	if (outputChannels != NULL)
@@ -161,7 +170,8 @@ void oscCV::initOSC(const char* ipAddress, int outputPort, int inputPort)
 				}
 			}
 			oscInitialized = true;			
-			if (doOSC2CVPort) {
+			if (doOSC2CVPort) 
+			{
 				// OSC Rx -> CV Port
 				oscInitialized = OscCVRxConnector::StartListener(inputPort, this);
 				this->currentOSCSettings.oscRxPort = inputPort;
@@ -634,18 +644,41 @@ void oscCV::process(const ProcessArgs &args)
 		//------------------------------------------------------------
 		while (rxMsgQueue.size() > 0)
 		{
-			TSOSCCVSimpleMessage rxOscMsg = rxMsgQueue.front();
-			rxMsgQueue.pop();
-
-			int chIx = rxOscMsg.channelNum - 1;
-			if (chIx > -1 && chIx < numberChannels)
+			try
 			{
-				// Process the message
-				pulseGens[chIx].trigger(TROWA_PULSE_WIDTH); // Trigger (msg received)
-				//outputChannels[chIx].setValue(rxOscMsg.rxVal);
-				outputChannels[chIx].setOSCInValue(rxOscMsg.rxVals);
-				lights[LightIds::CH_LIGHT_START + chIx * 2 + 1].value = 1.0f;
-			} // end if valid channel
+				rxMsgMutex.lock();				
+				TSOSCCVSimpleMessage* rxOscMsg = rxMsgQueue.front();
+				rxMsgMutex.unlock();
+				if (rxOscMsg != NULL)
+				{
+					int chIx = rxOscMsg->channelNum - 1;
+					if (chIx > -1 && chIx < numberChannels)
+					{
+						// Process the message
+						pulseGens[chIx].trigger(TROWA_PULSE_WIDTH); // Trigger (msg received)
+						//outputChannels[chIx].setValue(rxOscMsg.rxVal);
+						//outputChannels[chIx].setOSCInValue(rxOscMsg->rxVals);
+						outputChannels[chIx].setOSCInValue(rxOscMsg->rxVals, rxOscMsg->rxLength);							
+						lights[LightIds::CH_LIGHT_START + chIx * 2 + 1].value = 1.0f;
+					} // end if valid channel
+					
+#if DEBUG_MAC_OS_POINTER			
+					DEBUG("oscCV::Deleting %d.", rxOscMsg);
+#endif
+#if !USE_MODULE_STATIC_RX
+					// If we are not using a static buffer, then delete this.
+					delete rxOscMsg;
+					rxOscMsg = NULL
+#endif 					
+				}
+			} 
+			catch (std::exception& rxEx)
+			{
+				WARN("Error accessing received message.\n%s", rxEx.what());
+			}
+			rxMsgMutex.lock();				
+			rxMsgQueue.pop();
+			rxMsgMutex.unlock();			
 		} // end while (loop through message queue)
 		// ::: OUTPUTS :::
 		float dt = args.sampleTime; //1.0 / engineGetSampleRate();
@@ -762,6 +795,32 @@ oscCVExpander* oscCV::getExpansionModule(int index)
 	}			
 	return item;
 }
-
-
+#if USE_MODULE_STATIC_RX
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// addRxMsgToQueue()
+// Adds the message to the queue.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+void oscCV::addRxMsgToQueue(int chNum, float val)
+{
+	rxMsgMutex.lock();	
+	TSOSCCVSimpleMessage* item = getRxMsgObj();
+	item->SetValues(chNum, val);
+	rxMsgQueue.push(item);
+	rxMsgMutex.unlock();
+	return;
+}
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// addRxMsgToQueue()
+// Adds the message to the queue.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+void oscCV::addRxMsgToQueue(int chNum, std::vector<float> vals)
+{
+	rxMsgMutex.lock();	
+	TSOSCCVSimpleMessage* item = getRxMsgObj();
+	item->SetValues(chNum, vals);
+	rxMsgQueue.push(item);
+	rxMsgMutex.unlock();
+	return;
+}
+#endif
 

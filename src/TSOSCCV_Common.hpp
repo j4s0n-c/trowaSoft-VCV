@@ -13,7 +13,7 @@ using namespace rack;
 
 #define TROWA_OSCCV_DEFAULT_NUM_CHANNELS		8 // Default number of channels
 #define TROWA_OSCCV_NUM_PORTS_PER_INPUT			2 // Each input port should have a trigger input and actual value input.
-#define TROWA_OSCCV_DEFAULT_NAMESPACE		"trowacv" // Default namespace for this module (should not be the same as the sequencers)
+#define TROWA_OSCCV_DEFAULT_NAMESPACE		   "" // Default namespace for this module (should not be the same as the sequencers). Now Blank was 'trowacv'.
 #define TROWA_OSCCV_MAX_VOLTAGE				 10.0 // Max output voltage
 #define TROWA_OSCCV_MIN_VOLTAGE				-10.0 // Min output voltage
 #define TROWA_OSCCV_VAL_BUFFER_SIZE			  512 // Buffer size for value history
@@ -27,6 +27,16 @@ using namespace rack;
 #define TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL		2
 
 #define TROWA_OSCCV_VECTOR_MAX_SIZE			engine::PORT_MAX_CHANNELS // Now with polyphonic cables, there can be 16 channels sent in one CV input/output
+
+
+
+//=== DEBUG MacOS ====
+// for cvOSCcv
+#define DEBUG_MAC_OS_POINTER					 0
+#define USE_STATIC_ARRAY						 1 // Use a STATIC array for OSC Message since it seems MAC OS doesn't handle new and delete[] when it's very fast (and vector errors too).
+#define USE_MODULE_STATIC_RX					1 // Debug MAC OS issues. Start keeping a static buffer of msg objects for each module.
+#define OSC_RX_MSG_BUFFER_SIZE				   40 // Debug MAC OS issues. Start keeping a static buffer of msg objects for each module.
+
 
 
 // A channel for OSC.
@@ -193,7 +203,19 @@ struct TSOSCCVChannel {
 		translatedVal = translatedVals[0];
 		return;
 	}
-	
+	// Multiple input.
+	void setOSCInValue(float* oscVals, int size) 
+	{
+		numVals = size;
+		for (int i = 0; i < size; i++)
+		{
+			vals[i] = oscVals[i];
+			translatedVals[i] = getValOSC2CV(i);
+		}
+		val = oscVals[0];
+		translatedVal = translatedVals[0];
+		return;
+	}	
 	void addValToBuffer(float buffVal);
 
 	// Sets the value from CV input.
@@ -263,12 +285,6 @@ struct TSOSCCVChannel {
 // Channel specifically for CV Input -> OSC.
 // Extra stuff for knowing when to send output.
 struct TSOSCCVInputChannel : TSOSCCVChannel {
-	// // The last value we SENT over OSC (for tracking changes).
-	// float lastVal = -20.0;
-	// // The last translated value we SENT over OSC (for tracking changes).
-	// float lastTranslatedVal = -20.0;
-	
-	
 	// The last value we SENT over OSC (for tracking changes).
 	std::vector<float> lastVals;
 	// The last translated value we SENT over OSC (for tracking changes).
@@ -364,39 +380,155 @@ struct TSOSCCVInputChannel : TSOSCCVChannel {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // Simple single message to/from OSC. 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-struct TSOSCCVSimpleMessage {
+struct TSOSCCVSimpleMessage 
+{
 	// Channel Number (1-N)
-	int channelNum;
-	//float rxVal;
-	//uint32_t uintRxVal;
-	
+	int channelNum;	
 	// [v1.0.2] Support for polyphonic (16-channel) cables
-	std::vector<float> rxVals;
-	
-	
+	//std::vector<float> rxVals;
+	// std::vector is giving me grief on MacOS. 
+	// Allocating new float* is giving grief too but seems to use less ram is faster
+#if USE_STATIC_ARRAY
+	float rxVals[TROWA_OSCCV_VAL_BUFFER_SIZE] = {0};
+#else
+	// Dynamic array of values.
+	float* rxVals = NULL; 
+#endif	
+	// How many elements we have in rxVals.
+	int rxLength = 0;
+
+	TSOSCCVSimpleMessage()
+	{
+		channelNum = -1;
+		rxLength = 0;
+		return;
+	}
+		
 	TSOSCCVSimpleMessage(int chNum, std::vector<float>& vals)
 	{
-		channelNum = chNum;
-		for (int i = 0; i < static_cast<int>(vals.size()); i++) 
-			rxVals.push_back(vals[i]); 
+#if DEBUG_MAC_OS_POINTER
+		DEBUG("*Construct* %d", this);
+#endif		
+		SetValues(chNum, vals);
 		return;
 	}
 
 	TSOSCCVSimpleMessage(int chNum, float recvVal)
 	{
-		channelNum = chNum;
-		//rxVal = recvVal;
-		rxVals.push_back(recvVal);
+		SetValues(chNum, recvVal);
 		return;
 	}
-	// TSOSCCVSimpleMessage(int chNum, float recvVal, uint32_t uintVal)
-	// {
-		// channelNum = chNum;
-		// //rxVal = recvVal;
-		// rxVals.push_back(recvVal);		
-		// uintRxVal = uintVal;
-		// return;
-	// }
+	
+	~TSOSCCVSimpleMessage()
+	{
+#if DEBUG_MAC_OS_POINTER		
+		DEBUG("*DESTROY* %d", this);		
+#endif
+		//rxVals.clear();
+#if !USE_STATIC_ARRAY		
+		if (rxVals != NULL)
+		{
+			delete[] rxVals;
+			rxVals = NULL;	
+			rxLength = 0;			
+		}
+#endif		
+		return;
+	}
+		
+	TSOSCCVSimpleMessage(TSOSCCVSimpleMessage const &cpy)
+	{
+		// NOTES: Adding copy constructor didn't help on MAC OS (still get memory error).
+		SetValues(cpy.channelNum, cpy.rxVals, cpy.rxLength);
+		// channelNum = cpy.channelNum;
+		// rxVals.clear();
+		// for (int i = 0; i < static_cast<int>(cpy.rxVals.size()); i++)
+		// {
+			// rxVals.push_back(cpy.rxVals[i]);			
+		// }
+		return;
+	}
+	TSOSCCVSimpleMessage & operator=(TSOSCCVSimpleMessage const &rhs)
+	{
+		if (this == &rhs)
+		{
+			return *this;
+		}
+		SetValues(rhs.channelNum, rhs.rxVals, rhs.rxLength);
+		// channelNum = rhs.channelNum;
+		// rxVals.clear();
+		// for (int i = 0; i < static_cast<int>(rhs.rxVals.size()); i++)
+		// {
+			// rxVals.push_back(rhs.rxVals[i]);			
+		// }
+		return *this;
+	}
+	
+	void SetBuffer(int size)
+	{
+#if !USE_STATIC_ARRAY		
+		if (rxVals != NULL && rxLength < size)
+		{
+			// Resize our array. 
+			// Delete current (throw away old values)
+			delete[] rxVals;
+			rxVals = NULL;
+		}
+		if (rxVals == NULL)
+		{
+			rxVals = new float[size];
+		}
+#endif		
+		rxLength = size;
+		return;
+	}
+	
+	void SetValues(int chNum, const float* vals, int size)
+	{
+		this->channelNum = chNum;
+		SetBuffer(size);
+		for (int i = 0; i < size; i++)
+		{
+			rxVals[i] = vals[i];
+		}		
+		return;
+	}
+	
+	void SetValues(int chNum, float vals[TROWA_OSCCV_VECTOR_MAX_SIZE], int size)
+	{
+		this->channelNum = chNum;
+		SetBuffer(size);
+		for (int i = 0; i < size; i++)
+		{
+			rxVals[i] = vals[i];
+		}		
+		return;
+	}	
+	
+	void SetValues(int chNum, const std::vector<float>& vals)
+	{
+		this->channelNum = chNum;
+		SetBuffer(static_cast<int>(vals.size()));		
+		//rxVals.clear();
+
+	DEBUG("Ch %d, Vals are size: %d. RxLength now %d.", chNum, vals.size(), rxLength);
+		
+		for (int i = 0; i < static_cast<int>(vals.size()); i++)
+		{
+			rxVals[i] = vals[i];
+			//rxVals.push_back(vals[i]);			
+		}		
+		return;
+	}
+	void SetValues(int chNum, float val)
+	{
+		this->channelNum = chNum;
+		//rxVals.clear();
+		//rxVals.push_back(val);
+		SetBuffer(1);
+		rxVals[0] = val;
+		return;
+	}	
 };
 
 //=== Expander ===

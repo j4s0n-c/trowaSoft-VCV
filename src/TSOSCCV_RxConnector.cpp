@@ -1,4 +1,5 @@
 #include "TSOSCCV_RxConnector.hpp"
+#include "Module_oscCV.hpp"
 
 
 //--------------------------------------------------------------------------------------------------------------------------------------------
@@ -130,10 +131,21 @@ void OscCVRxMsgRouter::ProcessMessage(const osc::ReceivedMessage& rxMsg, const I
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 									DEBUG("OSC Recv Ch %d: Bool %d at %s.", c+1, boolArg, oscModule->outputChannels[c].path.c_str());
 #endif
+#if USE_MODULE_STATIC_RX
+									// Re-use static buffer on module (this is a test):
 									if (numArgs > 1)
-										oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, bArgs));
+										oscModule->addRxMsgToQueue(c + 1, bArgs);
 									else
-										oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, boolArg));
+										oscModule->addRxMsgToQueue(c + 1, boolArg);
+#else
+									// Add *new* Message
+									oscModule->rxMsgMutex.lock();	
+									if (numArgs > 1)
+										oscModule->rxMsgQueue.push(new TSOSCCVSimpleMessage(c + 1, bArgs));
+									else
+										oscModule->rxMsgQueue.push(new TSOSCCVSimpleMessage(c + 1, boolArg));
+									oscModule->rxMsgMutex.unlock();									
+#endif	
 									#if OSC_CV_RECV_ONLY_ONE
 									recipientFound = true;
 									#endif
@@ -142,10 +154,21 @@ void OscCVRxMsgRouter::ProcessMessage(const osc::ReceivedMessage& rxMsg, const I
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 									DEBUG("OSC Recv Ch %d: Int %d at %s.", c + 1, intArg, oscModule->outputChannels[c].path.c_str());
 #endif
+#if USE_MODULE_STATIC_RX
+									// Re-use static buffer on module:
 									if (numArgs > 1)
-										oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, iArgs));
+										oscModule->addRxMsgToQueue(c + 1, iArgs);
 									else
-										oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, intArg));
+										oscModule->addRxMsgToQueue(c + 1, intArg);
+#else
+									// Add *new* Message
+									oscModule->rxMsgMutex.lock();
+									if (numArgs > 1)
+										oscModule->rxMsgQueue.push(new TSOSCCVSimpleMessage(c + 1, iArgs));
+									else
+										oscModule->rxMsgQueue.push(new TSOSCCVSimpleMessage(c + 1, intArg));
+									oscModule->rxMsgMutex.unlock();
+#endif
 									#if OSC_CV_RECV_ONLY_ONE
 									recipientFound = true;
 									#endif
@@ -165,14 +188,24 @@ void OscCVRxMsgRouter::ProcessMessage(const osc::ReceivedMessage& rxMsg, const I
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 									DEBUG("OSC Recv Ch %d: Float %7.4f at %s.", c + 1, floatArg, oscModule->outputChannels[c].path.c_str());
 #endif
+#if USE_MODULE_STATIC_RX
+									// Re-use static buffer on module:
+									if (numArgs > 1)
+										oscModule->addRxMsgToQueue(c + 1, fArgs);
+									else
+										oscModule->addRxMsgToQueue(c + 1, floatArg);
+#else
+									oscModule->rxMsgMutex.lock();
 									if (numArgs > 1)
 									{
-										oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, fArgs));										
+										oscModule->rxMsgQueue.push(new TSOSCCVSimpleMessage(c + 1, fArgs));										
 									}
 									else
 									{
-										oscModule->rxMsgQueue.push(TSOSCCVSimpleMessage(c + 1, floatArg));
+										oscModule->rxMsgQueue.push(new TSOSCCVSimpleMessage(c + 1, floatArg));
 									}
+									oscModule->rxMsgMutex.unlock();									
+#endif 									
 									#if OSC_CV_RECV_ONLY_ONE
 									recipientFound = true; // OSC specs dictates that all recipients get the message, but we mant to turn off for performance.
 									#endif
@@ -189,9 +222,11 @@ void OscCVRxMsgRouter::ProcessMessage(const osc::ReceivedMessage& rxMsg, const I
 							// Let this thread handle sorting/delivery.
 							Module::Expander* exp = &(oscModule->rightExpander);
 							while (!recipientFound && exp != NULL && exp->module && exp->module->model == modelOscCVExpanderOutput)
-							{				
+							{
 								oscCVExpander* expMod = dynamic_cast<oscCVExpander*>(exp->module);
-								recipientFound = deliverMessage(path, expMod->outputChannels, expMod->numberChannels, expMod->rxMsgQueue, bArgs, fArgs, iArgs);// boolArg, floatArg, uintArg, intArg);
+								//recipientFound = deliverMessage(path, expMod->outputChannels, expMod->numberChannels, expMod->rxMsgQueue, bArgs, fArgs, iArgs);// boolArg, floatArg, uintArg, intArg);
+								// Less RAM usage on MAC if use a static buffer:
+								recipientFound = deliverMessage(path, expMod, bArgs, fArgs, iArgs);
 								exp = &(exp->module->rightExpander); // Go to next so we can see if that's another expander.
 							} // end loop through RIGHT expanders
 						}
@@ -218,8 +253,79 @@ void OscCVRxMsgRouter::ProcessMessage(const osc::ReceivedMessage& rxMsg, const I
 	return;
 } // end ProcessMessage()
 
+// Deliver the message to expander.
+bool OscCVRxMsgRouter::deliverMessage(const char* path, oscCVExpander* expander, std::vector<float>& bArgs, std::vector<float>& fArgs, std::vector<float>& iArgs)
+{
+	bool rFound = false;
+	// Make a message for each channel that may be listening to this address.
+	for (int c = 0; c < expander->numberChannels; c++)
+	{
+		if (strlen(path) == strlen(expander->outputChannels[c].path.c_str()) && std::strcmp(path, expander->outputChannels[c].path.c_str()) == 0)
+		{
+			switch (expander->outputChannels[c].dataType)
+			{
+				case TSOSCCVChannel::ArgDataType::OscBool:
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+					DEBUG("OSC Recv Ch %d: Bool %d at %s.", c+1, boolArg, channels[c].path.c_str());
+#endif
+#if USE_MODULE_STATIC_RX
+					// Re-use static buffer on module (this is a test):
+					expander->addRxMsgToQueue(c + 1, bArgs);
+#else
+					// Add *new* Message
+					queueMutex->lock();	
+					expander->rxMsgQueue.push(new TSOSCCVSimpleMessage(c + 1, bArgs));
+					queueMutex->unlock();									
+#endif	
+
+					#if OSC_CV_RECV_ONLY_ONE
+					rFound = true;
+					#endif
+					break;
+				case TSOSCCVChannel::ArgDataType::OscInt:
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+					DEBUG("OSC Recv Ch %d: Int %d at %s.", c + 1, intArg, channels[c].path.c_str());
+#endif
+#if USE_MODULE_STATIC_RX
+					// Re-use static buffer on module (this is a test):
+					expander->addRxMsgToQueue(c + 1, iArgs);
+#else
+					// Add *new* Message
+					queueMutex->lock();	
+					expander->rxMsgQueue.push(new TSOSCCVSimpleMessage(c + 1, iArgs));
+					queueMutex->unlock();									
+#endif	
+					#if OSC_CV_RECV_ONLY_ONE
+					rFound = true;
+					#endif
+					break;
+				case TSOSCCVChannel::ArgDataType::OscFloat:
+				default:
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+					DEBUG("OSC Recv Ch %d: Float %7.4f at %s.", c + 1, floatArg, channels[c].path.c_str());
+#endif
+#if USE_MODULE_STATIC_RX
+					// Re-use static buffer on module (this is a test):
+					expander->addRxMsgToQueue(c + 1, fArgs);
+#else
+					// Add *new* Message
+					queueMutex->lock();	
+					expander->rxMsgQueue.push(new TSOSCCVSimpleMessage(c + 1, fArgs));
+					queueMutex->unlock();									
+#endif	
+					#if OSC_CV_RECV_ONLY_ONE
+					rFound = true;
+					#endif
+					break;
+			} // end switch
+		} // end if path matches
+	} // end loop through channels
+	return rFound;
+}
+
+
 // Deliver a message to the target queue.
-bool OscCVRxMsgRouter::deliverMessage(const char* path, TSOSCCVChannel* channels, int nChannels, std::queue<TSOSCCVSimpleMessage>& targetQueue, 
+bool OscCVRxMsgRouter::deliverMessage(const char* path, TSOSCCVChannel* channels, int nChannels, std::queue<TSOSCCVSimpleMessage*>& targetQueue, 
 	std::vector<float>& bArgs, std::vector<float>& fArgs, std::vector<float>& iArgs)
 {
 	bool rFound = false;
@@ -234,7 +340,7 @@ bool OscCVRxMsgRouter::deliverMessage(const char* path, TSOSCCVChannel* channels
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 					DEBUG("OSC Recv Ch %d: Bool %d at %s.", c+1, boolArg, channels[c].path.c_str());
 #endif
-					targetQueue.push(TSOSCCVSimpleMessage(c + 1, bArgs));
+					targetQueue.push(new TSOSCCVSimpleMessage(c + 1, bArgs));
 					#if OSC_CV_RECV_ONLY_ONE
 					rFound = true;
 					#endif
@@ -243,7 +349,7 @@ bool OscCVRxMsgRouter::deliverMessage(const char* path, TSOSCCVChannel* channels
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 					DEBUG("OSC Recv Ch %d: Int %d at %s.", c + 1, intArg, channels[c].path.c_str());
 #endif
-					targetQueue.push(TSOSCCVSimpleMessage(c + 1, iArgs));
+					targetQueue.push(new TSOSCCVSimpleMessage(c + 1, iArgs));
 					#if OSC_CV_RECV_ONLY_ONE
 					rFound = true;
 					#endif
@@ -253,7 +359,7 @@ bool OscCVRxMsgRouter::deliverMessage(const char* path, TSOSCCVChannel* channels
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 					DEBUG("OSC Recv Ch %d: Float %7.4f at %s.", c + 1, floatArg, channels[c].path.c_str());
 #endif
-					targetQueue.push(TSOSCCVSimpleMessage(c + 1, fArgs));
+					targetQueue.push(new TSOSCCVSimpleMessage(c + 1, fArgs));
 					#if OSC_CV_RECV_ONLY_ONE
 					rFound = true;
 					#endif

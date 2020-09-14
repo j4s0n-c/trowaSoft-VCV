@@ -28,14 +28,14 @@ public:
 	typename std::vector<T*> modules;
 	
 	// Instantiate a listener.
-	TSOSCBaseMsgRouter()
+	TSOSCBaseMsgRouter() : osc::OscPacketListener()
 	{
 		/// TODO: Make a damn base OSC interface class.
 		static_assert(std::is_base_of<Module, T>::value, "Must be a Module.");
 		return;
 	}
 	// Instantiate a listener.
-	TSOSCBaseMsgRouter(T* oscModule)
+	TSOSCBaseMsgRouter(T* oscModule) : TSOSCBaseMsgRouter()
 	{
 		modules.push_back(oscModule);
 		return;

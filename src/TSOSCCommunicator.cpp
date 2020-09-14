@@ -1,4 +1,5 @@
 #include "TSOSCCommunicator.hpp"
+#include "trowaSoftUtilities.hpp"
 
 #include <thread> // std::thread
 #include <string.h>

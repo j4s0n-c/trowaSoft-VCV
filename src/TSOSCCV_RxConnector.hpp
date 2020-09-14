@@ -11,14 +11,13 @@
 #define OSC_CV_RECV_ONLY_ONE		1 // OSC standard states that any address that matches should get the message, but maybe turn it off for performance?
 // 0: Multiple channels can receive the same message. 1: Only first channel that matches can receive it....
 
-
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // Listener for OSC incoming messages.
 // This listener should route the messages to N oscCV modules. 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 class OscCVRxMsgRouter : public TSOSCBaseMsgRouter<oscCV> {
 public:
-
+	
 protected:
 	//--------------------------------------------------------------------------------------------------------------------------------------------
 	// ProcessMessage()
@@ -31,8 +30,9 @@ protected:
 	virtual void ProcessMessage(const osc::ReceivedMessage& rxMsg, const IpEndpointName& remoteEndpoint) override;
 	
 	// Deliver message to the given queue.
-	bool deliverMessage(const char* path, TSOSCCVChannel* channels, int nChannels, std::queue<TSOSCCVSimpleMessage>& targetQueue, std::vector<float>& bArgs, std::vector<float>& fArgs, std::vector<float>& iArgs);
-	
+	bool deliverMessage(const char* path, TSOSCCVChannel* channels, int nChannels, std::queue<TSOSCCVSimpleMessage*>& targetQueue, std::vector<float>& bArgs, std::vector<float>& fArgs, std::vector<float>& iArgs);
+	// Deliver the message to expander.
+	bool deliverMessage(const char* path, oscCVExpander* expander, std::vector<float>& bArgs, std::vector<float>& fArgs, std::vector<float>& iArgs);
 };
 
 
