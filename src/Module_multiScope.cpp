@@ -33,7 +33,7 @@ multiScope::multiScope() // : Module(multiScope::NUM_PARAMS, multiScope::NUM_INP
 	// Conifgure Parameters:
 	// displayBase : 0 Linear, < 0 Log, > 0 Exp
 	//configParam(/*paramId*/ , /*minVal*/, /*maxVal*/, /*defVal*/, /*label*/, /*unit*/, /*displayBase*/, /*displayMultiplier*/, /*displayOffset*/)	
-	configParam(/*id*/ multiScope::INFO_DISPLAY_TOGGLE_PARAM, /*minVal*/ 0, /*maxVal*/ 1, /*defVal*/ 1, /*label*/ "Toggle Display");
+	configParam(/*id*/ multiScope::INFO_DISPLAY_TOGGLE_PARAM, /*minVal*/ 0, /*maxVal*/ 1, /*defVal*/ 0, /*label*/ "Toggle Display");
 	configParam(/*id*/ multiScope::BGCOLOR_DISPLAY_PARAM, /*minVal*/ 0, /*maxVal*/ 1, /*defVal*/ 0, /*label*/ "Toggle Background Color Picker");	
 	// Background Color:
 	configParam(/*id*/ multiScope::BGCOLOR_HUE_PARAM, /*minVal*/ 0, /*maxVal*/ 1.f, /*defVal*/ 0.0, /*label*/ "BG Color Hue", /*unit*/ " degrees", /*displayBase*/ 0, /*displayMultiplier*/ 360.f);

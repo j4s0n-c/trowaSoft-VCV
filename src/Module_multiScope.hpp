@@ -122,7 +122,7 @@ struct multiScope : Module {
 	// Widget Values =====
 	// Widget width
 	float widgetWidth = 0;
-	bool widgetShowDisplay = true;
+	bool widgetShowDisplay = false; // Default off now.
 
 	multiScope();
 	~multiScope();
