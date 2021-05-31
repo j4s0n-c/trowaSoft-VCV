@@ -153,7 +153,7 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 				}
 				if (txtBoxIx > -1 && !textBoxes[txtBoxIx]->visible)
 				{
-DEBUG("TSSingleOscillatorDisplay::onMouseDown() = Showing Txt Id %d, visible = %d", txtBoxIx, textBoxes[txtBoxIx]->visible);					
+//DEBUG("TSSingleOscillatorDisplay::onMouseDown() = Showing Txt Id %d, visible = %d", txtBoxIx, textBoxes[txtBoxIx]->visible);					
 					// Show the text box:
 					textBoxes[txtBoxIx]->visible = true;
 					//e.target = textBoxes[txtBoxIx];

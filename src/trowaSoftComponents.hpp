@@ -28,6 +28,8 @@ extern Plugin* pluginInstance;
 #define KNOB_SENSITIVITY 0.0015
 #endif // ! KNOB_SENSITIVITY
 
+#define TS_SCREW_SIZE		15 // Screw size
+
 
 //-----------------------------------------------------------------
 // Form controls - Default colors and such
@@ -222,6 +224,7 @@ struct TS_PadSwitch : Switch {
 	int btnId = -1;
 	// Group id (to match guys that should respond to mouse down drag).
 	int groupId = -1;
+	
 	TS_PadSwitch() : Switch() {
 		momentary = true;
 		return;
@@ -243,6 +246,8 @@ struct TS_PadSwitch : Switch {
 	// https://github.com/VCVRack/Rack/issues/607
 	/** Called when a widget responds to `onMouseDown` for a left button press */
 	void onDragStart(const event::DragStart &e) override {
+		if (e.button != GLFW_MOUSE_BUTTON_LEFT)
+			return;		
 		if (paramQuantity)
 		{
 			if (momentary)
@@ -252,7 +257,6 @@ struct TS_PadSwitch : Switch {
 			else
 			{
 				float newVal = (paramQuantity->getValue() < paramQuantity->maxValue) ? paramQuantity->maxValue : paramQuantity->minValue;
-//DEBUG("onDragStart(%d) - Current Value is %.1f, toggling to %.1f.", btnId, paramQuantity->getValue(), newVal);			
 				paramQuantity->setValue(newVal); // Toggle Value				
 			}
 		}
@@ -261,42 +265,44 @@ struct TS_PadSwitch : Switch {
 	/** Called when the left button is released and this widget is being dragged */
 	// https://github.com/j4s0n-c/trowaSoft-VCV/issues/12
 	// Last button keeps pressed down.
-	void onDragEnd(const event::DragEnd &e) override {
-		if (paramQuantity) {
-// DEBUG("onDragEnd(%d) - Current Value is %.1f, setting to %.1f (off).", btnId, paramQuantity->getValue(), paramQuantity->minValue);
-			// paramQuantity->setValue(paramQuantity->minValue); // Turn Off			
-		}
-		return;
-	}
+	// void onDragEnd(const event::DragEnd &e) override {
+		// if (paramQuantity) {
+		// }
+		// return;
+	// }
 	/** Called when a widget responds to `onMouseUp` for a left button release and a widget is being dragged */
-	void onDragEnter(const event::DragEnter &e) override {	
+	void onDragEnter(const event::DragEnter &e) override 
+	{	
+		if (e.button != GLFW_MOUSE_BUTTON_LEFT)
+			return;	
 		// Set these no matter what because if you drag back onto your starting square, you want to toggle it again.
 		TS_PadSwitch *origin = dynamic_cast<TS_PadSwitch*>(e.origin);
-		if (origin && origin != this && origin->groupId == this->groupId && paramQuantity) {
+		if (origin && origin != this && origin->groupId == this->groupId && paramQuantity) 
+		{
 			float newVal = (paramQuantity->getValue() < paramQuantity->maxValue) ? paramQuantity->maxValue : paramQuantity->minValue;
-//DEBUG("onDragEnter(%d) - Current Value is %.1f, toggling to %.1f", btnId, paramQuantity->getValue(), newVal);						
+			//DEBUG("onDragEnter(%d) - Set Value to %3.1f.", btnId, newVal);				
 			paramQuantity->setValue(newVal); // Toggle Value
-		}
+		}	
 	}
-	void onDragLeave(const event::DragLeave &e) override {
+	void onDragLeave(const event::DragLeave &e) override 
+	{
+		if (e.button != GLFW_MOUSE_BUTTON_LEFT)
+			return;				
 		TS_PadSwitch *origin = dynamic_cast<TS_PadSwitch*>(e.origin);
-		if (origin && origin->groupId == this->groupId && paramQuantity) {
+		if (origin && origin->groupId == this->groupId && paramQuantity) 
+		{
 			if (momentary)
 			{
-//DEBUG("onDragLeave(%d) - Current Value is %.1f, setting to %.1f (off).", btnId, paramQuantity->getValue(), paramQuantity->minValue);
+				//DEBUG("onDragLeave(%d) (momentary) - Set Value to %3.1f.", btnId, paramQuantity->minValue);
 				paramQuantity->setValue(paramQuantity->minValue); // Turn Off				
 			}
-		}
+		}		
+		return;
 	}
-	void onButton(const event::Button &e) override {
-		//Widget::onButton(e);
-		this->ParamWidget::onButton(e); // Need to call this base method to be set as the touchedParam for MIDI mapping to work.
-		e.stopPropagating();
-		if (e.button == GLFW_MOUSE_BUTTON_LEFT) {
-			// if (e.action == GLFW_RELEASE && paramQuantity) // onMouseUp?
-				// paramQuantity->setValue(paramQuantity->minValue); // Turn Off
-			e.consume(this);
-		}
+	void onButton(const event::Button &e) override 
+	{
+		ParamWidget::onButton(e);
+		return;
 	}
 };
 
@@ -340,59 +346,57 @@ struct TS_PadSvgSwitch : SvgSwitch {
 	// https://github.com/VCVRack/Rack/issues/607
 	/** Called when a widget responds to `onMouseDown` for a left button press */
 	void onDragStart(const event::DragStart &e) override {
+		if (e.button != GLFW_MOUSE_BUTTON_LEFT)
+			return;		
+		
 		if (paramQuantity)
 		{
-			float newVal = (paramQuantity->getValue() < paramQuantity->maxValue) ? paramQuantity->maxValue : paramQuantity->minValue;
-//DEBUG("onDragStart(%d) - Current Value is %.1f, toggling to %.1f.", btnId, paramQuantity->getValue(), newVal);			
-			paramQuantity->setValue(newVal); // Toggle Value
-		}
+			if (momentary)
+			{
+				DEBUG("onDragStart(%d) - Momentary - Set Value to %3.1f.", btnId, paramQuantity->maxValue);
+				paramQuantity->setValue(paramQuantity->maxValue); // Trigger Value				
+			}
+			else
+			{
+				float newVal = (paramQuantity->getValue() < paramQuantity->maxValue) ? paramQuantity->maxValue : paramQuantity->minValue;
+				DEBUG("onDragStart(%d) - Set Value to %3.1f.", btnId, newVal);						
+				paramQuantity->setValue(newVal); // Toggle Value
+			}
+		}	
 		return;
 	}
 	/** Called when the left button is released and this widget is being dragged */
 	// https://github.com/j4s0n-c/trowaSoft-VCV/issues/12
 	// Last button keeps pressed down.
-	void onDragEnd(const event::DragEnd &e) override {
-		if (paramQuantity) {
-//DEBUG("onDragEnd(%d) - Current Value is %.1f, setting to %.1f (off).", btnId, paramQuantity->getValue(), paramQuantity->minValue);
-			// paramQuantity->setValue(paramQuantity->minValue); // Turn Off			
-		}
-		return;
-	}
+	// void onDragEnd(const event::DragEnd &e) override 
+	// {		
+		// return;
+	// }
+	
 	/** Called when a widget responds to `onMouseUp` for a left button release and a widget is being dragged */
-	void onDragEnter(const event::DragEnter &e) override {	
+	void onDragEnter(const event::DragEnter &e) override 
+	{	
+		if (e.button != GLFW_MOUSE_BUTTON_LEFT)
+			return;			
 		// Set these no matter what because if you drag back onto your starting square, you want to toggle it again.
-		TS_PadSvgSwitch *origin = dynamic_cast<TS_PadSvgSwitch*>(e.origin);
-		if (origin && origin != this && origin->groupId == this->groupId && paramQuantity) {
+		TS_PadSvgSwitch *origin = dynamic_cast<TS_PadSvgSwitch*>(e.origin);			
+		if (origin && origin != this && origin->groupId == this->groupId && paramQuantity) 
+		{
 			float newVal = (paramQuantity->getValue() < paramQuantity->maxValue) ? paramQuantity->maxValue : paramQuantity->minValue;
-//DEBUG("onDragEnter(%d) - Current Value is %.1f, toggling to %.1f", btnId, paramQuantity->getValue(), newVal);						
+			DEBUG("onDragEnter(%d) - Set Value to %3.1f.", btnId, newVal);				
 			paramQuantity->setValue(newVal); // Toggle Value
-		}
+		}		
+		return;
 	}
 	void onDragLeave(const event::DragLeave &e) override {
+		if (e.button != GLFW_MOUSE_BUTTON_LEFT)
+			return;		
 		SvgSwitch::onDragLeave(e);
-		//TS_PadSvgSwitch *origin = dynamic_cast<TS_PadSvgSwitch*>(e.origin);
-		// if (origin && origin->groupId == this->groupId && paramQuantity && !e.isConsumed()) {
-// DEBUG("onDragLeave(%d) - Current Value is %.1f, setting to %.1f (off).", btnId, paramQuantity->getValue(), paramQuantity->minValue);
-			// paramQuantity->setValue(paramQuantity->minValue); // Turn Off
-		// }
 		return;
 	}
-	void onButton(const event::Button &e) override {
-		//Widget::onButton(e);
+	void onButton(const event::Button &e) override 
+	{
 		this->ParamWidget::onButton(e); // Need to call this base method to be set as the touchedParam for MIDI mapping to work.
-		e.stopPropagating();
-//DEBUG("onButton(%d) - Curr Value is %.1f", paramQuantity->getValue());
-		if (e.button == GLFW_MOUSE_BUTTON_LEFT) {
-			if (paramQuantity)
-			{
-				if (e.action == GLFW_RELEASE) // onMouseUp?
-				{
-					// paramQuantity->setValue(paramQuantity->minValue); // Turn Off				
-//DEBUG("onButton(%d) - Left Click Release - Current Value is %.1f, setting to %.1f (off).", btnId, paramQuantity->getValue(), paramQuantity->minValue);				
-				}				
-			}
-			e.consume(this);
-		}
 	}
 };
 
@@ -416,9 +420,27 @@ struct TS_PadSquare : TS_PadSvgSwitch {
 };
 
 //--------------------------------------------------------------
-// TS_PadBtn - A wide Pad button. (Empty text)
+// TS_PadBtn - A wide Pad button. (Empty text) 32x14
 //--------------------------------------------------------------
 struct TS_PadBtn : SvgSwitch { // MomentarySwitch
+	// Text to display on the btn.
+	std::string btnText;
+	// Text color
+	NVGcolor color = TSColors::COLOR_TS_GRAY;
+	// Font size for our display numbers
+	int fontSize = 10;
+	// Font face
+	std::shared_ptr<Font> font = NULL;
+	// Padding
+	int padding = 1;
+
+	enum TextAlignment {
+		Left,
+		Center,
+		Right
+	};
+
+	TextAlignment textAlign = TextAlignment::Center;	
 	
 	TS_PadBtn() 
 	{
@@ -428,6 +450,64 @@ struct TS_PadBtn : SvgSwitch { // MomentarySwitch
 		sw->wrap();
 		this->shadow->opacity = 0.0f; // Turn off the circular shadows that are everywhere.		
 		box.size = sw->box.size;
+	}	
+	
+	TS_PadBtn(Vec size, Module* module, int paramId, std::string text) : TS_PadBtn()
+	{
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+		fontSize = 10;		
+		box.size = size;
+		sw->box.size = size;
+		btnText = text;
+		if (module) {
+			if (this->paramQuantity == NULL)
+				this->paramQuantity = module->paramQuantities[paramId];
+		}
+		return;
+	}
+	
+	virtual void draw(const DrawArgs &args) override
+	{
+		if (!visible)
+			return;
+		
+		
+		SvgSwitch::draw(args);
+		
+		if (btnText.length() > 0)
+		{
+			// Text
+			nvgBeginPath(args.vg);
+			nvgScissor(args.vg, padding, padding, box.size.x - 2*padding, box.size.y - 2*padding);
+			nvgFontSize(args.vg, fontSize);
+			nvgFontFaceId(args.vg, font->handle);
+			nvgFillColor(args.vg, color);
+
+			float x, y;
+			NVGalign nvgAlign;
+			y = box.size.y / 2.0f;
+			switch (textAlign) {
+				case TextAlignment::Left:
+					nvgAlign = NVG_ALIGN_LEFT;
+					x = box.size.x + padding;
+					break;
+				case TextAlignment::Right:
+					nvgAlign = NVG_ALIGN_RIGHT;
+					x = box.size.x - padding;
+					break;
+				case TextAlignment::Center:
+				default:
+					nvgAlign = NVG_ALIGN_CENTER;
+					x = box.size.x / 2.0f;
+					break;
+			}
+
+			nvgTextAlign(args.vg, nvgAlign | NVG_ALIGN_MIDDLE);
+			nvgText(args.vg, x, y, btnText.c_str(), NULL);
+			nvgResetScissor(args.vg);			
+			
+		}	
+		return;
 	}	
 };
 
@@ -469,12 +549,11 @@ struct TS_LEDButton : LEDButton {
 	}
 	void setSize(Vec newSize)
 	{
-//DEBUG("TS_LEDButton: Original size is %5.2f x %5.2f", box.size.x, box.size.y);				
 		box.size = newSize;
 		fb->box.size = newSize;
 		shadow->box.size = Vec(0, 0);
 		sw->box.size = newSize;
-//DEBUG("TS_LEDButton: NEW size is %5.2f x %5.2f", newSize.x, newSize.y);		
+		fb->dirty = true;
 	}
 };
 
@@ -546,6 +625,7 @@ struct HideableLEDButton : LEDButton
 
 
 };
+
 //--------------------------------------------------------------
 // TS_ScreenBtn - Screen button.
 //--------------------------------------------------------------
@@ -602,6 +682,19 @@ struct TS_ScreenBtn : Switch {
 		}
 		return;
 	}
+	TS_ScreenBtn(Vec size, Module* module, int paramId, std::string text, float minVal, float maxVal, float defVal, bool isMomentary)
+	{
+		box.size = size;
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+		fontSize = 10;
+		btnText = text;
+		momentary = isMomentary;
+		if (module) {
+			if (this->paramQuantity == NULL)
+				this->paramQuantity = module->paramQuantities[paramId];
+		}
+		return;
+	}		
 	
 	void setValue(float val){
 		if (paramQuantity){
@@ -610,6 +703,12 @@ struct TS_ScreenBtn : Switch {
 	}
 	float getValue() {
 		return (paramQuantity) ? paramQuantity->getValue() : 0.0;
+	}
+	
+	void step() override 
+	{
+		Switch::step();
+		return;
 	}
 	
 	/** Called when a widget responds to `onMouseDown` for a left button press */
@@ -621,9 +720,9 @@ struct TS_ScreenBtn : Switch {
 	}
 	/** Called when the left button is released and this widget is being dragged */
 	void onDragEnd(const event::DragEnd &e) override {
-		if (visible) {
-			Switch::onDragEnd(e);
-		}
+		// Do this even if not visible anymore (to finish if button is momentary)
+		// BUG FIX: Issue 53.
+		Switch::onDragEnd(e);
 		return;
 	}
 	/** Called when a widget responds to `onMouseUp` for a left button release and a widget is being dragged */
@@ -714,6 +813,32 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 	{
 		return;
 	}	
+	
+	void setChecked(bool checked)
+	{
+		this->checked = checked;
+		if (paramQuantity)
+		{
+			paramQuantity->setValue((checked) ? paramQuantity->getMaxValue() : paramQuantity->getMinValue());
+		}
+	}
+	
+	void onChange(const event::Change& e) override
+	{
+		if (paramQuantity)
+		{
+//DEBUG("CheckBox::onChange() - [%s] Current Checked is %d. paramQuantity is %.2f.", btnText.c_str(), checked, paramQuantity->getValue());
+			if (!momentary)
+			{
+				checked = paramQuantity->getValue() > paramQuantity->getMinValue();
+//DEBUG("CheckBox::onChange() - (Latching) New Check is %d.", checked);
+			}
+			else
+			{
+//DEBUG("CheckBox::onChange() - (momentary) Check stays %d.", checked);				
+			}			
+		}
+	}
 
 	void draw(const DrawArgs &args) override
 	{
@@ -747,7 +872,7 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 		switch (textAlign) {
 		case TextAlignment::Left:
 			nvgAlign = NVG_ALIGN_LEFT;
-			x = box.size.x + padding;
+			x = checkBoxWidth + padding;
 			break;
 		case TextAlignment::Right:
 			nvgAlign = NVG_ALIGN_RIGHT;
@@ -766,7 +891,6 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 		nvgResetScissor(args.vg);
 
 		// Check box ::::::::::::::::::::::::::::::::::::::::::::::
-
 		float boxX = txtBounds[0] - checkBoxWidth - padding;
 		float boxY = y - checkBoxHeight / 2.0 - padding;
 		nvgBeginPath(args.vg);
@@ -787,7 +911,6 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 	}
 };
 
-
 //--------------------------------------------------------------
 // Base knob class with wrappers:
 // 1. getValue() and setValue() accessors.
@@ -795,6 +918,10 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 //--------------------------------------------------------------
 struct TS_BaseKnob : Knob {
 	int size = 20;
+	
+	// Snap to integer value (default is true like normal Rack knob).
+	bool snapToInt = true;
+	float snapIncrement = 0.0f;
 	
 	TS_BaseKnob()
 	{
@@ -805,6 +932,14 @@ struct TS_BaseKnob : Knob {
 	{
 		size = s;
 		box.size = Vec(size, size);		
+		return;
+	}
+	
+	void setSnap(bool snapOn, bool snapToInt = true, float snapIncr = 0.0f)
+	{
+		this->snap = snapOn;
+		this->snapToInt = snapToInt;
+		this->snapIncrement = snapIncr;
 		return;
 	}
 		
@@ -835,6 +970,64 @@ struct TS_BaseKnob : Knob {
 			return 0;
 		}
 	}
+	
+	void onDragMove(const event::DragMove& e) override 
+	{
+		if (e.button != GLFW_MOUSE_BUTTON_LEFT)
+			return;
+
+		if (paramQuantity) {
+			float range;
+			if (paramQuantity->isBounded()) {
+				range = paramQuantity->getRange();
+			}
+			else {
+				// Continuous encoders scale as if their limits are +/-1
+				range = 2.f;
+			}
+			float delta = (horizontal ? e.mouseDelta.x : -e.mouseDelta.y);
+			delta *= KNOB_SENSITIVITY;
+			delta *= speed;
+			delta *= range;
+
+			// Drag slower if mod is held
+			int mods = APP->window->getMods();
+			if ((mods & RACK_MOD_MASK) == RACK_MOD_CTRL) {
+				delta /= 16.f;
+			}
+			// Drag even slower if mod+shift is held
+			if ((mods & RACK_MOD_MASK) == (RACK_MOD_CTRL | GLFW_MOD_SHIFT)) {
+				delta /= 256.f;
+			}
+
+			if (snap) {
+				snapValue += delta;
+				snapValue = math::clamp(snapValue, paramQuantity->getMinValue(), paramQuantity->getMaxValue());
+				
+				if (snapIncrement > 0)
+				{
+//DEBUG("[TS_BaseKnob] Snapping value %7.4f to %7.4f [%d] (Increment of %7.4f)", snapValue, static_cast<int>( std::round( snapValue / snapIncrement )	) * snapIncrement, static_cast<int>( snapValue / snapIncrement	), snapIncrement);
+					// Force to a increment of the snapIncrement
+					//snapValue = static_cast<int>( snapValue / snapIncrement	) * snapIncrement;
+					snapValue =  static_cast<int>(std::round( snapValue / snapIncrement )) * snapIncrement;					
+				}				
+				if (snapToInt)
+				{
+					// Round the value to nearest integer (like normal knob)
+					snapValue = std::round(snapValue);
+				}
+				paramQuantity->setValue(snapValue);
+			}
+			else if (smooth) {
+				paramQuantity->setSmoothValue(paramQuantity->getSmoothValue() + delta);
+			}
+			else {
+				paramQuantity->setValue(paramQuantity->getValue() + delta);
+			}
+		}
+
+		ParamWidget::onDragMove(e);
+	}
 };
 
 
@@ -845,7 +1038,8 @@ struct TS_BaseKnob : Knob {
 //--------------------------------------------------------------
 struct TS_Knob : RoundKnob {
 	int size = 20;
-	
+	bool allowRandomize = true;	
+	bool showShadow = true;
 	TS_Knob()
 	{
 		return;
@@ -858,6 +1052,23 @@ struct TS_Knob : RoundKnob {
 		box.size = Vec(size, size);		
 		return;
 	}	
+	TS_Knob(int s, const char* svgPath, bool showShadow)
+	{
+		size = s;
+		this->SvgKnob::setSvg(APP->window->loadSvg(asset::plugin(pluginInstance, svgPath)));
+		box.size = Vec(size, size);		
+		this->showShadow = showShadow;
+		shadow->visible = showShadow;
+		return;
+	}	
+	
+	void setShadow(bool showShadow)
+	{
+		this->showShadow = showShadow;
+		shadow->visible = showShadow;
+		return;
+	}
+	
 	void setDirty(bool isDirty)
 	{
 		if (fb){
@@ -903,6 +1114,14 @@ struct TS_Knob : RoundKnob {
 			return 0;
 		}
 	}
+	// Override randomize. Only do randomize if set to true.
+	void randomize() override
+	{
+		if (allowRandomize) {
+			this->ParamWidget::randomize();
+		}
+		return;
+	}	
 };
 //--------------------------------------------------------------
 // TS_RoundBlackKnob - 30x30 RoundBlackKnob
@@ -988,6 +1207,79 @@ struct TS_15_BlackKnob : TS_Knob {
 		 return;
 	 }
  };
+ 
+//--------------------------------------------------------------
+// 14x14 (Small) or 28x28 (Large) Knob
+//--------------------------------------------------------------
+struct TS_KnobColored : TS_Knob 
+{	
+	enum KnobColor : uint8_t
+	{
+		Black,
+		Blue,
+		DarkGray,
+		Green,
+		MedGray,
+		Red,
+		White
+	};	
+	// The color
+	KnobColor knobColor = KnobColor::Black;
+	
+	enum SizeType : uint8_t
+	{
+		// Small (size 14 default)
+		Small = 0,
+		// Make this 28
+		Medium, // Doesn't exist yet
+		// Big (size 28 default). Make this 44.
+		Big,
+		NumKnobSizes
+	};	
+	// Size
+	SizeType sizeCategory = SizeType::Small;
+	
+	const uint8_t sizes[NumKnobSizes] = { 14, 28, 44 };
+	
+	TS_KnobColored() 
+	{
+		return;
+	}
+	TS_KnobColored(int s, SizeType sizeType, KnobColor color)
+	{
+		init(s, sizeType, color);
+		return;
+	}
+	void init(SizeType sizeType, KnobColor color)
+	{
+		size = sizes[sizeType]; // (sizeType == SizeType::Small) ? 14 : 28;
+		init(size, sizeType, color);		
+		return;
+	}
+	void init(int s, SizeType sizeType, KnobColor color)
+	{
+		size = s;
+		knobColor = color;
+		char svgPath[2048];
+		std::string colorNames[] = { "Black", "Blue", "DarkGray", "Green", "MedGray", "Red", "White"};
+		std::string sizeNames[] = { "Small", "Medium", "Big"};
+		
+		// Size, Color
+		sprintf(svgPath, "res/ComponentLibrary/TS_FlatKnob_%s_%s.svg", sizeNames[sizeType].c_str(), colorNames[color].c_str());		
+		this->SvgKnob::setSvg(APP->window->loadSvg(asset::plugin(pluginInstance, svgPath)));
+		box.size = Vec(size, size);	
+
+		this->setShadow(false); // Turn off shadow on our flat knobs
+		return;
+	}
+};
+ 
+ struct TS_BigKnobBlack : TS_Knob {
+	 TS_BigKnobBlack() : TS_Knob(28, "res/ComponentLibrary/TS_FlatKnob_Big_Black.svg", false){
+		 return;
+	 }	
+ };
+ 
 //--------------------------------------------------------------
 // TS_20_BlackEncoder - 20x20 Encoder
 // Pseudo continuous.... Still enforces the limits but allows the knob rotate 360.
@@ -1231,25 +1523,6 @@ struct TS_LightedKnob : TS_BaseKnob { // SvgKnob
 		TS_BaseKnob::onChange(e);
 		return;
 	}
-	
-	//
-	// void step() override {
-		// // Re-transform TransformWidget if dirty
-		// if (fb->dirty && paramQuantity != NULL) {
-			// differentialAngle = rescale(paramQuantity->getValue(), paramQuantity->minValue, paramQuantity->maxValue, minAngle, maxAngle);
-			// currentAngle = zeroAnglePoint + differentialAngle;
-			// tw->identity();
-			// // Scale Svg to box
-			// tw->scale(box.size.div(sw->box.size));
-			// // Rotate Svg
-			// Vec center = sw->box.getCenter();
-			// tw->translate(center);
-			// tw->rotate(currentAngle);
-			// tw->translate(center.neg());
-		// }
-		// SvgKnob::step();
-	// }
-	
 }; // end TS_LightedKnob
 
 //--------------------------------------------------------------
@@ -1375,6 +1648,62 @@ struct TS_LightSquare : ColorValueLight
 		return;
 	}
 }; // end TS_LightSquare
+
+//--------------------------------------------------------------
+// TS_LightRectangle - Square light. 
+//--------------------------------------------------------------
+struct TS_LightRectangle : ColorValueLight 
+{
+	// Radius on corners
+	float cornerRadius = 2.0;
+	TS_LightRectangle()
+	{
+		bgColor = nvgRGBAf(0, 0, 0, /*alpha */ 0.5);
+		baseColor = TSColors::COLOR_WHITE;
+	}
+	void draw(const DrawArgs &args) override
+	{
+		Vec radius = Vec(box.size.x / 2.0f, box.size.y / 2.0f);
+		Vec oradius = Vec(radius.x * 1.1, radius.y * 1.1);
+		
+		NVGcolor backColor = bgColor;
+		NVGcolor outerColor = color;
+		// Solid
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
+		nvgFillColor(args.vg, backColor);
+		nvgFill(args.vg);
+
+		// Border
+		nvgStrokeWidth(args.vg, 1.0);
+		NVGcolor borderColor = bgColor;
+		borderColor.a *= 0.5;
+		nvgStrokeColor(args.vg, borderColor);
+		nvgStroke(args.vg);
+
+		// Inner glow
+		nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
+		nvgFillColor(args.vg, color);
+		nvgFill(args.vg);
+
+		// Outer glow
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, /*x*/ radius.x - oradius.x, /*y*/ radius.y - oradius.y, /*w*/ 2*oradius.x, /*h*/ 2*oradius.y, cornerRadius);
+		NVGpaint paint;
+		NVGcolor icol = outerColor;// color;
+		icol.a *= 0.25;
+		NVGcolor ocol = outerColor;// color;
+		ocol.a = 0.0;
+		float feather = 2;
+		// Feather defines how blurry the border of the rectangle is. 
+		paint = nvgBoxGradient(args.vg, /*x*/ radius.x - oradius.y, /*y*/ radius.y - oradius.y, /*w*/ 2 * oradius.x, /*h*/ 2 * oradius.y,   
+			/*r: corner radius*/ cornerRadius, /*f: feather*/ feather, 
+			/*inner color*/ icol, /*outer color */ ocol);
+		nvgFillPaint(args.vg, paint);
+		nvgFill(args.vg);
+		return;
+	}
+}; // end TS_LightRectangle
 
 //--------------------------------------------------------------
 // TS_LightRing - Light to be used around ports.
@@ -1648,6 +1977,7 @@ struct TS_SvgPanel : SvgPanel
 	} // end setBackground()
 }; // end TS_SvgPanel
 
+
 //--------------------------------------------------------------
 // TS_ColorSlider - Horizontal color slider control 'knob'.
 // Meant for picking colors via Hue, Saturation, Lightness.
@@ -1729,6 +2059,7 @@ struct TS_ColorSlider : Knob {
 			// float delta = KNOB_SENSITIVITY * (paramQuantity->maxValue - paramQuantity->minValue) * e.mouseDelta.x;
 			// int mods = APP->window->getMods();
 			// if ((mods & RACK_MOD_MASK) == RACK_MOD_CTRL) {
+				// delta /= 16.f;
 				// delta /= 16.f;
 			// }
 			// // Drag even slower if mod+shift is held

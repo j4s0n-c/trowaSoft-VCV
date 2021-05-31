@@ -86,7 +86,7 @@ void TSParamTextField::onAction(const event::Action &e)
 //-----------------------------------------------------------------------------------------------
 void TSParamTextField::onDeselect(const event::Deselect &e)
 {
-DEBUG("TSParamTextField::onDeselect(%d)", id);
+//DEBUG("TSParamTextField::onDeselect(%d)", id);
 	saveValue();
 	if (autoHideMode == AutoHideMode::AutoHideOnDefocus) {
 		visible = false;

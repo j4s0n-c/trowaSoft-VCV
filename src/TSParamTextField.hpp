@@ -61,7 +61,7 @@ struct TSParamTextField : TSTextField {
 	//-----------------------------------------------------------------------------------------------
 	void onSelect(const event::Select &e) override
 	{
-DEBUG("TSParamTextField::onSelect(%d) - visible = %d", id, visible);		
+//DEBUG("TSParamTextField::onSelect(%d) - visible = %d", id, visible);		
 		if (this->visible) {
 			if (!e.isConsumed())
 			{
@@ -73,7 +73,7 @@ DEBUG("TSParamTextField::onSelect(%d) - visible = %d", id, visible);
 				// cursor =  0; //text.size();
 				// selection = 0;
 				// cursor =  text.size();				
-DEBUG("TSParamTextField::onSelect(%d). cursor = %d, selection = %d", id, cursor, selection);				
+//DEBUG("TSParamTextField::onSelect(%d). cursor = %d, selection = %d", id, cursor, selection);				
 			}
 		}
 		return;

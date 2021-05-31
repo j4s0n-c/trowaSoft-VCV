@@ -147,10 +147,7 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 	////////////////////////////////////
 	{
 		this->oscChannelConfigScreen = new TSOscCVChannelConfigScreen(this, Vec(x, y), middleDisplay->box.size);
-		//DEBUG("Hiding screen");
 		oscChannelConfigScreen->setVisibility(false);
-		//oscChannelConfigScreen->box.size = middleDisplay->box.size;
-		//oscChannelConfigScreen->box.pos = Vec(x, y);
 		addChild(oscChannelConfigScreen);
 	}
 
@@ -158,7 +155,6 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 	// Input Ports
 	////////////////////////////////////
 	// Trigger and Value CV inputs for each channel
-	//DEBUG("Starting ports");
 	y = yStart;
 	ledSize = Vec(5, 5);
 	float ledYOffset = 12.5;
@@ -208,13 +204,11 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 #if TROWA_OSSCV_SHOW_ADV_CH_CONFIG
 		// OSC Advanced Channel Config Button (INPUTS)
 		x += txtField->box.size.x;
-		//int paramId = oscCV::ParamIds::CH_PARAM_START + (r*TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG) * 2;
 		int paramId = oscCV::ParamIds::CH_PARAM_START 
 			+ r*TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS
 			+ TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
-
-		//DEBUG("Input Ch %d, paramId = %d", r, paramId);
-		TS_ScreenBtn* btn = new TS_ScreenBtn(btnSize, oscModule, paramId, std::string( "ADV" ), /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
+		// Make sure it is set to momentary
+		TS_ScreenBtn* btn = new TS_ScreenBtn(btnSize, oscModule, paramId, std::string( "ADV" ), /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f, true);
 		btn->box.pos = Vec(x, y + tbYOffset);
 		btn->borderColor = CHANNEL_COLORS[r];
 		btn->color = CHANNEL_COLORS[r];
@@ -257,15 +251,10 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 		// OSC Advanced Channel Config (OUTPUT)
 		x -= btnSize.x;
 		tbExpanderXPos[1] = x;		
-		//int paramId = oscCV::ParamIds::CH_PARAM_START + (r*TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG) * 2 + 1;
-		//int paramId = oscCV::ParamIds::CH_PARAM_START 
-		//	+ ( *TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
 		int paramId = oscCV::ParamIds::CH_PARAM_START
 			+ (numberChannels + r) * TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
-
-		//DEBUG("Output Ch %d, paramId = %d", r, paramId);
-
-		TS_ScreenBtn* btn = new TS_ScreenBtn(btnSize, oscModule, paramId, std::string("ADV"), /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
+		// Make sure it is set to momentary			
+		TS_ScreenBtn* btn = new TS_ScreenBtn(btnSize, oscModule, paramId, std::string("ADV"), /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f, true);
 		btn->box.pos = Vec(x, y + tbYOffset);
 		btn->borderColor = CHANNEL_COLORS[r];
 		btn->color = CHANNEL_COLORS[r];
@@ -436,7 +425,6 @@ void oscCVWidget::step()
 		// Configuration screen is showing, but we have changed which channels we are configuring.
 		if (thisModule->expCurrentEditExpanderIx != showConfigIndex)
 		{	
-DEBUG("Edit index changed for %d to %d.", showConfigIndex, 	thisModule->expCurrentEditExpanderIx);
 			// Module being configured has changed.
 			loadModuleToConfig = true;
 			// Read any changes that may have happened. (we don't have room for a save button)
@@ -557,7 +545,6 @@ DEBUG("Edit index changed for %d to %d.", showConfigIndex, 	thisModule->expCurre
 				this->toggleChannelPathConfig(true); // Show paths again
 			}
 			if (screenDone) {
-DEBUG("Configure Channel Done - Showing the text boxes again for each channel.");				
 				oscChannelConfigScreen->setVisibility(false); // Hide
 				this->toggleChannelPathConfig(thisModule->expCurrentEditExpanderIx <= 0, thisModule->expCurrentEditExpanderIx >= 0); // Show paths again
 				configNameLeft = thisModule->expCurrentEditExpanderIx > 0;
@@ -1448,7 +1435,6 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 	tbNumericBounds[TextBoxIx::NumTextBoxes - 1]->nextField = tbNumericBounds[0]; // Loop back around
 
 
-	//DEBUG("Starting btn select");
 	// Data Type
 	x = startX;
 	y += tbSize.y + dy + dy;
@@ -1460,21 +1446,21 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 	btnSelectDataType->visible = false;
 	addChild(btnSelectDataType);
 
-	//DEBUG("Save Btn");
 	// Save Button
 	y += btnSelectDataType->box.size.y + dy;
 	btnSave = new TS_ScreenBtn(/*size*/ btnSize, /*module*/ thisModule, /*paramId*/ oscCV::ParamIds::OSC_CH_SAVE_PARAM, /*text*/ "Save", /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
 	btnSave->box.pos = Vec(x, y);
 	btnSave->visible = false;
+	btnSave->momentary = true; // This should be momentary (fix clicking buttons twice)
 	addChild(btnSave);
 
-	//DEBUG("Cancel Btn");
 	// Cancel button
 	x += btnSize.x + dx * 2;
 	//DEBUG("Cancel Button at (%d, %d). %.2fx%.2f.", x, y, btnSize.x, btnSize.y);
 	btnCancel = new TS_ScreenBtn(/*size*/ btnSize, /*module*/ thisModule, /*paramId*/ oscCV::ParamIds::OSC_CH_CANCEL_PARAM, /*text*/ "Cancel", /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
 	btnCancel->box.pos = Vec(x, y);
 	btnCancel->visible = false;
+	btnCancel->momentary = true; // This should be momentary (fix clicking buttons twice)	
 	addChild(btnCancel);
 	return;
 } // end TSOscCVChannelConfigScreen()
@@ -1674,14 +1660,17 @@ void TSOscCVChannelConfigScreen::step()
 
 		if (thisModule) {
 			// Check for enable/disable data massaging
-			if (translateTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM].getValue())) {
-				//DEBUG("Translate button clicked");
-				translateValsEnabled = !translateValsEnabled;
-			}
+			// Save the values directly:
+			translateValsEnabled = thisModule->params[oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM].getValue() > 0;
+			// if (translateTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM].getValue())) {
+				// //DEBUG("Translate button clicked");
+				// translateValsEnabled = !translateValsEnabled;
+			// }
 			// Check for enable/disable clipping in data massaging:
-			if (clipChannelInputTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_CLIP_CV_VOLT_PARM].getValue())){
-				clipValsEnabled = !clipValsEnabled;
-			}
+			clipValsEnabled = thisModule->params[oscCV::ParamIds::OSC_CH_CLIP_CV_VOLT_PARM].getValue() > 0;
+			// if (clipChannelInputTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_CLIP_CV_VOLT_PARM].getValue())){
+				// clipValsEnabled = !clipValsEnabled;
+			// }
 		}
 		btnToggleTranslateVals->checked = translateValsEnabled;
 		btnToggleTranslateClipVals->checked = clipValsEnabled;
