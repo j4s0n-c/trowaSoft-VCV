@@ -44,6 +44,35 @@ oscCVExpander::oscCVExpander(int numChannels, TSOSCCVExpanderDirection direction
 	
 	config(NUM_PARAMS, NUM_INPUTS + numInputs, NUM_OUTPUTS + numOutputs, NUM_LIGHTS + numChannels * 2);
 	
+	if (direction == TSOSCCVExpanderDirection::Input)
+	{
+		DEBUG("Expander Input - Setting Input Labels");		
+		// [Rack v2] Add labels for inputs and outputs		
+		char buffer[50];	
+		for (int i = 0; i < numberChannels; i++)
+		{
+			int inputId = i * 2;
+			sprintf(buffer, "Ch %d Trigger Send", i + 1);
+			configInput(InputIds::CH_INPUT_START + inputId, buffer);
+			sprintf(buffer, "Ch %d Value", i + 1);
+			configInput(InputIds::CH_INPUT_START + inputId + 1, buffer);
+		}
+	}
+	else
+	{
+		DEBUG("Expander Output - Setting Output Labels");				
+		// [Rack v2] Add labels for inputs and outputs		
+		char buffer[50];	
+		for (int i = 0; i < numberChannels; i++)
+		{
+			int inputId = i * 2;
+			sprintf(buffer, "Ch %d Received Trigger", i + 1);;
+			configOutput(OutputIds::CH_OUTPUT_START + inputId, buffer);
+			sprintf(buffer, "Ch %d Value Received", i + 1);
+			configOutput(OutputIds::CH_OUTPUT_START + inputId + 1, buffer);
+		}		
+	}
+	
 	// Can we see how far away a master is right now?	
 	int lvlFromMaster = findMaster(0, masterModuleId);
 	int baseChannels = TROWA_OSCCV_DEFAULT_NUM_CHANNELS; // Master probably has this many channels.
@@ -95,17 +124,36 @@ oscCVExpander::~oscCVExpander()
 // Set channels to default values.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void oscCVExpander::initChannels(int baseChannel) {
+	//char buffer[50];	
 	for (int i = 0; i < numberChannels; i++)
 	{
+		int portId = i * 2;
 		if (this->expanderType == TSOSCCVExpanderDirection::Input) {
 			inputChannels[i].channelNum = i + 1 + baseChannel;
 			inputChannels[i].path = "/ch/" + std::to_string(i + 1 + baseChannel);
 			inputChannels[i].initialize();
+			
+			// [Rack v2] Add labels for inputs and outputs			
+			// int ch = i * 2;
+			// sprintf(buffer, "Ch %d Trigger Send", inputChannels[i].channelNum);
+			// inputInfos[InputIds::CH_INPUT_START + ch]->PortInfo::name = std::string(buffer);
+			// sprintf(buffer, "Ch %d Value", inputChannels[i].channelNum);
+			// inputInfos[InputIds::CH_INPUT_START + ch + 1]->PortInfo::name = std::string(buffer);
+			inputInfos[oscCVExpander::InputIds::CH_INPUT_START + portId]->PortInfo::name = "Trigger Send: " + inputChannels[i].path;
+			inputInfos[oscCVExpander::InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = "Value: " + inputChannels[i].path;
 		}
 		else {
 			outputChannels[i].channelNum = i + 1 + baseChannel;
 			outputChannels[i].path = "/ch/" + std::to_string(i + 1 + baseChannel);
 			outputChannels[i].initialize();
+			// [Rack v2] Add labels for inputs and outputs
+			// int ch = i * 2;
+			// sprintf(buffer, "Ch %d Received Trigger", outputChannels[i].channelNum);
+			// outputInfos[OutputIds::CH_OUTPUT_START + ch]->PortInfo::name = std::string(buffer);
+			// sprintf(buffer, "Ch %d Value Received", outputChannels[i].channelNum);
+			// outputInfos[OutputIds::CH_OUTPUT_START + ch + 1]->PortInfo::name = std::string(buffer);
+			outputInfos[oscCVExpander::OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = "Received Trigger: " + outputChannels[i].path;
+			outputInfos[oscCVExpander::OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = "Value Received: " + outputChannels[i].path;			
 		}
 	}
 	return;

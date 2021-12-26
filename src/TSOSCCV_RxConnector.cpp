@@ -32,6 +32,8 @@ void OscCVRxMsgRouter::ProcessMessage(const osc::ReceivedMessage& rxMsg, const I
 		std::vector<float> iArgs;
 		std::vector<float> bArgs;
 		int numArgs = 0;
+		std::string debugMsg;
+		bool debugMsgCreated = false;
 		try
 		{
 			numArgs = rxMsg.ArgumentCount();
@@ -100,6 +102,16 @@ void OscCVRxMsgRouter::ProcessMessage(const osc::ReceivedMessage& rxMsg, const I
 			{
 				if (oscModule)
 				{				
+					if (oscModule->debugOSCConsoleOn)
+					{
+						if (!debugMsgCreated)
+						{
+							debugMsgCreated = true;
+							debugMsg = getDebugMessage(rxMsg);
+						}
+						oscModule->addDebugMessage(debugMsg);
+					}
+			
 					bool recipientFound = false;
 					std::string oscNamespace = oscModule->getOscNamespace();
 					int len = 0;//(oscNamespace.empty()) ? 0 : oscNamespace.length();

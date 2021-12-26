@@ -9,10 +9,17 @@
 #include "../lib/oscpack/ip/UdpSocket.h"
 #include "../lib/oscpack/osc/OscReceivedElements.h"
 #include "../lib/oscpack/osc/OscPacketListener.h"
+#include "../lib/oscpack/osc/OscPrintReceivedElements.h"
 #include <thread>
 #include <rack.hpp>
 using namespace rack;
 
+
+#include <iostream>
+#include <sstream>
+#include <iomanip>
+#include <chrono>
+#include <ctime>
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // Base Listener for OSC incoming messages.
@@ -26,12 +33,14 @@ class TSOSCBaseMsgRouter : public osc::OscPacketListener {
 public:
 	// Modules that are registered for messages.
 	typename std::vector<T*> modules;
+	// The port.
+	uint16_t port;	
 	
 	// Instantiate a listener.
 	TSOSCBaseMsgRouter() : osc::OscPacketListener()
 	{
 		/// TODO: Make a damn base OSC interface class.
-		static_assert(std::is_base_of<Module, T>::value, "Must be a Module.");
+		static_assert(std::is_base_of<Module, T>::value, "Must be a Module.");		
 		return;
 	}
 	// Instantiate a listener.
@@ -65,6 +74,23 @@ public:
 protected:
 	// Mutex for adjust modules
 	std::mutex mutModule;
+	// Get the message as a debug message.
+	virtual std::string getDebugMessage(const osc::ReceivedMessage& rxMsg)
+	{
+		std::ostringstream stream;		
+		using namespace osc;
+		using namespace std::chrono;
+		using clock = system_clock;    
+		const auto current_time_point {clock::now()};
+		const auto current_time {clock::to_time_t (current_time_point)};
+		const auto current_localtime {*std::localtime (&current_time)};
+		const auto current_time_since_epoch {current_time_point.time_since_epoch()};
+		const auto current_milliseconds {duration_cast<milliseconds> (current_time_since_epoch).count() % 1000};
+		
+		stream << "[" << std::put_time(&current_localtime, "%H:%M:%S") << "." << std::setw (3) << std::setfill ('0') << current_milliseconds << "] :" << port << " ";
+		stream << rxMsg;		
+		return stream.str();		
+	}
 
 	// Derived class should implement ProcessMessage() ================
 	
@@ -160,6 +186,7 @@ public:
 		if (item->router == NULL)
 		{
 			item->router = new R();// TSOSCBaseMsgRouter<T>();
+			item->port = rxPort;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
 			DEBUG("TSOSCRxConnector::startListener(port %d) - Create router/listener object.", rxPort);
 #endif

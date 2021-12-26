@@ -11,6 +11,7 @@ using namespace rack;
 #include "../lib/oscpack/osc/OscReceivedElements.h"
 #include "../lib/oscpack/osc/OscPacketListener.h"
 #include <mutex>
+#include <queue>
 
 // Model for trowa OSC2CV Expander
 extern Model* modelOscCVExpanderInput;

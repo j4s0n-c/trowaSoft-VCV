@@ -23,15 +23,18 @@ struct ModuleResizeHandle : Widget {
 		}
 	}
 	void onDragStart(const event::DragStart &e) override {
-		dragX = APP->scene->rack->mousePos.x;//gRackWidget->lastMousePos.x;
+		// [Rack v2] mousePos no longer accessible. Now accessor getMousePos().
+		dragX = APP->scene->rack->getMousePos().x; //APP->scene->rack->mousePos.x;//gRackWidget->lastMousePos.x;
 		ModuleWidget *m = getAncestorOfType<ModuleWidget>();
 		originalBox = m->box;
 	}
 	void onDragMove(const event::DragMove &e) override {
 		ModuleWidget *m = getAncestorOfType<ModuleWidget>();
 
+		// [Rack v2] mousePos no longer accessible. Now accessor getMousePos().
+		float newDragX = APP->scene->rack->getMousePos().x; //APP->scene->rack->mousePos.x;//gRackWidget->lastMousePos.x;
 		//float newDragX = gRackWidget->lastMousePos.x;
-		float newDragX = APP->scene->rack->mousePos.x;		
+		//float newDragX = APP->scene->rack->mousePos.x;		
 		float deltaX = newDragX - dragX;
 
 		Rect newBox = originalBox;

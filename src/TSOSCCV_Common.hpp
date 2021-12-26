@@ -421,7 +421,7 @@ struct TSOSCCVSimpleMessage
 	
 	~TSOSCCVSimpleMessage()
 	{
-#if DEBUG_MAC_OS_POINTER		
+#if DEBUG_MAC_OS_POINTER
 		DEBUG("*DESTROY* %d", this);		
 #endif
 		//rxVals.clear();
@@ -510,8 +510,9 @@ struct TSOSCCVSimpleMessage
 		this->channelNum = chNum;
 		SetBuffer(static_cast<int>(vals.size()));		
 		//rxVals.clear();
-
-	DEBUG("Ch %d, Vals are size: %d. RxLength now %d.", chNum, vals.size(), rxLength);
+#if DEBUG_MAC_OS_POINTER
+		DEBUG("Ch %d, Vals are size: %lu. RxLength now %d.", chNum, vals.size(), rxLength);
+#endif
 		
 		for (int i = 0; i < static_cast<int>(vals.size()); i++)
 		{

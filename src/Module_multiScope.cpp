@@ -76,6 +76,45 @@ multiScope::multiScope() // : Module(multiScope::NUM_PARAMS, multiScope::NUM_INP
 	}	
 	// Set our pointer
 	editColorPointer = &(this->plotBackgroundColor);	
+	
+	
+	
+	const char* labels[] = {
+		"Color",
+		"Rotation",
+		"Time",
+		"X",
+		"Y",
+		"Opacity",
+		"Pen On",
+		"Thickness",
+		"Fill Color",
+		"Fill Opacity"
+	};
+	int len = sizeof(labels)/sizeof(labels[0]);
+	for (int w = 0; w < TROWA_SCOPE_NUM_WAVEFORMS; w++)
+	{
+		std::string prefix = "Shape " + std::to_string(w + 1) + " ";			
+		int inputId = InputIds::COLOR_INPUT + w;
+		for (int i = 0; i < len; i++)
+		{
+			configInput(inputId, prefix + labels[i]);			
+			inputId += TROWA_SCOPE_NUM_WAVEFORMS;
+		}		
+	}
+	
+	// COLOR_INPUT,
+	// ROTATION_INPUT = COLOR_INPUT+TROWA_SCOPE_NUM_WAVEFORMS,
+	// TIME_INPUT = ROTATION_INPUT+TROWA_SCOPE_NUM_WAVEFORMS,
+	// X_INPUT = TIME_INPUT+TROWA_SCOPE_NUM_WAVEFORMS,
+	// Y_INPUT = X_INPUT+TROWA_SCOPE_NUM_WAVEFORMS,
+	// OPACITY_INPUT = Y_INPUT + TROWA_SCOPE_NUM_WAVEFORMS, // Opacity/Alpha channel
+	// PEN_ON_INPUT = OPACITY_INPUT + TROWA_SCOPE_NUM_WAVEFORMS, // Turn on/off drawing lines in between points.
+	// THICKNESS_INPUT = PEN_ON_INPUT + TROWA_SCOPE_NUM_WAVEFORMS,
+	// FILL_COLOR_INPUT = THICKNESS_INPUT + TROWA_SCOPE_NUM_WAVEFORMS,
+	// FILL_OPACITY_INPUT = FILL_COLOR_INPUT + TROWA_SCOPE_NUM_WAVEFORMS,
+	// NUM_INPUTS = FILL_OPACITY_INPUT + TROWA_SCOPE_NUM_WAVEFORMS
+	
 	return;
 } // end multiScope()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -279,6 +318,84 @@ void multiScope::process(const ProcessArgs &args) {
 } // end step()
 
 
+
+void multiScopeDisplay::drawLayer(const DrawArgs& args, int layer)
+{
+	if (layer != 1)
+		return;
+
+	// Background lines
+	//drawBackground(args);
+
+	if (module == NULL || !module->initialized)
+		return;
+	
+	float gainX = ((int)(module->params[multiScope::X_SCALE_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
+	float gainY = ((int)(module->params[multiScope::Y_SCALE_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
+	float offsetX = ((int)(module->params[multiScope::X_POS_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
+	float offsetY = ((int)(module->params[multiScope::Y_POS_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
+
+	TSWaveform* waveForm = module->waveForms[wIx];
+	float valuesX[BUFFER_SIZE];
+	float valuesY[BUFFER_SIZE];
+	bool penOn[BUFFER_SIZE];
+	float multX = gainX / 10.0;
+	float multY = gainY / 10.0;
+	for (int i = 0; i < BUFFER_SIZE; i++) {
+		int j = i;
+		// Lock display to buffer if buffer update deltaTime <= 2^-11
+		if (waveForm->lissajous)
+			j = (i + waveForm->bufferIndex) % BUFFER_SIZE;
+		valuesX[i] = (waveForm->bufferX[j] + offsetX) * multX;
+		valuesY[i] = (waveForm->bufferY[j] + offsetY) * multY;
+		penOn[i] = waveForm->bufferPenOn[j];
+	}
+
+	// Draw waveforms
+	// 1. Line Color:
+	NVGcolor waveColor = waveForm->waveColor;
+	waveColor.a = waveForm->waveOpacity;
+	if (waveForm->negativeImage)
+		waveColor = ColorInvertToNegative(waveColor);
+	nvgStrokeColor(args.vg, waveColor); // Color has already been calculated by main module
+	// 2. Fill color:
+	NVGcolor fillColor = waveForm->fillColor;
+	if (waveForm->doFill)
+	{
+		fillColor.a = waveForm->fillOpacity;
+		nvgFillColor(args.vg, fillColor);
+	}
+	// 3. Rotation
+	float rotRate = 0;
+	if (waveForm->rotMode)
+	{
+		// Absolute position:
+		rot = waveForm->rotAbsValue;
+	}
+	else
+	{
+		// Differential rotation
+		rotRate = waveForm->rotDiffValue;
+	}
+	if (waveForm->lissajous) {
+		// X x Y
+		if (module->inputs[multiScope::X_INPUT + wIx].isConnected() || module->inputs[multiScope::Y_INPUT + wIx].isConnected()) {
+			drawWaveform(args, valuesX, valuesY, penOn, rotRate, waveForm->lineThickness, waveColor, waveForm->doFill, fillColor, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->compositeOperation, false, false);
+		}
+	}
+	else {
+		// Y
+		if (module->inputs[multiScope::Y_INPUT + wIx].isConnected()) {
+			drawWaveform(args, valuesY, NULL, penOn, rotRate, waveForm->lineThickness, waveColor, waveForm->doFill, fillColor, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->compositeOperation, false, false);
+		}
+		// X
+		if (module->inputs[multiScope::X_INPUT + wIx].isConnected()) {
+			drawWaveform(args, valuesX, NULL, penOn, rotRate, waveForm->lineThickness, waveColor, waveForm->doFill, fillColor, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->compositeOperation, false, false);
+		}
+	}
+	return;
+}
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // drawWaveform()
 // @args.vg : (IN) NVGcontext
@@ -423,7 +540,8 @@ void multiScopeDisplay::drawWaveform(const DrawArgs &args, float *valX, float *v
 						else {
 							// failed both tests, so calculate the line segment to clip
 							// from an outside point to an intersection with clip edge
-							double x, y;
+							double x = 0.0;
+							double y = 0.0;
 
 							// At least one endpoint is outside the clip rectangle; pick it.
 							uint8_t outcodeOut = outcode0 ? outcode0 : outcode1;

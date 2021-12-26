@@ -28,7 +28,7 @@ using namespace rack;
 #include "TSOSCSequencerListener.hpp"
 #include "TSOSCCommunicator.hpp"
 #include "TSOSCSequencerOutputMessages.hpp"
-#include "TSSequencerWidgetBase.hpp"
+//#include "TSSequencerWidgetBase.hpp"
 #include "TSParamQuantity.hpp"
 
 #include "../lib/oscpack/osc/OscOutboundPacketStream.h"
@@ -71,6 +71,24 @@ using namespace rack;
 
 #define TROWA_SEQ_BUFF_SIZE		100
 
+////////////////////////
+// Pattern Sequencing //
+////////////////////////
+#define DEBUG_PATT_SEQ						0 // Debug pattern sequencing.
+#define TS_PATTERN_SEQ_STATUS_COLOR		    nvgRGB(0x5e, 0x5e, 0xB8) //nvgRGB(0xCD, 0xE2, 0xB8) /// TSColors::COLOR_MAGENTA
+#define TS_PATTERN_SEQ_STEP_COLOR			TSColors::COLOR_WHITE
+#define TS_PATTERN_SEQ_STEP_COLOR_INACTIVE	nvgRGB(0xDE, 0xDE, 0xDE)
+
+
+//////////////////////////////////////////////////////////////////////////
+// Internal Sampling Divisor
+// For performance, do not run every evaluation every step (process())
+// https://github.com/j4s0n-c/trowaSoft-VCV/issues/51
+//////////////////////////////////////////////////////////////////////////
+#define TROWA_SEQ_USE_INTERNAL_DIVISOR		1
+#define DEUBG_TROWA_SEQ_SAMPLE_DIVISOR		1
+
+
 // Random Structure
 // From feature request: https ://github.com/j4s0n-c/trowaSoft-VCV/issues/10
 struct RandStructure {
@@ -84,7 +102,15 @@ struct RandStructure {
 // Sequencer Base Class
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 //===============================================================================
-struct TSSequencerModuleBase : Module {
+struct TSSequencerModuleBase : Module 
+{
+	// Some amount to add to Volts to Pattern since it doesn't seem to reverse back correctly when we are reading the input.
+	const float volts2PatternAdj = 0.05f;
+	
+	bool debugFirstRealStep = false;
+	bool debugFirstExecutedStep = false;
+	
+
 	enum ParamIds {
 		// BPM Knob
 		BPM_PARAM,
@@ -106,6 +132,9 @@ struct TSSequencerModuleBase : Module {
 		OSC_SAVE_CONF_PARAM, // ENABLE and Save the configuration for OSC
 		OSC_AUTO_RECONNECT_PARAM,   // Auto-reconnect OSC on load from save file.
 		OSC_SHOW_CONF_PARAM, // Configure OSC toggle
+		PATTERN_SEQ_SHOW_CONFIG_PARAM, // Show Pattern Sequencing Configuration
+		PATTERN_SEQ_ON_PARAM, // Pattern Sequencing On
+		PATTERN_SEQ_LENGTH_PARAM, // How many patterns in the sequence.
 		CHANNEL_PARAM, // Edit Channel/Step Buttons/Knobs
 		NUM_PARAMS = CHANNEL_PARAM // Add the number of steps separately...
 	};
@@ -134,11 +163,15 @@ struct TSSequencerModuleBase : Module {
 		SELECTED_BPM_MULT_IX_LIGHT,	// BPM multiplier/note index
 		OSC_CONFIGURE_LIGHT, // The light for configuring OSC.
 		OSC_ENABLED_LIGHT, // Light for OSC enabled and currently running/active.
+		PATTERN_SEQ_CONFIGURE_LIGHT, // Light for configurating Internal Pattern Sequencer
+		PATTERN_SEQ_ENABLED_LIGHT,   // Light for Internal Pattern Sequencer currently on/active.
 		CHANNEL_LIGHTS, // Channel output lights.		
 		PAD_LIGHTS = CHANNEL_LIGHTS + TROWA_SEQ_NUM_CHNLS, // Lights for the steps/pads for the currently editing Channel
 		// Not the number of lights yet, add the # of steps (maxSteps)
 		NUM_LIGHTS = PAD_LIGHTS // Add the number of steps separately...
 	};
+
+
 
 	// The random structures/patterns
 	static RandStructure RandomPatterns[TROWA_SEQ_NUM_RANDOM_PATTERNS];
@@ -164,6 +197,10 @@ struct TSSequencerModuleBase : Module {
 	int nextIndex = TROWA_INDEX_UNDEFINED;
 	// Flag if values are being changed outside of step().
 	bool valuesChanging = false;
+	// The current step being edited by knobs. (For the top display to show the value).
+	int currentStepBeingEditedIx = -1;
+	int currentStepBeingEditedParamId = -1;
+		
 
 	enum GateMode : short {
 		TRIGGER = 0,
@@ -174,23 +211,74 @@ struct TSSequencerModuleBase : Module {
 	GateMode gateMode = TRIGGER;
 	dsp::PulseGenerator gatePulse;
 
-	enum ValueMode : short {
-		VALUE_TRIGGER = 0,
-		VALUE_RETRIGGER = 1,
-		VALUE_CONTINUOUS = 2,
-		VALUE_VOLT = 0,
-		VALUE_MIDINOTE = 1,
-		VALUE_PATTERN = 2,
+	// enum ValueMode : short 
+	// {
+		// VALUE_TRIGGER = 0,
+		// VALUE_RETRIGGER = 1,
+		// VALUE_CONTINUOUS = 2,
+		// VALUE_VOLT = 0,
+		// VALUE_MIDINOTE = 1,
+		// VALUE_PATTERN = 2,
+		// MIN_VALUE_MODE = 0,
+		// MAX_VALUE_MODE = 2,
+		// NUM_VALUE_MODES = MAX_VALUE_MODE + 1
+	// };	
+
+	/////////////////////////////////
+	// Mode /////////////////////////
+	/////////////////////////////////
+	// [v1.0.4] Redo so they all have unique values.
+	enum ValueMode : short 
+	{
+		VALUE_TRIGGER = 0,		// Trigger
+		VALUE_RETRIGGER = 1, 	// Retrigger
+		VALUE_CONTINUOUS = 2, 	// Gate
+		// v1.0.4 - Modes need unique values since new sequencer can do them all....
+		VALUE_VOLT = 3, 	// Raw voltage
+		VALUE_MIDINOTE = 4, // Force to MIDI Note voltages
+		VALUE_PATTERN = 5, 	// Force to Pattern voltages
 		MIN_VALUE_MODE = 0,
-		MAX_VALUE_MODE = 2,
+		MAX_VALUE_MODE = 5,
 		NUM_VALUE_MODES = MAX_VALUE_MODE + 1
-	};
+	};	
+	// The mode string.
+	const char* modeString;
+	// Mode strings (ENUMERATE ALL)
+	const char* modeStrings[ValueMode::NUM_VALUE_MODES] = { "TRIG", "RTRG", "GATE", "VOLT", "NOTE", "PATT" };		
+	// Array of ValueModes the sequencer supports. Derived class should set this. 
+	ValueMode* valueModesSupported = NULL;
+	// Number of ValueModes the sequencer supports. Derived class should set this. 
+	int numValueModesSupported = 3;
+	// Default value mode for this type of sequencer. Derived class should set this.
+	ValueMode defaultChannelValueMode = ValueMode::VALUE_TRIGGER;
+	// For child class to call after setting valueModesSupported.
+	virtual void reconfigureValueModeParamQty()
+	{
+		// Value Mode Knob is now index into our array:
+		TS_ParamQuantityEnum* pQty = dynamic_cast<TS_ParamQuantityEnum*>(this->paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM]);
+		pQty->minValue = 0; 
+		pQty->maxValue = numValueModesSupported - 1;
+		pQty->defaultValue = selectedOutputValueModeIx; // Index into our array.
+		for (int i = 0; i < numValueModesSupported; i++)
+		{
+			int k = valueModesSupported[i];
+			pQty->addToEnumMap(i, modeStrings[k]);
+		}
+		return;
+	}
+
 	// Selected output value mode.
 	ValueMode selectedOutputValueMode = VALUE_TRIGGER;
+	// Index into our valueModesSupported array of the selected output value mode. This is now what the Knob value will point to (index not the actual enum mode).
+	int selectedOutputValueModeIx = 0;
 	ValueMode lastOutputValueMode = VALUE_TRIGGER;
-	// [v1.1] Each channel will now have its own mode.
+	// [v1.0.1] Each channel will now have its own mode.
 	ValueMode channelValueModes[TROWA_SEQ_NUM_CHNLS];	
 
+
+	///////////////////////////////////////////////////
+	// Steps
+	///////////////////////////////////////////////////	
 	// Maximum number of steps for this sequencer.
 	int maxSteps = 16;
 	// The number of rows for steps (for layout).
@@ -219,7 +307,8 @@ struct TSSequencerModuleBase : Module {
 		NumKnobs
 	};
 	// References to input knobs (top row of knobs)
-	TS_RoundBlackKnob* controlKnobs[NumKnobs];
+	/// TODO: Get of Knob references & manipluation (separate GUI elements from module)
+	//TS_RoundBlackKnob* controlKnobs[NumKnobs];
 
 	// Another flag to reload the matrix.
 	bool reloadEditMatrix = false;
@@ -250,15 +339,21 @@ struct TSSequencerModuleBase : Module {
 	//// Last time of the external step
 	//std::chrono::high_resolution_clock::time_point lastExternalStepTime;
 
+	/// TODO: Get of Light references & manipluation (separate GUI elements from module)
 	// Pad/Knob lights - Step On
 	float** stepLights; /// TODO: Just make linear
 	float** gateLights; /// TODO: Just make linear
 
-						// Default values for our pads/knobs:
+	// Default values for our pads/knobs:
 	float defaultStateValue = 0.0;
 
+	/// TODO: Get of Light references & manipluation (separate GUI elements from module)
 	// References to our pad lights
 	ColorValueLight*** padLightPtrs; /// TODO: Just make linear
+	
+	NVGcolor currentStepMatrixColor = TSColors::COLOR_TS_RED;
+	NVGcolor currentCopyChannelColor;	
+	NVGcolor currentPasteColor;	
 
 	// Output lights (for triggers/gate jacks)
 	float gateLightsOut[TROWA_SEQ_NUM_CHNLS];
@@ -281,18 +376,11 @@ struct TSSequencerModuleBase : Module {
 	int copySourcePatternIx = -1;
 	// Source channel to copy (or TROWA_SEQ_COPY_CHANNELIX_ALL for all).
 	int copySourceChannelIx = TROWA_SEQ_COPY_CHANNELIX_ALL;
-	// Copy buffer
+	// Copy buffer (steps)
 	float* copyBuffer[TROWA_SEQ_NUM_CHNLS];
 	dsp::SchmittTrigger copyPatternTrigger;
 	dsp::SchmittTrigger copyGateTrigger;
 	dsp::SchmittTrigger pasteTrigger;
-	/// TODO: Maybe eventually separate UI controls from module (UI changes in Widget not Module).
-	// Light for paste button
-	TS_LightString* pasteLight;
-	// Light for copy pattern button
-	ColorValueLight* copyPatternLight;
-	// Light for copy channel button
-	ColorValueLight* copyGateLight;
 
 	// BPM Calculation //////////////
 	// Index into the array BPMOptions
@@ -365,19 +453,76 @@ struct TSSequencerModuleBase : Module {
 	// The current osc client. Clients such as touchOSC and Lemur are limited and need special treatment.
 	OSCClient oscCurrentClient = OSCClient::GenericClient;
 
-	// Mode /////////////////////////	
-	// The mode string.
-	const char* modeString;
-	// Mode strings
-	const char* modeStrings[3];
 
 	// If it is the first load this session
 	bool firstLoad = true;
 	// If this was loaded from a save, what version
 	int saveVersion = -1;
-	const float lightLambda = 0.05;
+	
+	// Base light change
+	const float baseLightLambda = 0.05f;
+	// Current light change
+	float lightLambda = baseLightLambda;
+	
+#if TROWA_SEQ_USE_INTERNAL_DIVISOR	
+	//--* Skipping Evaluations *--//
+	// Issue #51 https://github.com/j4s0n-c/trowaSoft-VCV/issues/51
+	// Skip evaluations of changes from UI
+	int idleCounter = -1;
+	// Either allow user to define ? or based off the current engine sampling rate
+	// (my dev laptop doesn't show high usage unless I crank up the sample rate to over 96 k).
+	// User Stubs42 used 32 as his internal sampling divisor but was also using the internal clock
+	// For triggers, they must be 1 ms, so let's adjust the threshold/internal sampling divisor such that
+	// we run at least every 0.5 ms based on the engine sampling rate.
+	const int MAX_ILDETHRESHOLD = 32;	
+	int IDLETHRESHOLD = MAX_ILDETHRESHOLD;	
+#endif 	
+	
 	// The number of structured random patterns to actually use. Should be <= TROWA_SEQ_NUM_RANDOM_PATTERNS.
 	int numStructuredRandomPatterns = TROWA_SEQ_BOOLEAN_NUM_RANDOM_PATTERNS;
+	
+	//-----------------------------///////	
+	// INTERNAL PATTERN SEQUENCING ///////
+	//-----------------------------///////
+	// If this module has internal pattern sequencing (no to most, only tsSeq should have it for now).
+	bool allowPatternSequencing = false;	
+	// Which pattern to play (for pattern sequencing).
+	int patternPlayHeadIx = -1;
+	// Flag if pattern sequencing is on.
+	bool patternSequencingOn = false;
+	// The patterns to play.
+	short* patternData = NULL;
+	// Show the pattern seqeuncing configuration.
+	bool showPatternSequencingConfig = false;
+	// Last value for showing the pattern sequencing configuration.
+	bool lastShowPatternSequencingConfig = false;
+	// Show pattern sequecing configuration trigger.
+	dsp::SchmittTrigger patternSeqConfigTrigger;
+	// Number of pattern steps in the sequence.
+	int numPatternsInSequence = 0;
+	// The parameter id where our pattern #'s start for sequencing.
+	int PATTERN_SEQ_PARAM_START = -1;
+	// The light id where our pattern #'s start for sequencing.
+	int PATTERN_SEQ_LIGHT_START = -1;
+	// The current pattern index being edited (index into patternData).
+	int currentPatternDataBeingEditedIx = -1;
+	// The current pattern param id being edited.
+	int currentPatternDataBeingEditedParamId = -1;	
+	// The control source. (Where a control command came from).
+	enum ControlSource : uint8_t
+	{
+		// Highest Priority Source (0) - External message (OSC or in future direct MIDI integration)
+		ExternalMsgSrc = 0,
+		// Control Voltage Input - Priority (1)
+		CVInputSrc = 1,
+		// For like Auto-Pattern-Sequencing - Priority (2)
+		AutoSrc = 2,
+		// User Parameter (UI) Control - Priority (3 = Last)
+		UserParameterSrc = 3
+	};
+	// What is controlling the current pattern playing.
+	ControlSource patternPlayingControlSource = ControlSource::UserParameterSrc;
+	
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// TSSequencerModuleBase()
@@ -385,16 +530,24 @@ struct TSSequencerModuleBase : Module {
 	// @numSteps: (IN) Maximum number of steps
 	// @numRows: (IN) The number of rows (for layout).
 	// @numCols: (IN) The number of columns (for layout).
-	// @numRows * @numCols = @numSteps
+	// @numRows * @numCols = @numSteps.
 	// @defStateVal : (IN) The default state value (i.e. 0/false for a boolean step sequencer or whatever float value you want).
+	// @defChannelValMode : (IN) The default value mode for channels. (v1.0.4 now that VALUE_TRIGGER and VALUE_VOLT are unique).
+	// @enablePatternSequencing: (IN) (Opt'l) Enable pattern sequencing for this type of module. Default is false.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int numRows, /*in*/ int numCols, /*in*/ float defStateVal);
+	TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int numRows, /*in*/ int numCols, /*in*/ float defStateVal, /*in*/ TSSequencerModuleBase::ValueMode defChannelValMode, bool enablePatternSequencing = false);
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// Delete our goodies.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	~TSSequencerModuleBase();
+	
+	// If a particular mode is supported by this module.
+	bool valueModeIsSupported(ValueMode mode);	
+	// Gets the index into our supported value modes array of the given mode. Returns -1 if not found.
+	int getSupportedValueModeIndex(ValueMode mode);
+	
 	// Get the inputs for this step.
-	void getStepInputs(const ProcessArgs &args, bool* pulse, bool* reloadMatrix, bool* valueModeChanged);
+	void getStepInputs(const ProcessArgs &args, bool* pulse, bool* reloadMatrix, bool* valueModeChanged, bool nextStep, float clockTime);
 	// Paste the clipboard pattern and/or specific gate to current selected pattern and/or gate.
 	bool paste();
 	// Copy the contents:
@@ -405,6 +558,12 @@ struct TSSequencerModuleBase : Module {
 	virtual float getToggleStepValue(int step, float val, int channel, int pattern) = 0;
 	// Calculate a representation of all channels for this step
 	virtual float getPlayingStepValue(int step, int pattern) = 0;
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	// Reset param quantities (i.e. from knobs) when we get a reset from an external message source.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	virtual void resetParamQuantities();
+	
 
 	// Initialize OSC on the given ip and ports.
 	void initOSC(const char* ipAddress, int outputPort, int inputPort);
@@ -423,6 +582,18 @@ struct TSSequencerModuleBase : Module {
 	// Reset ALL step values to default.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	void onReset() override;
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// reset()
+	// Only the given pattern and channel.
+	// @patternIx: (IN) Pattern. TROWA_INDEX_UNDEFINED is all.
+	// @channelIx: (IN) Channel. TROWA_INDEX_UNDEFINED is all.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
+	virtual void reset(int patternIx, int channelIx);
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// resetPatternSequence()
+	// Reset the pattern sequence / songmode steps only.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	virtual void resetPatternSequence();
 	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// randomize(void)
@@ -443,6 +614,12 @@ struct TSSequencerModuleBase : Module {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	virtual void randomize(int patternIx, int channelIx, bool useStructured);
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// randomizePatternSequence()
+	// Randomize just the pattern sequence/song mode.
+	// @useStructured: (IN) Create a random sequence/pattern of random values.			
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	virtual void randomizePatternSequence(bool useStructured);
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// getRandomValue()
 	// Get a random value for a step in this sequencer.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -450,6 +627,14 @@ struct TSSequencerModuleBase : Module {
 		// Default are boolean sequencers
 		return random::uniform() > 0.5;
 	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getRandomValue()
+	// Get a random value for a step in this sequencer based on the channel.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	virtual float getRandomValue(int channelIx) {
+		// Default are boolean sequencers
+		return getRandomValue();
+	}	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// onShownStepChange()
 	// If we changed a step that is shown on the matrix, then do something.
@@ -459,6 +644,24 @@ struct TSSequencerModuleBase : Module {
 		// DO nothing
 		return;
 	}
+	
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// isNewStep()
+	// We advance to new step or not.
+	// @sampleRate : (IN) Current sample rate.
+	// @clockTime : (OUT) The calculated internal clock time.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	bool isNewStep(float sampleRate, float* clockTime);
+
+#if TROWA_SEQ_USE_INTERNAL_DIVISOR
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	// onSampleRateChange()
+	// User changes the engine sampling rate. Adjust our internal sampling rate 
+	// such that we run still at least every 0.5 ms (triggers should be 1 ms).
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
+	virtual void onSampleRateChange() override;
+#endif 
+	
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// clearClipboard(void)
@@ -469,7 +672,8 @@ struct TSSequencerModuleBase : Module {
 		copySourcePatternIx = -1;
 		copySourceChannelIx = TROWA_SEQ_COPY_CHANNELIX_ALL; // Which trigger we are copying, -1 for all		
 		lights[COPY_CHANNEL_LIGHT].value = 0;
-		pasteLight->setColor(TSColors::COLOR_WHITE); // Return the paste light to white
+		currentPasteColor = TSColors::COLOR_WHITE; // Return the paste light to white
+		//pasteLight->setColor(TSColors::COLOR_WHITE); // Return the paste light to white
 		lights[COPY_PATTERN_LIGHT].value = 0;
 		lights[PASTE_LIGHT].value = 0;
 		return;
@@ -486,343 +690,6 @@ struct TSSequencerModuleBase : Module {
 	virtual void dataFromJson(json_t *rootJ) override;
 }; // end struct TSSequencerModuleBase
 
-//===============================================================================
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// TSSeqDisplay
-// A top digital display for trowaSoft sequencers.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-//===============================================================================
-struct TSSeqDisplay : TransparentWidget {
-	TSSequencerModuleBase *module;
-	std::shared_ptr<Font> font;
-	std::shared_ptr<Font> labelFont;
-	int fontSize;
-	char messageStr[TROWA_DISP_MSG_SIZE]; // tmp buffer for our strings.
-	bool showDisplay = true;
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// TSSeqDisplay(void)
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	TSSeqDisplay() {
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
-		fontSize = 12;
-		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
-			messageStr[i] = '\0';
-		showDisplay = true;
-		return;
-	}
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// draw()
-	// @args.vg : (IN) NVGcontext to draw on
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ const DrawArgs &args) override {
-		bool isPreview = module == NULL; // May get a NULL module for preview
 
-		// Background Colors:
-		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
-		NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
-
-		// Screen:
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(args.vg, backgroundColor); 
-		nvgFill(args.vg);
-		nvgStrokeWidth(args.vg, 1.0);
-		nvgStrokeColor(args.vg, borderColor);
-		nvgStroke(args.vg);
-
-		if (!showDisplay)
-			return;
-
-		int currPlayPattern = 1;
-		int currEditPattern = 1;
-		int currentGate = 1;
-		int currentNSteps = 16;
-		float currentBPM = 120;
-		NVGcolor currColor = TSColors::COLOR_TS_RED;
-
-		if (!isPreview)
-		{
-			currColor = module->voiceColors[module->currentChannelEditingIx];
-			currPlayPattern = module->currentPatternPlayingIx + 1;
-			currEditPattern = module->currentPatternEditingIx + 1;
-			currentGate = module->currentChannelEditingIx + 1;
-			currentNSteps = module->currentNumberSteps;
-			currentBPM = module->currentBPM;
-		}
-
-		// Default Font:
-		nvgFontSize(args.vg, fontSize);
-		nvgFontFaceId(args.vg, font->handle);
-		nvgTextLetterSpacing(args.vg, 2.5);
-
-		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-
-		int y1 = 42;
-		int y2 = 27;
-		int dx = 0;
-		int x = 0;
-		int spacing = 61;
-
-		nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
-
-		// Current Playing Pattern
-		nvgFillColor(args.vg, textColor);
-		x = 5 + 21;
-		nvgFontSize(args.vg, fontSize); // Small font
-		nvgFontFaceId(args.vg, labelFont->handle);
-		nvgText(args.vg, x, y1, "PATT", NULL);
-		sprintf(messageStr, "%02d", currPlayPattern);
-		nvgFontSize(args.vg, fontSize * 1.5);	// Large font
-		nvgFontFaceId(args.vg, font->handle);
-		nvgText(args.vg, x + dx, y2, messageStr, NULL);
-		
-		// Current Playing Speed
-		nvgFillColor(args.vg, textColor);
-		x += spacing;
-		nvgFontSize(args.vg, fontSize); // Small font
-		nvgFontFaceId(args.vg, labelFont->handle);
-		if (isPreview)
-			sprintf(messageStr, "BPM/%s", BPMOptions[1]->label);
-		else
-			sprintf(messageStr, "BPM/%s", BPMOptions[module->selectedBPMNoteIx]->label);
-		nvgText(args.vg, x, y1, messageStr, NULL);
-		if (!isPreview && module->lastStepWasExternalClock)
-		{
-			sprintf(messageStr, "%s", "CLK");
-		}
-		else
-		{
-			sprintf(messageStr, "%03.0f", currentBPM);
-		}
-		nvgFontFaceId(args.vg, font->handle);
-		nvgFontSize(args.vg, fontSize * 1.5); // Large font		
-		nvgText(args.vg, x + dx, y2, messageStr, NULL);
-
-
-		// Current Playing # Steps
-		nvgFillColor(args.vg, textColor);
-		x += spacing;
-		nvgFontSize(args.vg, fontSize); // Small font
-		nvgFontFaceId(args.vg, labelFont->handle);
-		nvgText(args.vg, x, y1, "LENG", NULL);
-		sprintf(messageStr, "%02d", currentNSteps);
-		nvgFontSize(args.vg, fontSize * 1.5);	// Large font
-		nvgFontFaceId(args.vg, font->handle);
-		nvgText(args.vg, x + dx, y2, messageStr, NULL);
-
-		// Current Mode:
-		nvgFillColor(args.vg, nvgRGB(0xda, 0xda, 0xda));
-		x += spacing + 5;
-		nvgFontSize(args.vg, fontSize); // Small font
-		nvgFontFaceId(args.vg, labelFont->handle);
-		nvgText(args.vg, x, y1, "MODE", NULL);
-		nvgFontSize(args.vg, fontSize);	// Small font
-		nvgFontFaceId(args.vg, font->handle);		
-		if (!isPreview && module->modeString != NULL)
-		{
-			//nvgText(args.vg, x + dx -6, y2, module->modeString, NULL);					
-			nvgText(args.vg, x + dx, y2, module->modeString, NULL);
-		}
-		else {
-			nvgText(args.vg, x + dx, y2, "TRIG", NULL);			
-		}
-
-		nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
-
-		// Current Edit Pattern
-		nvgFillColor(args.vg, textColor);
-		x += spacing;
-		nvgFontSize(args.vg, fontSize); // Small font
-		nvgFontFaceId(args.vg, labelFont->handle);
-		nvgText(args.vg, x, y1, "PATT", NULL);
-		sprintf(messageStr, "%02d", currEditPattern);
-		nvgFontSize(args.vg, fontSize * 1.5);	// Large font
-		nvgFontFaceId(args.vg, font->handle);
-		nvgText(args.vg, x + dx, y2, messageStr, NULL);
-
-		// Current Edit Gate/Trigger
-		nvgFillColor(args.vg, currColor); // Match the Gate/Trigger color
-		x += spacing;
-		nvgFontSize(args.vg, fontSize); // Small font
-		nvgFontFaceId(args.vg, labelFont->handle);
-		nvgText(args.vg, x, y1, "CHNL", NULL);
-		sprintf(messageStr, "%02d", currentGate);
-		nvgFontSize(args.vg, fontSize * 1.5);	// Large font
-		nvgFontFaceId(args.vg, font->handle);
-		nvgText(args.vg, x + dx, y2, messageStr, NULL);
-
-		// [[[[[[[[[[[[[[[[ EDIT Box Group ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
-		nvgTextAlign(args.vg, NVG_ALIGN_LEFT);
-		NVGcolor groupColor = nvgRGB(0xDD, 0xDD, 0xDD);
-		nvgFillColor(args.vg, groupColor);
-		int labelX = 297;
-		x = labelX; // 289
-		nvgFontSize(args.vg, fontSize - 5); // Small font
-		nvgFontFaceId(args.vg, labelFont->handle);
-		nvgText(args.vg, x, 8, "EDIT", NULL);
-
-		// Edit Label Line ---------------------------------------------------------------
-		nvgBeginPath(args.vg);
-		// Start top to the left of the text "Edit"
-		int y = 5;
-		nvgMoveTo(args.vg, /*start x*/ x - 3, /*start y*/ y);// Starts new sub-path with specified point as first point.s
-		x = 256;// x - 35;//xOffset + 3 * spacing - 3 + 60;
-		nvgLineTo(args.vg, /*x*/ x, /*y*/ y); // Go to Left (Line Start)
-
-		x = labelX + 22;
-		y = 5;
-		nvgMoveTo(args.vg, /*x*/ x, /*y*/ y); // Right of "Edit"
-		x = box.size.x - 6;
-		nvgLineTo(args.vg, /*x*/ x, /*y*/ y); // RHS of box
-
-		nvgStrokeWidth(args.vg, 1.0);
-		nvgStrokeColor(args.vg, groupColor);
-		nvgStroke(args.vg);
-
-		// [[[[[[[[[[[[[[[[ PLAYBACK Box Group ]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
-		groupColor = nvgRGB(0xEE, 0xEE, 0xEE);
-		nvgFillColor(args.vg, groupColor);
-		labelX = 64;
-		x = labelX;
-		nvgFontSize(args.vg, fontSize - 5); // Small font
-		nvgText(args.vg, x, 8, "PLAYBACK", NULL);
-
-		// Play Back Label Line ---------------------------------------------------------------
-		nvgBeginPath(args.vg);
-		// Start top to the left of the text "Play"
-		y = 5;
-		nvgMoveTo(args.vg, /*start x*/ x - 3, /*start y*/ y);// Starts new sub-path with specified point as first point.s
-		x = 6;
-		nvgLineTo(args.vg, /*x*/ x, /*y*/ y); // Go to the left
-
-		x = labelX + 52;
-		y = 5;
-		nvgMoveTo(args.vg, /*x*/ x, /*y*/ y); // To the Right of "Playback"
-		x = 165; //x + 62 ;
-		nvgLineTo(args.vg, /*x*/ x, /*y*/ y); // Go Right 
-
-		nvgStrokeWidth(args.vg, 1.0);
-		nvgStrokeColor(args.vg, groupColor);
-		nvgStroke(args.vg);
-		
-		return;
-	} // end draw()
-}; // end struct TSSeqDisplay
-
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// TSSeqLabelArea
-// Draw labels on our sequencer.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-struct TSSeqLabelArea : TransparentWidget {
-	TSSequencerModuleBase *module;
-	std::shared_ptr<Font> font;
-	int fontSize;
-	bool drawGridLines = false;
-	char messageStr[TROWA_DISP_MSG_SIZE];
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// TSSeqLabelArea()
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	TSSeqLabelArea() {
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
-		fontSize = 13;
-		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
-			messageStr[i] = '\0';
-	}
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// draw()
-	// @args.vg : (IN) NVGcontext to draw on
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void draw(const DrawArgs &args) override {
-		// Default Font:
-		nvgFontSize(args.vg, fontSize);
-		nvgFontFaceId(args.vg, font->handle);
-		nvgTextLetterSpacing(args.vg, 1);
-
-		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-		nvgFillColor(args.vg, textColor);
-		nvgFontSize(args.vg, fontSize);
-
-		/// MAKE LABELS HERE
-		int x = 45;
-		int y = 163;
-		int dy = 28;
-
-		// Selected Pattern Playback:
-		nvgText(args.vg, x, y, "PAT", NULL);
-
-		// Clock		
-		y += dy;
-		nvgText(args.vg, x, y, "BPM ", NULL);
-
-		// Steps
-		y += dy;
-		nvgText(args.vg, x, y, "LNG", NULL);
-
-		// Ext Clock 
-		y += dy;
-		nvgText(args.vg, x, y, "CLK", NULL);
-
-		// Reset
-		y += dy;
-		nvgText(args.vg, x, y, "RST", NULL);
-
-		// Outputs
-		nvgFontSize(args.vg, fontSize * 0.95);
-		x = 320;
-		y = 350;
-		nvgText(args.vg, x, y, "OUTPUTS", NULL);
-
-		// TINY btn labels
-		nvgFontSize(args.vg, fontSize * 0.6);
-		// OSC Labels
-		y = 103;
-		if (module == NULL || module->allowOSC)
-		{
-			x = 242; //240
-			nvgText(args.vg, x, y, "OSC", NULL);
-		}
-		// Copy button labels:
-		x = 304; // 302
-		nvgText(args.vg, x, y, "CPY", NULL);
-		x = 364; // 364
-		nvgText(args.vg, x, y, "CPY", NULL);
-		// BPM divisor/note label:
-		x = 120; //118
-		nvgText(args.vg, x, y, "DIV", NULL);
-
-
-		if (drawGridLines)
-		{
-			NVGcolor gridColor = nvgRGB(0x44, 0x44, 0x44);
-			nvgBeginPath(args.vg);
-			x = 80;
-			y = 228;
-			nvgMoveTo(args.vg, /*start x*/ x, /*start y*/ y);// Starts new sub-path with specified point as first point
-			x += 225;
-			nvgLineTo(args.vg, /*x*/ x, /*y*/ y); // Go to the left
-
-			nvgStrokeWidth(args.vg, 1.0);
-			nvgStrokeColor(args.vg, gridColor);
-			nvgStroke(args.vg);
-
-
-			// Vertical
-			nvgBeginPath(args.vg);
-			x = 192;
-			y = 116;
-			nvgMoveTo(args.vg, /*start x*/ x, /*start y*/ y);// Starts new sub-path with specified point as first point
-			y += 225;
-			nvgLineTo(args.vg, /*x*/ x, /*y*/ y); // Go to the left			
-
-			nvgStrokeWidth(args.vg, 1.0);
-			nvgStrokeColor(args.vg, gridColor);
-			nvgStroke(args.vg);
-
-		}
-
-		return;
-	} // end draw()
-}; // end struct TSSeqLabelArea
 
 #endif

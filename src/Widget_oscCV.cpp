@@ -1,19 +1,17 @@
 ﻿#include "Widget_oscCV.hpp"
-
-#include <widget/Widget.hpp> //#include "widgets.hpp"
 using namespace rack;
 #include "trowaSoft.hpp"
-//#include "dsp/digital.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
 #include "Module_oscCV.hpp"
+#include <stdlib.h>
 
 #define OSCCV_CHOOSE_UNUSED_PORTS		0
 
 // Channel colors
 const NVGcolor oscCVWidget::CHANNEL_COLORS[TROWA_OSCCV_NUM_COLORS] = {
-	TSColors::COLOR_TS_RED, TSColors::COLOR_DARK_ORANGE, TSColors::COLOR_YELLOW, TSColors::COLOR_TS_GREEN,
-	TSColors::COLOR_CYAN, TSColors::COLOR_TS_BLUE, TSColors::COLOR_PURPLE, TSColors::COLOR_PINK
+	TSColors::COLOR_TS_C01, TSColors::COLOR_TS_C02, TSColors::COLOR_TS_C03, TSColors::COLOR_TS_C04, 
+	TSColors::COLOR_TS_C05, TSColors::COLOR_TS_C06, TSColors::COLOR_TS_C07, TSColors::COLOR_TS_C08
 };
 
 
@@ -446,7 +444,7 @@ void oscCVWidget::step()
 			thisModule->expCurrentEditExpanderIx = 0;
 			showConfigColor = TSColors::COLOR_WHITE;
 			configName = std::string("");
-			this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::None);
+			this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::None);			
 		}
 		else
 		{
@@ -467,6 +465,19 @@ void oscCVWidget::step()
 		// Buttons for Next/Previous - Change color if there is a next/previous
 		prevLight->setColor(calcColor(thisModule->expCurrentEditExpanderIx - 1));
 		nextLight->setColor(calcColor(thisModule->expCurrentEditExpanderIx + 1));
+		
+		// Rename the Advanced Configuration Buttons:
+		int numChannels = thisModule->numberChannels;
+		int baseChNum = abs( thisModule->expCurrentEditExpanderIx ) * numChannels;
+		char buffer[50];
+		for (int i = 0; i < numChannels; i++)
+		{			
+			int ch = baseChNum + i + 1;
+			sprintf(buffer, "Configure %s Channel %d", "Input", ch);
+			btnDrawInputAdvChConfig[i]->getParamQuantity()->name = std::string(buffer);
+			sprintf(buffer, "Configure %s Channel %d", "Output", ch);
+			btnDrawOutputAdvChConfig[i]->getParamQuantity()->name = std::string(buffer);			
+		}
 	}
 	
 	if (thisModule->oscShowConfigurationScreen)
@@ -635,11 +646,14 @@ void oscCVWidget::step()
 			this->oscConfigurationScreen->btnActionEnable = true;
 		}
 	} // end if show OSC config screen
+	
+	if (thisModule->debugOSCConsoleOn)
+	{
+		
+	}
 		
 	showConfigIndex = thisModule->expCurrentEditExpanderIx; // Save this for next time.
 	showConfigScreen = thisModule->oscShowConfigurationScreen;	
-	
-	
 	
 	ModuleWidget::step();
 	return;
@@ -689,7 +703,7 @@ void oscCVWidget::toggleChannelPathConfig(bool showInput, bool showOutput)
 		this->tbOscOutputPaths[i]->visible = showOutput;
 #if TROWA_OSSCV_SHOW_ADV_CH_CONFIG
 		btnDrawInputAdvChConfig[i]->setVisible(showInput);
-		btnDrawOutputAdvChConfig[i]->setVisible(showOutput);
+		btnDrawOutputAdvChConfig[i]->setVisible(showOutput);		
 #endif
 	}
 	
@@ -758,14 +772,46 @@ void oscCVWidget::readChannelPathConfig(int index)
 		{
 			if (masterConfigLoaded)
 			{
-				readChannelPathConfig(thisModule->inputChannels, thisModule->outputChannels, this->numberChannels);				
+				readChannelPathConfig(thisModule->inputChannels, thisModule->outputChannels, this->numberChannels);			
+				for (int i = 0; i < numberChannels; i++)
+				{
+					int portId = i * 2;
+					if (thisModule->doCVPort2OSC)
+					{
+						thisModule->inputInfos[oscCV::InputIds::CH_INPUT_START + portId]->PortInfo::name = "Trigger Send: " + thisModule->inputChannels[i].path;
+						thisModule->inputInfos[oscCV::InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = "Value: " + thisModule->inputChannels[i].path;						
+					}
+					if (thisModule->doOSC2CVPort)
+					{
+						thisModule->outputInfos[oscCV::OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = "Received Trigger: " + thisModule->outputChannels[i].path;
+						thisModule->outputInfos[oscCV::OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = "Value Received: " + thisModule->outputChannels[i].path;											
+					}
+				}
 			}
 			else if (index != 0)
 			{
 				oscCVExpander* exp = thisModule->getExpansionModule(index);
 				if (exp)
 				{
-					exp->displayName = readChannelPathConfig(exp->inputChannels, exp->outputChannels, exp->numberChannels);					
+					exp->displayName = readChannelPathConfig(exp->inputChannels, exp->outputChannels, exp->numberChannels);
+					if (exp->inputChannels != NULL)
+					{
+						for (int i = 0; i < numberChannels; i++)
+						{
+							int portId = i * 2;
+							exp->inputInfos[oscCVExpander::InputIds::CH_INPUT_START + portId]->PortInfo::name = "Trigger Send: " + exp->inputChannels[i].path;
+							exp->inputInfos[oscCVExpander::InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = "Value: " + exp->inputChannels[i].path;
+						}											
+					}
+					if (exp->outputChannels != NULL)
+					{
+						for (int i = 0; i < numberChannels; i++)
+						{
+							int portId = i * 2;
+							exp->outputInfos[oscCVExpander::OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = "Received Trigger: " + exp->outputChannels[i].path;
+							exp->outputInfos[oscCVExpander::OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = "Value Received: " + exp->outputChannels[i].path;					
+						}											
+					}					
 				}
 			}
 		}
@@ -839,6 +885,29 @@ void oscCVWidget::clearChannelPathConfig()
 	return;
 } // end clearChannelPathConfig()
 
+
+struct oscCVMenuItemDebug : MenuItem
+{
+	oscCV* oscModule = NULL;
+	bool debugOn = true;
+	oscCVMenuItemDebug(std::string text, bool debug, oscCV* oscModule)
+	{
+		this->box.size.x = 200;
+		this->text = text;
+		this->debugOn = debug;
+		this->oscModule = oscModule;
+	}
+
+	void onAction(const event::Action &e) override 
+	{
+		oscModule->debugOSCConsoleOn = this->debugOn;
+		if (this->debugOn)
+			oscModule->oscShowConfigurationScreen = false; // Turn off showing the configuration screen
+	}
+	void step() override {
+		rightText = (oscModule->debugOSCConsoleOn == this->debugOn) ? "✔" : "";
+	}
+};
 
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

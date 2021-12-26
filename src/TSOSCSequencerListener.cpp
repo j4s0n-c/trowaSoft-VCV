@@ -2,8 +2,8 @@
 #include <vector>
 #include <stdio.h>
 #include <exception>
-#include "common.hpp"
-#include "math.hpp" //util.hpp"
+//#include "common.hpp"
+//#include "math.hpp" //util.hpp"
 #include "TSOSCSequencerListener.hpp"
 #include "TSSequencerModuleBase.hpp"
 #include "trowaSoftUtilities.hpp" // For debug

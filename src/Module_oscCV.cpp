@@ -6,6 +6,7 @@ using namespace rack;
 #include "Widget_oscCV.hpp"
 #include <cmath>
 #include "TSOSCCV_RxConnector.hpp"
+#include <string>
 
 // Model for trowa OSC2CV
 Model* modelOscCV = createModel<oscCV, oscCVWidget>(/*slug*/ "cvOSCcv");
@@ -29,32 +30,75 @@ oscCV::oscCV(int numChannels, bool cv2osc, bool osc2cv) // : Module(NUM_PARAMS +
 	this->doCVPort2OSC = cv2osc;
 
 	this->numberChannels = numChannels;
+	char buffer[50];	
 	if (doCVPort2OSC)
 	{
 		inputTriggers = new dsp::SchmittTrigger[numberChannels];
 		inputChannels = new TSOSCCVInputChannel[numberChannels];
+		// [Rack v2] Add labels for inputs and outputs
+		int inputId = 0;
+		DEBUG("oscCV - Setting Input Labels");
+		for (int i = 0; i < numberChannels; i++)
+		{
+			inputId = i * 2;
+			sprintf(buffer, "Ch %d Trigger Send", i + 1);
+			configInput(InputIds::CH_INPUT_START + inputId, buffer);
+			sprintf(buffer, "Ch %d Value", i + 1);
+			configInput(InputIds::CH_INPUT_START + inputId + 1, buffer);			
+		}		
 	}
 	if (doOSC2CVPort)
 	{
 		outputChannels = new TSOSCCVChannel[numberChannels];
 		pulseGens = new dsp::PulseGenerator[numberChannels];
+		// [Rack v2] Add labels for inputs and outputs
+		int inputId = 0;
+		DEBUG("oscCV - Setting Output Labels");		
+		for (int i = 0; i < numberChannels; i++)
+		{
+			inputId = i * 2;
+			sprintf(buffer, "Ch %d Received Trigger", i + 1);
+			configOutput(OutputIds::CH_OUTPUT_START + inputId, buffer);
+			sprintf(buffer, "Ch %d Value Received", i + 1);
+			configOutput(OutputIds::CH_OUTPUT_START + inputId + 1, buffer);			
+		}
 	}
 	initialChannels();
 	
 	// Configure parameters:
 	// id, min, max, def
-	configParam(/*paramId*/ oscCV::ParamIds::OSC_SHOW_CONF_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);	
+	// configParam(/*paramId*/ oscCV::ParamIds::OSC_SHOW_CONF_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);	
+	// configParam(/*paramId*/ oscCV::ParamIds::OSC_AUTO_RECONNECT_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);	
+	
+	// [Rack v2] : configButton
+	// Main Configuation Navigation Buttons:
+	configButton(/*paramId*/ oscCV::ParamIds::OSC_SHOW_CONF_PARAM, "Show/Hide OSC Configuration");		
+	configButton(/*paramId*/ oscCV::ParamIds::OSC_EXPANDER_CONFIG_PREV_PARAM, "<< Expander Config");
+	configButton(/*paramId*/ oscCV::ParamIds::OSC_EXPANDER_CONFIG_NEXT_PARAM, "Expander Config >>");	
+	
+	// OSC Configuration Screen:
+	configButton(/*paramId*/ oscCV::ParamIds::OSC_AUTO_RECONNECT_PARAM, "Automatically reconnect on load");		
+	configButton(/*paramId*/ oscCV::ParamIds::OSC_SAVE_CONF_PARAM, "Enable/Disable OSC");	
+	
 #if TROWA_OSSCV_SHOW_ADV_CH_CONFIG	
-	configParam(/*paramId*/ oscCV::ParamIds::OSC_CH_SAVE_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
-	configParam(/*paramId*/ oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);			
-	configParam(/*paramId*/ oscCV::ParamIds::OSC_CH_CANCEL_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
-	// Channel parameters:
+	// configParam(/*paramId*/ oscCV::ParamIds::OSC_CH_SAVE_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
+	// configParam(/*paramId*/ oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);			
+	// configParam(/*paramId*/ oscCV::ParamIds::OSC_CH_CANCEL_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
+	configButton(/*paramId*/ oscCV::ParamIds::OSC_CH_SAVE_PARAM, "Save");
+	configButton(/*paramId*/ oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM, "Translate values");			
+	configButton(/*paramId*/ oscCV::ParamIds::OSC_CH_CANCEL_PARAM, "Cancel");
+	configButton(/*paramId*/ oscCV::ParamIds::OSC_CH_CLIP_CV_VOLT_PARM, "Clip Values");	
+	
+	// Channel parameters:	
 	for (int ch = 0; ch < numberChannels; ch++)
 	{
 		int baseParamId = oscCV::ParamIds::CH_PARAM_START + ch*TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS;		
-		configParam(/*id*/ baseParamId + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
+		//configParam(/*id*/ baseParamId + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
+		configButton(/*id*/ baseParamId + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG, "Configure Input Channel " +  std::to_string(ch + 1));
+		configButton(/*id*/ baseParamId + numberChannels + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG, "Configure Output Channel " +  std::to_string(ch + 1));		
 	}
 #endif // Show Advanced Configuration on each Channel		
+	
 	
 	
 	return;
@@ -453,7 +497,7 @@ void oscCV::process(const ProcessArgs &args)
 		}
 		catch (const std::exception& expansionEx)
 		{
-			WARN("Error expander must be deleted...", expansionEx.what());	
+			WARN("Error expander must be deleted...\n%s", expansionEx.what());	
 			expCurrentEditExpanderName = "Connection Lost";
 		}
 	}

@@ -516,76 +516,81 @@ struct multiScopeDisplay : TransparentWidget {
 		float rotRate, float lineThickness, NVGcolor lineColor,
 		bool doFill, NVGcolor fillColor,
 		NVGcompositeOperation compositeOp, bool flipX, bool flipY);
+		
+		
+	void drawLayer(const DrawArgs& args, int layer) override;
+
+	// void drawBackground(const DrawArgs& args) override;
 
 
-	void draw(const DrawArgs &args) override {
-		if (module == NULL || !module->initialized)
-			return;
-		float gainX = ((int)(module->params[multiScope::X_SCALE_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
-		float gainY = ((int)(module->params[multiScope::Y_SCALE_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
-		float offsetX = ((int)(module->params[multiScope::X_POS_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
-		float offsetY = ((int)(module->params[multiScope::Y_POS_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
+	// void draw(const DrawArgs &args) override {
+		// if (module == NULL || !module->initialized)
+			// return;
+		// float gainX = ((int)(module->params[multiScope::X_SCALE_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
+		// float gainY = ((int)(module->params[multiScope::Y_SCALE_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
+		// float offsetX = ((int)(module->params[multiScope::X_POS_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
+		// float offsetY = ((int)(module->params[multiScope::Y_POS_PARAM + wIx].getValue() * TROWA_SCOPE_ROUND_VALUE)) / (float)(TROWA_SCOPE_ROUND_VALUE);
 
-		TSWaveform* waveForm = module->waveForms[wIx];
-		float valuesX[BUFFER_SIZE];
-		float valuesY[BUFFER_SIZE];
-		bool penOn[BUFFER_SIZE];
-		float multX = gainX / 10.0;
-		float multY = gainY / 10.0;
-		for (int i = 0; i < BUFFER_SIZE; i++) {
-			int j = i;
-			// Lock display to buffer if buffer update deltaTime <= 2^-11
-			if (waveForm->lissajous)
-				j = (i + waveForm->bufferIndex) % BUFFER_SIZE;
-			valuesX[i] = (waveForm->bufferX[j] + offsetX) * multX;
-			valuesY[i] = (waveForm->bufferY[j] + offsetY) * multY;
-			penOn[i] = waveForm->bufferPenOn[j];
-		}
+		// TSWaveform* waveForm = module->waveForms[wIx];
+		// float valuesX[BUFFER_SIZE];
+		// float valuesY[BUFFER_SIZE];
+		// bool penOn[BUFFER_SIZE];
+		// float multX = gainX / 10.0;
+		// float multY = gainY / 10.0;
+		// for (int i = 0; i < BUFFER_SIZE; i++) {
+			// int j = i;
+			// // Lock display to buffer if buffer update deltaTime <= 2^-11
+			// if (waveForm->lissajous)
+				// j = (i + waveForm->bufferIndex) % BUFFER_SIZE;
+			// valuesX[i] = (waveForm->bufferX[j] + offsetX) * multX;
+			// valuesY[i] = (waveForm->bufferY[j] + offsetY) * multY;
+			// penOn[i] = waveForm->bufferPenOn[j];
+		// }
 
-		// Draw waveforms
-		// 1. Line Color:
-		NVGcolor waveColor = waveForm->waveColor;
-		waveColor.a = waveForm->waveOpacity;
-		if (waveForm->negativeImage)
-			waveColor = ColorInvertToNegative(waveColor);
-		nvgStrokeColor(args.vg, waveColor); // Color has already been calculated by main module
-		// 2. Fill color:
-		NVGcolor fillColor = waveForm->fillColor;
-		if (waveForm->doFill)
-		{
-			fillColor.a = waveForm->fillOpacity;
-			nvgFillColor(args.vg, fillColor);
-		}
-		// 3. Rotation
-		float rotRate = 0;
-		if (waveForm->rotMode)
-		{
-			// Absolute position:
-			rot = waveForm->rotAbsValue;
-		}
-		else
-		{
-			// Differential rotation
-			rotRate = waveForm->rotDiffValue;
-		}
-		if (waveForm->lissajous) {
-			// X x Y
-			if (module->inputs[multiScope::X_INPUT + wIx].isConnected() || module->inputs[multiScope::Y_INPUT + wIx].isConnected()) {
-				drawWaveform(args, valuesX, valuesY, penOn, rotRate, waveForm->lineThickness, waveColor, waveForm->doFill, fillColor, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->compositeOperation, false, false);
-			}
-		}
-		else {
-			// Y
-			if (module->inputs[multiScope::Y_INPUT + wIx].isConnected()) {
-				drawWaveform(args, valuesY, NULL, penOn, rotRate, waveForm->lineThickness, waveColor, waveForm->doFill, fillColor, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->compositeOperation, false, false);
-			}
-			// X
-			if (module->inputs[multiScope::X_INPUT + wIx].isConnected()) {
-				drawWaveform(args, valuesX, NULL, penOn, rotRate, waveForm->lineThickness, waveColor, waveForm->doFill, fillColor, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->compositeOperation, false, false);
-			}
-		}
-		return;
-	} // end draw()
+		// // Draw waveforms
+		// // 1. Line Color:
+		// NVGcolor waveColor = waveForm->waveColor;
+		// waveColor.a = waveForm->waveOpacity;
+		// if (waveForm->negativeImage)
+			// waveColor = ColorInvertToNegative(waveColor);
+		// nvgStrokeColor(args.vg, waveColor); // Color has already been calculated by main module
+		// // 2. Fill color:
+		// NVGcolor fillColor = waveForm->fillColor;
+		// if (waveForm->doFill)
+		// {
+			// fillColor.a = waveForm->fillOpacity;
+			// nvgFillColor(args.vg, fillColor);
+		// }
+		// // 3. Rotation
+		// float rotRate = 0;
+		// if (waveForm->rotMode)
+		// {
+			// // Absolute position:
+			// rot = waveForm->rotAbsValue;
+		// }
+		// else
+		// {
+			// // Differential rotation
+			// rotRate = waveForm->rotDiffValue;
+		// }
+		// if (waveForm->lissajous) {
+			// // X x Y
+			// if (module->inputs[multiScope::X_INPUT + wIx].isConnected() || module->inputs[multiScope::Y_INPUT + wIx].isConnected()) {
+				// drawWaveform(args, valuesX, valuesY, penOn, rotRate, waveForm->lineThickness, waveColor, waveForm->doFill, fillColor, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->compositeOperation, false, false);
+			// }
+		// }
+		// else {
+			// // Y
+			// if (module->inputs[multiScope::Y_INPUT + wIx].isConnected()) {
+				// drawWaveform(args, valuesY, NULL, penOn, rotRate, waveForm->lineThickness, waveColor, waveForm->doFill, fillColor, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->compositeOperation, false, false);
+			// }
+			// // X
+			// if (module->inputs[multiScope::X_INPUT + wIx].isConnected()) {
+				// drawWaveform(args, valuesX, NULL, penOn, rotRate, waveForm->lineThickness, waveColor, waveForm->doFill, fillColor, SCOPE_GLOBAL_EFFECTS[module->waveForms[wIx]->gEffectIx]->compositeOperation, false, false);
+			// }
+		// }
+		// return;
+	// } // end draw()
 }; // end multiScopeDisplay
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

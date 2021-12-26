@@ -1,7 +1,7 @@
 #ifndef WIDGET_OSCCV_HPP
 #define WIDGET_OSCCV_HPP
 
-#include <widget/Widget.hpp> //#include "widgets.hpp"
+//#include <widget/Widget.hpp> //#include "widgets.hpp"
 #include "TSSModuleWidgetBase.hpp"
 #include "TSOSCConfigWidget.hpp"
 #include "Module_oscCV.hpp"

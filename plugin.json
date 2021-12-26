@@ -1,7 +1,7 @@
 {
   "slug": "trowaSoft",
   "name": "trowaSoft",
-  "version": "1.0.3",
+  "version": "2.0.4",
   "license": "BSD-3-Clause",
   "author": "j4s0n-c",
   "authorEmail": "",
@@ -19,7 +19,7 @@
         "Sequencer",
         "External"
       ]
-    },
+    },	
     {
       "slug": "trigSeq64",
       "name": "trigSeq64",
@@ -38,6 +38,15 @@
         "External"
       ]
     },
+    {
+      "slug": "multiSeq64",
+      "name": "multiSeq64",
+      "description": "64-step trigger/variable voltage/note sequencer with a built-in Open Sound Control (OSC) interface. Basically, trigSeq and voltSeq combined into one.",
+      "tags": [
+        "Sequencer",
+        "External"
+      ]
+    },		
     {
       "slug": "multiWave",
       "name": "multiWave",

@@ -42,8 +42,8 @@ trigSeq64Widget::trigSeq64Widget(trigSeq* seqModule) : TSSequencerWidgetBase(seq
 	Vec lSize = Vec(padSize.x - 2*dx, padSize.y - 2*dx);
 	int spacing = padSize.x + 5;
 	NVGcolor lightColor = TSColors::COLOR_TS_RED;
-	int numCols = N64_NUM_COLS;
-	int numRows = N64_NUM_ROWS;
+	this->numCols = N64_NUM_COLS;
+	this->numRows = N64_NUM_ROWS;
 	int groupId = 0;
 	if (!isPreview)
 	{
@@ -53,8 +53,10 @@ trigSeq64Widget::trigSeq64Widget(trigSeq* seqModule) : TSSequencerWidgetBase(seq
 		groupId = seqModule->oscId; // Use this id for now since this is unique to each module instance.
 	}
 	int id = 0;
+	padLightPtrs = new ColorValueLight**[numRows];	
 	for (int r = 0; r < numRows; r++) //---------THE PADS
 	{
+		padLightPtrs[r] = new ColorValueLight*[numCols];
 		for (int c = 0; c < numCols; c++)
 		{			
 			// Pad buttons:
@@ -64,13 +66,13 @@ trigSeq64Widget::trigSeq64Widget(trigSeq* seqModule) : TSSequencerWidgetBase(seq
 			//pad->box.pos = Vec(x, y);
 			pad->btnId = id;
 			pad->groupId = groupId;
-			if (pad->paramQuantity)
+			if (pad->getParamQuantity())
 			{
-				pad->paramQuantity->minValue = 0;
-				pad->paramQuantity->maxValue = 1;
-				pad->paramQuantity->defaultValue = 0;
-				pad->paramQuantity->setValue(0);
-			
+				ParamQuantity* pQty = pad->getParamQuantity();
+				pQty->minValue = 0;
+				pQty->maxValue = 1;
+				pQty->defaultValue = 0;
+				pQty->setValue(0);			
 			}
 			addParam(pad);
 
@@ -79,12 +81,9 @@ trigSeq64Widget::trigSeq64Widget(trigSeq* seqModule) : TSSequencerWidgetBase(seq
 				/*seqModule*/ seqModule,
 				/*lightId*/ TSSequencerModuleBase::PAD_LIGHTS + id, // r * numCols + c
 				/* size */ lSize, /* color */ lightColor));
+			padLight->cornerRadius = 3.0;
 			addChild(padLight);
-			if (!isPreview)
-			{
-				// Keep a reference to our pad lights so we can change the colors
-				seqModule->padLightPtrs[r][c] = padLight;
-			}			
+			padLightPtrs[r][c] = padLight; // Keep the reference to this light to change color			
 			id++;
 			x+= spacing;
 		}		

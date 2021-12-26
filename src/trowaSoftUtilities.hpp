@@ -66,12 +66,13 @@ extern const char * TROWA_NOTES[TROWA_SEQ_NUM_NOTES]; // Our note labels.
 // [2018-11-20] Remove rounding so that each pattern is ~0.32 V.
 inline int VoltsToPattern(float voltsInput)
 {	
+	// (float x, float xMin, float xMax, float yMin, float yMax)
 	return (int)clamp((int)(rescale(voltsInput, (float)TROWA_SEQ_PATTERN_MIN_V, (float)TROWA_SEQ_PATTERN_MAX_V, 1.0f, (float)TROWA_SEQ_NUM_PATTERNS)), 1, TROWA_SEQ_NUM_PATTERNS);
 }
 // Pattern index [0-63] to output voltage.
 inline float PatternToVolts(int patternIx)
 {
-	return rescale(patternIx + 1, 1, TROWA_SEQ_NUM_PATTERNS, TROWA_SEQ_PATTERN_MIN_V, TROWA_SEQ_PATTERN_MAX_V);
+	return rescale(static_cast<float>(patternIx + 1),  1.0f, (float)(TROWA_SEQ_NUM_PATTERNS), (float)(TROWA_SEQ_PATTERN_MIN_V), (float)(TROWA_SEQ_PATTERN_MAX_V));
 }
 // Voltage [-5 to 5] to Octave -1 to 9
 inline int VoltsToOctave(float v)
@@ -200,6 +201,8 @@ struct ValueSequencerMode
 	float minDisplayValue;
 	// Max value (what it means)
 	float maxDisplayValue;
+	// If this amounts to just on/off.
+	bool isBoolean = false;
 	
 	bool needsTranslationDisplay;
 	bool needsTranslationOutput;
@@ -215,6 +218,8 @@ struct ValueSequencerMode
 	
 	float zeroValue;
 	
+	float snapValue = 0.0f;
+	
 	ValueSequencerMode()
 	{
 		return;
@@ -223,7 +228,7 @@ struct ValueSequencerMode
 	ValueSequencerMode(const char* displayName, const char* unit, float minDisplayValue, float maxDisplayValue, float min_V, float max_V, 
 		float outVoltageMin, float outVoltageMax,
 		bool wholeNumbersOnly, float zeroPointAngle, const char * formatStr,
-		float roundDisplay, float roundOutput, float zeroValue)
+		float roundDisplay, float roundOutput, float zeroValue, bool outputIsBoolean = false)
 	{
 		this->displayName = displayName;
 		this->unit = unit; // add unit
@@ -242,6 +247,10 @@ struct ValueSequencerMode
 		
 		needsTranslationDisplay = minDisplayValue != voltageMin || maxDisplayValue != voltageMax;
 		needsTranslationOutput = outputVoltageMin != voltageMin || outputVoltageMax != voltageMax;
+		
+		snapValue = (voltageMax - voltageMin)/(maxDisplayValue - minDisplayValue);
+		
+		isBoolean = outputIsBoolean;
 		return;
 	}
 
@@ -322,6 +331,8 @@ struct NoteValueSequencerMode : ValueSequencerMode
 		
 		needsTranslationDisplay = minDisplayValue != voltageMin || maxDisplayValue != voltageMax;
 		needsTranslationOutput = outputVoltageMin != voltageMin || outputVoltageMax != voltageMax;
+		
+		snapValue = 1/12.0f;
 		return;
 	}
 	// Overriden display string to show notes instead of output voltage values.

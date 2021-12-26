@@ -6,6 +6,7 @@
 #include "TSSequencerModuleBase.hpp"
 #include "Module_voltSeq.hpp"
 #include "Module_oscCV.hpp"
+#include "Module_multiSeq.hpp"
 #include "Module_multiOscillator.hpp"
 #include "TSBlank.hpp"
 #include "Module_oscCVExpander.hpp"
@@ -19,6 +20,9 @@ void init(rack::Plugin *p) {
 	p->addModel(modelTrigSeq);	
 	p->addModel(modelTrigSeq64);
 	p->addModel(modelVoltSeq);
+	// Sequencer Modules:
+	// New trig + volt Sequencer together
+	p->addModel(modelMultiSeq64);
 
 	// Osc <==> CV:
 	p->addModel(modelOscCV);

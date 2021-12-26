@@ -4,7 +4,7 @@ SHELL:=/bin/bash -O extglob
 RACK_DIR ?= ../..
 
 #FLAGS += -w
-
+	
 # Add .cpp and .c files to the build
 SOURCES = \
 		$(wildcard lib/oscpack/ip/*.cpp) \
@@ -16,7 +16,8 @@ SOURCES = \
 # Static libraries are fine.
 include $(RACK_DIR)/arch.mk
 
-ifeq ($(ARCH), win)
+MACHINE = $(shell $(CC) -dumpmachine)
+ifneq (, $(findstring mingw, $(MACHINE)))
 	SOURCES += $(wildcard lib/oscpack/ip/win32/*.cpp) 
 	LDFLAGS += -lws2_32 -lwinmm
 	LDFLAGS +=  -L$(RACK_DIR)/dep/lib #-lglew32 -lglfw3dll
@@ -24,6 +25,7 @@ ifeq ($(ARCH), win)
 else
 	SOURCES += $(wildcard lib/oscpack/ip/posix/*.cpp) 
 endif
+
 
 DISTRIBUTABLES += $(wildcard LICENSE*) res \
  pd other

@@ -129,7 +129,7 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 		}
 		else
 		{
-			port->type = PortWidget::OUTPUT;			
+			port->type = engine::Port::OUTPUT;			
 			addOutput(port);			
 		}
 		
@@ -146,7 +146,7 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 		}
 		else
 		{
-			port->type = PortWidget::OUTPUT;
+			port->type = engine::Port::OUTPUT;
 			addOutput(port);	
 		}
 		

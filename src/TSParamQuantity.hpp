@@ -24,7 +24,7 @@ struct TS_ParamQuantity : ParamQuantity {
 	void setDisplayPrecision(int prec) {
 		displayPrecision = prec;
 	}
-}; // end struct TS_ParamQuantityEnum
+}; // end struct TS_ParamQuantity
 
 // Enumeration param quantity
 struct TS_ParamQuantityEnum : TS_ParamQuantity {

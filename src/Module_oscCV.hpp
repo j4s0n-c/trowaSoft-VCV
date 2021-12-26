@@ -27,6 +27,8 @@ extern Model* modelOscCV;
 #define OSC_CV_OUTPUT_BUFFER_SIZE			1024*128 // Hopefully large enough (may not be from adding poly cables).  
 
 
+
+
 //===============================================================================
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // oscCV
@@ -163,6 +165,16 @@ struct oscCV : Module {
 	// If this has it controls configured.
 	bool isInitialized = false;
 	const float lightLambda = 0.005f;
+	
+	//---*---*---*---*---*---*---*---*---*---*---
+	// Debug console
+	//---*---*---*---*---*---*---*---*---*---*---
+	bool debugOSCConsoleOn = false;
+	const uint32_t maxDebugMessages = 100;	
+	std::vector<std::string> debugOSCMessages;
+	uint32_t debugOSCIx = 0;
+	uint32_t debugMsgCount = 0;
+	
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// oscCV()
@@ -179,6 +191,41 @@ struct oscCV : Module {
 	}
 	~oscCV();
 
+	//---*---*---*---*---*---*---*---*---*---*---
+	// Debug console - clear
+	//---*---*---*---*---*---*---*---*---*---*---	
+	void clearDebugConsole()
+	{
+		debugMsgCount = 0;
+		debugOSCIx = 0;
+		return;
+	}	
+	//---*---*---*---*---*---*---*---*---*---*---
+	// Debug console - add message
+	//---*---*---*---*---*---*---*---*---*---*---	
+	void addDebugMessage(std::string msg)
+	{
+		if (debugOSCIx < debugOSCMessages.size())
+		{
+			debugOSCMessages[debugOSCIx] = msg;					
+		}
+		else
+		{
+			debugOSCMessages.push_back(msg);
+			debugMsgCount++;			
+		}
+	DEBUG("%u : %s", debugOSCIx, msg.c_str());
+		if (debugOSCIx < maxDebugMessages)
+		{
+			debugOSCIx++;
+		}
+		else
+		{
+			debugOSCIx = 0;
+		}
+		return;
+	}
+
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// initializeChannels(void)
 	// Set channels to default values.
@@ -186,15 +233,20 @@ struct oscCV : Module {
 	void initialChannels() {
 		for (int i = 0; i < numberChannels; i++)
 		{
+			int portId = i *2;
 			if (doCVPort2OSC) {
 				inputChannels[i].channelNum = i + 1;
 				inputChannels[i].path = "/ch/" + std::to_string(i + 1);
 				inputChannels[i].initialize();
+				inputInfos[InputIds::CH_INPUT_START + portId]->PortInfo::name = "Trigger Send: " + inputChannels[i].path;
+				inputInfos[InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = "Value: " + inputChannels[i].path;						
 			}
 			if (doOSC2CVPort) {
 				outputChannels[i].channelNum = i + 1;
 				outputChannels[i].path = "/ch/" + std::to_string(i + 1);
 				outputChannels[i].initialize();
+				outputInfos[OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = "Received Trigger: " + outputChannels[i].path;
+				outputInfos[OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = "Value Received: " + outputChannels[i].path;				
 			}
 		}
 		return;

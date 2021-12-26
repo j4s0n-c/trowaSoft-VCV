@@ -16,6 +16,29 @@ Model* modelTrigSeq = createModel<trigSeq, trigSeqWidget>(/*slug*/ "trigSeq");
 Model* modelTrigSeq64 = createModel<trigSeq64, trigSeq64Widget>(/*slug*/ "trigSeq64");
 
 
+
+trigSeq::trigSeq(int numSteps, int numRows, int numCols) : TSSequencerModuleBase(numSteps, numRows, numCols, false, TSSequencerModuleBase::ValueMode::VALUE_TRIGGER)
+{
+	// [v1.0.4] Set the value modes we support:
+	numValueModesSupported = 3;
+	valueModesSupported = new ValueMode[numValueModesSupported] { ValueMode::VALUE_TRIGGER, ValueMode::VALUE_RETRIGGER, ValueMode::VALUE_CONTINUOUS };	
+	selectedOutputValueMode = defaultChannelValueMode;
+	selectedOutputValueModeIx = getSupportedValueModeIndex(selectedOutputValueMode);
+	lastOutputValueMode = selectedOutputValueMode;
+	
+	gateTriggers = new dsp::SchmittTrigger[numSteps]; // maxSteps
+	// Configure Parameters:
+	for (int s = 0; s < maxSteps; s++) 
+	{
+		configSwitch(TSSequencerModuleBase::CHANNEL_PARAM + s, 0, 1, defaultStateValue, "Step " + std::to_string(s+1), {"Off", "On"});;
+		//configParam(TSSequencerModuleBase::CHANNEL_PARAM + s, 0.0, 1.0, defaultStateValue, /*label*/ "Step " + std::to_string(s+1));
+	}
+	
+	this->reconfigureValueModeParamQty();
+	return;
+}
+
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // trigSeq::randomize()
 // Only randomize the current gate/trigger steps.
@@ -66,6 +89,26 @@ void trigSeq::process(const ProcessArgs &args)
 {
 	if (!initialized)
 		return;	
+	
+	// Now calculate some base items all the time:
+	float clockTime = 0.0f;
+	bool nextStep = isNewStep(args.sampleRate, &clockTime);	
+#if TROWA_SEQ_USE_INTERNAL_DIVISOR	
+	if (nextStep)
+	{
+		idleCounter = 0;
+	}
+	else
+	{
+		// Skip evaluations if needed
+		idleCounter = (idleCounter + 1) % IDLETHRESHOLD;
+		if (idleCounter != 0)
+		{				
+			return;
+		}
+	}
+#endif 	
+	
 	bool gOn = true;
 	bool pulse = false;
 	bool reloadMatrix = false;
@@ -77,9 +120,10 @@ void trigSeq::process(const ProcessArgs &args)
 	//------------------------------------------------------------
 	// Get our common sequencer inputs
 	//------------------------------------------------------------
-	TSSequencerModuleBase::getStepInputs(args, &pulse, &reloadMatrix, &valueModeChanged);
+	TSSequencerModuleBase::getStepInputs(args, &pulse, &reloadMatrix, &valueModeChanged, nextStep, clockTime);
 	if (valueModeChanged)
 	{
+		// v1.0.4 - This should be OK for trigSeq (he uses the first 3 ValueModes).
 		// Gate Mode has changed
 		gateMode = static_cast<GateMode>((short)(selectedOutputValueMode));
 		modeString = modeStrings[selectedOutputValueMode];		
@@ -108,12 +152,13 @@ void trigSeq::process(const ProcessArgs &args)
 		}
 		oscMutex.unlock();
 		// Load this gate and/or pattern into our 4x4 matrix
+		this->currentStepMatrixColor = voiceColors[currentChannelEditingIx];
 		for (int s = 0; s < maxSteps; s++) 
 		{
 			r = s / this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
 			c = s % this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
 
-			padLightPtrs[r][c]->setColor(voiceColors[currentChannelEditingIx]);
+			//padLightPtrs[r][c]->setColor(voiceColors[currentChannelEditingIx]);
 			if (triggerState[currentPatternEditingIx][currentChannelEditingIx][s])
 			{
 				gateLights[r][c] = 1.0f - stepLights[r][c];
@@ -272,7 +317,7 @@ void trigSeq::process(const ProcessArgs &args)
 	}	
 	// Now we have to keep track of this for OSC...
 	prevIndex = index;
-  return;
+	return;
 } // end step()
 
 
@@ -308,8 +353,8 @@ trigSeqWidget::trigSeqWidget(trigSeq* seqModule) : TSSequencerWidgetBase(seqModu
 	int dx = 3;
 	Vec lSize = Vec(50 - 2*dx, 50 - 2*dx);
 	NVGcolor lightColor = TSColors::COLOR_TS_RED; 
-	int numCols = TROWA_SEQ_STEP_NUM_COLS;
-	int numRows = TROWA_SEQ_STEP_NUM_ROWS;
+	numCols = TROWA_SEQ_STEP_NUM_COLS;
+	numRows = TROWA_SEQ_STEP_NUM_ROWS;
 	int groupId = 0;
 	if (!isPreview)
 	{
@@ -319,8 +364,10 @@ trigSeqWidget::trigSeqWidget(trigSeq* seqModule) : TSSequencerWidgetBase(seqModu
 		groupId = seqModule->oscId; // Use this id for now since this is unique to each module instance.
 	}
 	int id = 0;
+	padLightPtrs = new ColorValueLight**[numRows];	
 	for (int r = 0; r < numRows; r++) //---------THE PADS
 	{
+		padLightPtrs[r] = new ColorValueLight*[numCols];		
 		for (int c = 0; c < numCols; c++)
 		{			
 			// Pad buttons:
@@ -335,11 +382,13 @@ trigSeqWidget::trigSeqWidget(trigSeq* seqModule) : TSSequencerWidgetBase(seqModu
 				/*lightId*/ TSSequencerModuleBase::PAD_LIGHTS + id, // r * numCols + c
 				/* size */ lSize, /* color */ lightColor));
 			addChild(padLight);
-			if (seqModule != NULL)
-			{
-				// Keep a reference to our pad lights so we can change the colors
-				seqModule->padLightPtrs[r][c] = padLight;
-			}
+			padLight->cornerRadius = 5.0f;
+			padLightPtrs[r][c] = padLight;
+			// if (seqModule != NULL)
+			// {
+				// // Keep a reference to our pad lights so we can change the colors
+				// seqModule->padLightPtrs[r][c] = padLight;
+			// }
 			x+= 59;
 			id++;
 		}		

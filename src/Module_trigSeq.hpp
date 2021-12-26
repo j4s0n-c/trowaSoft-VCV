@@ -28,24 +28,7 @@ extern Model* modelTrigSeq64;
 //===============================================================================
 struct trigSeq : TSSequencerModuleBase
 {	
-	trigSeq(int numSteps, int numRows, int numCols) : TSSequencerModuleBase(numSteps, numRows, numCols, false)
-	{
-		gateTriggers = new dsp::SchmittTrigger[numSteps]; // maxSteps
-		selectedOutputValueMode = VALUE_TRIGGER;
-		lastOutputValueMode = selectedOutputValueMode;
-		modeStrings[0] = "TRIG";
-		modeStrings[1] = "RTRG";
-		modeStrings[2] = "GATE";
-		// Configure Parameters:
-		for (int s = 0; s < maxSteps; s++) {
-			configParam(TSSequencerModuleBase::CHANNEL_PARAM + s, 0.0, 1.0, defaultStateValue, /*label*/ "Step " + std::to_string(s+1));
-		}
-		for (int i = 0; i < ValueMode::NUM_VALUE_MODES; i++)
-		{
-			dynamic_cast<TS_ParamQuantityEnum*>(this->paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM])->addToEnumMap(i, modeStrings[i]);
-		}
-		return;
-	}
+	trigSeq(int numSteps, int numRows, int numCols);
 	trigSeq() : trigSeq(TROWA_SEQ_NUM_STEPS, TROWA_SEQ_STEP_NUM_ROWS, TROWA_SEQ_STEP_NUM_ROWS)
 	{
 		return;
@@ -55,7 +38,7 @@ struct trigSeq : TSSequencerModuleBase
 		delete [] gateTriggers;	
 		gateTriggers = NULL;
 		return;
-	}
+	}	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// process()
 	// [Previously step(void)]

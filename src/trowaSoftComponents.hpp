@@ -6,21 +6,23 @@ using namespace rack;
 
 #include <string.h>
 #include <stdio.h>
-#include "window.hpp"
-#include "ui.hpp"
-#include "math.hpp"
+//#include "math.hpp"
 #include "TSColors.hpp"
 #include "componentlibrary.hpp"
 #include "plugin.hpp"
 #include "trowaSoftUtilities.hpp"
 #include <color.hpp>
 #include <nanovg.h>
+#include "trowaSoftCLights.hpp" // Light Controls now in this file.
 
 extern Plugin* pluginInstance;
 
 //=======================================================
 // trowaSoft - TurtleMonkey Components 
 //=======================================================
+// v2 Conversion:
+// ParamWidget::paramQuantity has been replaced by getParamQuantity()
+// ParamWidget::reset() and ParamWidget::randomize() has been removed 
 
 
 //::: Helpers :::::::::::::::::::::::::::::::::::::::::::
@@ -39,52 +41,6 @@ extern Plugin* pluginInstance;
 #define FORMS_DEFAULT_BG_COLOR			TSColors::COLOR_BLACK
 
 
-//--------------------------------------------------------------
-// ColorValueLight - Sorta like the old ColorValueLight that was in Rack.
-//--------------------------------------------------------------
-struct ColorValueLight : ModuleLightWidget {
-	NVGcolor baseColor;
-	// Pixels to add for outer radius (either px or relative %).
-	float outerRadiusHalo = 0.35;
-	bool outerRadiusRelative = true;
-	ColorValueLight() : ModuleLightWidget()
-	{
-		bgColor = nvgRGB(0x20, 0x20, 0x20);
-		borderColor = nvgRGBA(0, 0, 0, 0);
-		return;
-	};
-	virtual ~ColorValueLight(){};
-	// Set a single color
-	void setColor(NVGcolor bColor)
-	{
-		color = bColor;
-		baseColor = bColor;
-		if (baseColors.size() < 1)
-		{
-			baseColors.push_back(bColor);			
-		}
-		else
-		{
-			baseColors[0] = bColor;
-		}
-	}
-	void drawHalo(const DrawArgs &args) override
-	{
-		float radius = box.size.x / 2.0;
-		float oradius = radius + ((outerRadiusRelative) ? (radius*outerRadiusHalo) : outerRadiusHalo);
-
-		nvgBeginPath(args.vg);
-		nvgRect(args.vg, radius - oradius, radius - oradius, 2 * oradius, 2 * oradius);
-
-		NVGpaint paint;
-		NVGcolor icol = color::mult(color, 0.10);//colorMult(color, 0.10);
-		NVGcolor ocol = nvgRGB(0, 0, 0);
-		paint = nvgRadialGradient(args.vg, radius, radius, radius, oradius, icol, ocol);
-		nvgFillPaint(args.vg, paint);
-		nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
-		nvgFill(args.vg);
-	}
-};
 
 //------------------------------------------------------------------------------------------------
 // TS_Label : Label with the trowaSoft default label font.
@@ -234,9 +190,10 @@ struct TS_PadSwitch : Switch {
 		return;
 	}
 	void setValue(float val) {
-		if (paramQuantity)
+		ParamQuantity* pQuantity = getParamQuantity(); // v2: Now no direct access to paramQuantity cause of reasons
+		if (pQuantity)
 		{
-			paramQuantity->setValue(val);
+			pQuantity->setValue(val);
 		}		
 		return;
 	}
@@ -248,16 +205,17 @@ struct TS_PadSwitch : Switch {
 	void onDragStart(const event::DragStart &e) override {
 		if (e.button != GLFW_MOUSE_BUTTON_LEFT)
 			return;		
-		if (paramQuantity)
+		ParamQuantity* pQuantity = getParamQuantity(); // v2: Now no direct access to paramQuantity cause of reasons?		
+		if (pQuantity)
 		{
 			if (momentary)
 			{
-				paramQuantity->setValue(paramQuantity->maxValue); // Trigger Value				
+				pQuantity->setValue(pQuantity->maxValue); // Trigger Value				
 			}
 			else
 			{
-				float newVal = (paramQuantity->getValue() < paramQuantity->maxValue) ? paramQuantity->maxValue : paramQuantity->minValue;
-				paramQuantity->setValue(newVal); // Toggle Value				
+				float newVal = (pQuantity->getValue() < pQuantity->maxValue) ? pQuantity->maxValue : pQuantity->minValue;
+				pQuantity->setValue(newVal); // Toggle Value				
 			}
 		}
 		return;
@@ -277,11 +235,12 @@ struct TS_PadSwitch : Switch {
 			return;	
 		// Set these no matter what because if you drag back onto your starting square, you want to toggle it again.
 		TS_PadSwitch *origin = dynamic_cast<TS_PadSwitch*>(e.origin);
-		if (origin && origin != this && origin->groupId == this->groupId && paramQuantity) 
+		ParamQuantity* pQuantity = getParamQuantity(); // v2: Now no direct access to paramQuantity cause of reasons?
+		if (origin && origin != this && origin->groupId == this->groupId && pQuantity) 
 		{
-			float newVal = (paramQuantity->getValue() < paramQuantity->maxValue) ? paramQuantity->maxValue : paramQuantity->minValue;
+			float newVal = (pQuantity->getValue() < pQuantity->maxValue) ? pQuantity->maxValue : pQuantity->minValue;
 			//DEBUG("onDragEnter(%d) - Set Value to %3.1f.", btnId, newVal);				
-			paramQuantity->setValue(newVal); // Toggle Value
+			pQuantity->setValue(newVal); // Toggle Value
 		}	
 	}
 	void onDragLeave(const event::DragLeave &e) override 
@@ -289,12 +248,13 @@ struct TS_PadSwitch : Switch {
 		if (e.button != GLFW_MOUSE_BUTTON_LEFT)
 			return;				
 		TS_PadSwitch *origin = dynamic_cast<TS_PadSwitch*>(e.origin);
-		if (origin && origin->groupId == this->groupId && paramQuantity) 
+		ParamQuantity* pQuantity = getParamQuantity(); // v2: Now no direct access to paramQuantity cause of reasons?				
+		if (origin && origin->groupId == this->groupId && pQuantity) 
 		{
 			if (momentary)
 			{
 				//DEBUG("onDragLeave(%d) (momentary) - Set Value to %3.1f.", btnId, paramQuantity->minValue);
-				paramQuantity->setValue(paramQuantity->minValue); // Turn Off				
+				pQuantity->setValue(pQuantity->minValue); // Turn Off				
 			}
 		}		
 		return;
@@ -304,6 +264,11 @@ struct TS_PadSwitch : Switch {
 		ParamWidget::onButton(e);
 		return;
 	}
+	void onEnter(const EnterEvent& e) override {
+		if (visible)
+			createTooltip(); // Only show the tool tip if this control is actually visible.
+		return;
+	}	
 };
 
 //--------------------------------------------------------------
@@ -323,19 +288,21 @@ struct TS_PadSvgSwitch : SvgSwitch {
 		return;
 	}
 	void setValue(float val) {
-		if (paramQuantity)
+		ParamQuantity* pQuantity = getParamQuantity(); // v2: Now no direct access to paramQuantity cause of reasons?		
+		if (pQuantity)
 		{
-			paramQuantity->setValue(val);
+			pQuantity->setValue(val);
 		}		
 		return;
 	}
 	
 	void toggleVal()
 	{
-		if (paramQuantity)
+		ParamQuantity* pQuantity = getParamQuantity(); // v2: Now no direct access to paramQuantity cause of reasons?						
+		if (pQuantity)
 		{
-			float newVal = (paramQuantity->getValue() < paramQuantity->maxValue) ? paramQuantity->maxValue : paramQuantity->minValue;
-			paramQuantity->setValue(newVal); // Toggle Value
+			float newVal = (pQuantity->getValue() < pQuantity->maxValue) ? pQuantity->maxValue : pQuantity->minValue;
+			pQuantity->setValue(newVal); // Toggle Value
 		}
 		return;
 	}
@@ -348,19 +315,19 @@ struct TS_PadSvgSwitch : SvgSwitch {
 	void onDragStart(const event::DragStart &e) override {
 		if (e.button != GLFW_MOUSE_BUTTON_LEFT)
 			return;		
-		
-		if (paramQuantity)
+		ParamQuantity* pQuantity = getParamQuantity(); // v2: Now no direct access to paramQuantity cause of reasons?
+		if (pQuantity)
 		{
 			if (momentary)
 			{
-				DEBUG("onDragStart(%d) - Momentary - Set Value to %3.1f.", btnId, paramQuantity->maxValue);
-				paramQuantity->setValue(paramQuantity->maxValue); // Trigger Value				
+				//DEBUG("onDragStart(%d) - Momentary - Set Value to %3.1f.", btnId, paramQuantity->maxValue);
+				pQuantity->setValue(pQuantity->maxValue); // Trigger Value				
 			}
 			else
 			{
-				float newVal = (paramQuantity->getValue() < paramQuantity->maxValue) ? paramQuantity->maxValue : paramQuantity->minValue;
-				DEBUG("onDragStart(%d) - Set Value to %3.1f.", btnId, newVal);						
-				paramQuantity->setValue(newVal); // Toggle Value
+				float newVal = (pQuantity->getValue() < pQuantity->maxValue) ? pQuantity->maxValue : pQuantity->minValue;
+				//DEBUG("onDragStart(%d) - Set Value to %3.1f.", btnId, newVal);						
+				pQuantity->setValue(newVal); // Toggle Value
 			}
 		}	
 		return;
@@ -379,12 +346,13 @@ struct TS_PadSvgSwitch : SvgSwitch {
 		if (e.button != GLFW_MOUSE_BUTTON_LEFT)
 			return;			
 		// Set these no matter what because if you drag back onto your starting square, you want to toggle it again.
-		TS_PadSvgSwitch *origin = dynamic_cast<TS_PadSvgSwitch*>(e.origin);			
-		if (origin && origin != this && origin->groupId == this->groupId && paramQuantity) 
+		TS_PadSvgSwitch *origin = dynamic_cast<TS_PadSvgSwitch*>(e.origin);
+		ParamQuantity* pQuantity = getParamQuantity(); // v2: Now no direct access to paramQuantity cause of reasons?		
+		if (origin && origin != this && origin->groupId == this->groupId && pQuantity) 
 		{
-			float newVal = (paramQuantity->getValue() < paramQuantity->maxValue) ? paramQuantity->maxValue : paramQuantity->minValue;
+			float newVal = (pQuantity->getValue() < pQuantity->maxValue) ? pQuantity->maxValue : pQuantity->minValue;
 			DEBUG("onDragEnter(%d) - Set Value to %3.1f.", btnId, newVal);				
-			paramQuantity->setValue(newVal); // Toggle Value
+			pQuantity->setValue(newVal); // Toggle Value
 		}		
 		return;
 	}
@@ -398,6 +366,11 @@ struct TS_PadSvgSwitch : SvgSwitch {
 	{
 		this->ParamWidget::onButton(e); // Need to call this base method to be set as the touchedParam for MIDI mapping to work.
 	}
+	void onEnter(const EnterEvent& e) override {
+		if (visible)
+			createTooltip(); // Only show the tool tip if this control is actually visible.
+		return;
+	}	
 };
 
 
@@ -459,10 +432,16 @@ struct TS_PadBtn : SvgSwitch { // MomentarySwitch
 		box.size = size;
 		sw->box.size = size;
 		btnText = text;
-		if (module) {
-			if (this->paramQuantity == NULL)
-				this->paramQuantity = module->paramQuantities[paramId];
-		}
+		// if (module) {
+			// if (this->paramQuantity == NULL)
+				// this->paramQuantity = module->paramQuantities[paramId];
+		// }
+		return;
+	}
+	
+	void onEnter(const EnterEvent& e) override {
+		if (visible)
+			createTooltip(); // Only show the tool tip if this control is actually visible.
 		return;
 	}
 	
@@ -630,7 +609,7 @@ struct HideableLEDButton : LEDButton
 // TS_ScreenBtn - Screen button.
 //--------------------------------------------------------------
 struct TS_ScreenBtn : Switch {
-	bool visible = true;
+	//bool visible = true;
 	// Text to display on the btn.
 	std::string btnText;
 	// Background color
@@ -664,10 +643,12 @@ struct TS_ScreenBtn : Switch {
 		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		btnText = text;
-		if (module) {
-			if (this->paramQuantity == NULL)
-				this->paramQuantity = module->paramQuantities[paramId];
-		}
+		this->module = module;
+		this->paramId = paramId;
+		// if (module) {
+			// if (this->paramQuantity == NULL)
+				// this->paramQuantity = module->paramQuantities[paramId];
+		// }
 		return;
 	}	
 	TS_ScreenBtn(Vec size, Module* module, int paramId, std::string text, float minVal, float maxVal, float defVal)
@@ -676,10 +657,12 @@ struct TS_ScreenBtn : Switch {
 		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		btnText = text;
-		if (module) {
-			if (this->paramQuantity == NULL)
-				this->paramQuantity = module->paramQuantities[paramId];
-		}
+		this->module = module;		
+		this->paramId = paramId;		
+		// if (module) {
+			// if (this->paramQuantity == NULL)
+				// this->paramQuantity = module->paramQuantities[paramId];
+		// }
 		return;
 	}
 	TS_ScreenBtn(Vec size, Module* module, int paramId, std::string text, float minVal, float maxVal, float defVal, bool isMomentary)
@@ -689,19 +672,31 @@ struct TS_ScreenBtn : Switch {
 		fontSize = 10;
 		btnText = text;
 		momentary = isMomentary;
-		if (module) {
-			if (this->paramQuantity == NULL)
-				this->paramQuantity = module->paramQuantities[paramId];
-		}
+		this->module = module;		
+		this->paramId = paramId;
+		// if (module) {
+			// if (this->paramQuantity == NULL)
+				// this->paramQuantity = module->paramQuantities[paramId];
+		// }
 		return;
 	}		
 	
 	void setValue(float val){
+		ParamQuantity* paramQuantity = getParamQuantity();		
+		if (!paramQuantity && module)
+		{
+			paramQuantity = module->paramQuantities[paramId];
+		}
 		if (paramQuantity){
 			paramQuantity->setValue(val);
 		}
 	}
 	float getValue() {
+		ParamQuantity* paramQuantity = getParamQuantity();		
+		if (!paramQuantity && module)
+		{
+			paramQuantity = module->paramQuantities[paramId];
+		}		
 		return (paramQuantity) ? paramQuantity->getValue() : 0.0;
 	}
 	
@@ -737,6 +732,13 @@ struct TS_ScreenBtn : Switch {
 		}
 		return;
 	}
+	
+	void onEnter(const EnterEvent& e) override {
+		if (visible)
+			createTooltip(); // Only show the tool tip if this control is actually visible.
+		return;
+	}
+
 
 	void setVisible(bool visible) {
 		this->visible = visible;
@@ -817,6 +819,12 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 	void setChecked(bool checked)
 	{
 		this->checked = checked;
+		ParamQuantity* paramQuantity = getParamQuantity();		
+		DEBUG("Checkbox %s - paramId = %d. Setting checked to %d.", btnText.c_str(), paramId, checked);
+		if (!paramQuantity && module && paramId > -1)
+		{
+			paramQuantity = module->paramQuantities[paramId];
+		}		
 		if (paramQuantity)
 		{
 			paramQuantity->setValue((checked) ? paramQuantity->getMaxValue() : paramQuantity->getMinValue());
@@ -825,6 +833,12 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 	
 	void onChange(const event::Change& e) override
 	{
+		DEBUG("Checkbox %s - paramId = %d. OnChange() - Current checked is %d.", btnText.c_str(), paramId, checked);		 	
+		ParamQuantity* paramQuantity = getParamQuantity();		
+		if (!paramQuantity && module)
+		{
+			paramQuantity = module->paramQuantities[paramId];
+		}		
 		if (paramQuantity)
 		{
 //DEBUG("CheckBox::onChange() - [%s] Current Checked is %d. paramQuantity is %.2f.", btnText.c_str(), checked, paramQuantity->getValue());
@@ -923,6 +937,8 @@ struct TS_BaseKnob : Knob {
 	bool snapToInt = true;
 	float snapIncrement = 0.0f;
 	
+	float snapValue = 0.0f; // Removed in v2, just add it here to minimize changes
+	
 	TS_BaseKnob()
 	{
 		return;
@@ -945,6 +961,7 @@ struct TS_BaseKnob : Knob {
 		
 	float getValue()
 	{
+		ParamQuantity* paramQuantity = getParamQuantity();		
 		if (paramQuantity)
 		{
 			return paramQuantity->getValue();
@@ -955,6 +972,7 @@ struct TS_BaseKnob : Knob {
 	}
 	void setValue(float val)
 	{
+		ParamQuantity* paramQuantity = getParamQuantity();		
 		if (paramQuantity)
 		{
 			paramQuantity->setValue(val);
@@ -963,6 +981,7 @@ struct TS_BaseKnob : Knob {
 	
 	float getDefaultValue()
 	{
+		ParamQuantity* paramQuantity = getParamQuantity();		
 		if (paramQuantity){
 			return paramQuantity->defaultValue;
 		}
@@ -975,7 +994,7 @@ struct TS_BaseKnob : Knob {
 	{
 		if (e.button != GLFW_MOUSE_BUTTON_LEFT)
 			return;
-
+		ParamQuantity* paramQuantity = getParamQuantity();
 		if (paramQuantity) {
 			float range;
 			if (paramQuantity->isBounded()) {
@@ -1006,7 +1025,7 @@ struct TS_BaseKnob : Knob {
 				
 				if (snapIncrement > 0)
 				{
-//DEBUG("[TS_BaseKnob] Snapping value %7.4f to %7.4f [%d] (Increment of %7.4f)", snapValue, static_cast<int>( std::round( snapValue / snapIncrement )	) * snapIncrement, static_cast<int>( snapValue / snapIncrement	), snapIncrement);
+					//DEBUG("[TS_BaseKnob] Snapping value %7.4f to %7.4f [%d] (Increment of %7.4f)", snapValue, static_cast<int>( std::round( snapValue / snapIncrement )	) * snapIncrement, static_cast<int>( snapValue / snapIncrement	), snapIncrement);
 					// Force to a increment of the snapIncrement
 					//snapValue = static_cast<int>( snapValue / snapIncrement	) * snapIncrement;
 					snapValue =  static_cast<int>(std::round( snapValue / snapIncrement )) * snapIncrement;					
@@ -1025,8 +1044,8 @@ struct TS_BaseKnob : Knob {
 				paramQuantity->setValue(paramQuantity->getValue() + delta);
 			}
 		}
-
 		ParamWidget::onDragMove(e);
+		return;
 	}
 };
 
@@ -1038,7 +1057,7 @@ struct TS_BaseKnob : Knob {
 //--------------------------------------------------------------
 struct TS_Knob : RoundKnob {
 	int size = 20;
-	bool allowRandomize = true;	
+	//bool allowRandomize = true;	
 	bool showShadow = true;
 	TS_Knob()
 	{
@@ -1089,6 +1108,7 @@ struct TS_Knob : RoundKnob {
 	
 	float getValue()
 	{
+		ParamQuantity* paramQuantity = getParamQuantity();		
 		if (paramQuantity)
 		{
 			return paramQuantity->getValue();
@@ -1099,6 +1119,7 @@ struct TS_Knob : RoundKnob {
 	}
 	void setValue(float val)
 	{
+		ParamQuantity* paramQuantity = getParamQuantity();
 		if (paramQuantity)
 		{
 			paramQuantity->setValue(val);
@@ -1107,6 +1128,7 @@ struct TS_Knob : RoundKnob {
 	
 	float getDefaultValue()
 	{
+		ParamQuantity* paramQuantity = getParamQuantity();
 		if (paramQuantity){
 			return paramQuantity->defaultValue;
 		}
@@ -1114,32 +1136,33 @@ struct TS_Knob : RoundKnob {
 			return 0;
 		}
 	}
-	// Override randomize. Only do randomize if set to true.
-	void randomize() override
-	{
-		if (allowRandomize) {
-			this->ParamWidget::randomize();
-		}
-		return;
-	}	
+	// [2021-12-22] Now v2 has this built-in with randomizeEnabled flag on ParamQuantity.
+	// // Override randomize. Only do randomize if set to true.
+	// void randomize() override
+	// {
+		// if (allowRandomize) {
+			// this->ParamWidget::randomize();
+		// }
+		// return;
+	// }	
 };
 //--------------------------------------------------------------
 // TS_RoundBlackKnob - 30x30 RoundBlackKnob
 //--------------------------------------------------------------
 struct TS_RoundBlackKnob : RoundBlackKnob {
-	bool allowRandomize = true;
+	//bool allowRandomize = true;
 	 TS_RoundBlackKnob() : RoundBlackKnob() {
 		 return;
 	 }
 	 
 	// Override randomize. Only do randomize if set to true.
-	void randomize() override
-	{
-		if (allowRandomize) {
-			this->ParamWidget::randomize();
-		}
-		return;
-	}
+	// void randomize() override
+	// {
+		// if (allowRandomize) {
+			// this->ParamWidget::randomize();
+		// }
+		// return;
+	// }
 	 
 	void setDirty(bool isDirty)
 	{
@@ -1162,6 +1185,7 @@ struct TS_RoundBlackKnob : RoundBlackKnob {
 	
 	float getValue()
 	{
+		ParamQuantity* paramQuantity = getParamQuantity();		
 		if (paramQuantity)
 		{
 			return paramQuantity->getValue();
@@ -1172,6 +1196,7 @@ struct TS_RoundBlackKnob : RoundBlackKnob {
 	}
 	void setValue(float val)
 	{
+		ParamQuantity* paramQuantity = getParamQuantity();		
 		if (paramQuantity)
 		{
 			paramQuantity->setValue(val);
@@ -1180,6 +1205,7 @@ struct TS_RoundBlackKnob : RoundBlackKnob {
 	
 	float getDefaultValue()
 	{
+		ParamQuantity* paramQuantity = getParamQuantity();		
 		if (paramQuantity){
 			return paramQuantity->defaultValue;
 		}
@@ -1290,6 +1316,9 @@ struct TS_20_BlackEncoder : TS_Knob { //RoundKnob {
 	float rotationRangeMax = 1.f;
 	float fineControlMult = 1. / 16.f;
 	float coarseControlMult = 16.f;
+	
+	float snapValue = 0.0f; // This has been removed from Knob v2
+	float oldValue = 0.0f;  // This has been removed from Knob v2
 
 	TS_20_BlackEncoder() : TS_Knob(20, "res/ComponentLibrary/TS_RoundBlackEncoder_20.svg") {
 		// box.size = Vec(size, size);
@@ -1307,7 +1336,8 @@ struct TS_20_BlackEncoder : TS_Knob { //RoundKnob {
 	// Override to allow pseudo endless encoding (still bound by some real values).
 	void onDragMove(const event::DragMove &e) override {
 		if (e.button != GLFW_MOUSE_BUTTON_LEFT)
-			return;		
+			return;	
+		ParamQuantity* paramQuantity = getParamQuantity();		
 		if (paramQuantity)
 		{
 			oldValue = paramQuantity->getSmoothValue();
@@ -1342,6 +1372,7 @@ struct TS_20_BlackEncoder : TS_Knob { //RoundKnob {
 	void onChange(const event::Change &e) override {
 		// Re-transform TransformWidget if dirty
 		//if (fb->dirty && paramQuantity) {
+		ParamQuantity* paramQuantity = getParamQuantity();			
 		if (paramQuantity) {
 			// Allow rotations 360 degrees:
 			float angle = rescale(paramQuantity->getValue(), rotationRangeMin, rotationRangeMax, minAngle, maxAngle);
@@ -1361,118 +1392,6 @@ struct TS_20_BlackEncoder : TS_Knob { //RoundKnob {
 	}
 	
 };
-
-//------------------------------------------------------------------------------------------------
-// TS_LightArc - Lighted arc for light knobs
-//------------------------------------------------------------------------------------------------
-struct TS_LightArc : ColorValueLight {
-	// The inner radius 
-	float innerRadius = 22;	
-	// Pointer to current angle in radians. This is the differential like from a knob.
-	float* currentAngle_radians;
-	// Font size for our display numbers
-	int fontSize;
-	// Font face
-	std::shared_ptr<Font> font;
-	// Numeric value to print out
-	//float* numericValue;
-	//ParamQuantity* pValue;
-	ParamWidget* paramWidget = NULL;
-	
-	// Buffer for our light string.
-	char lightString[10];
-	// The point where the angle is considered 0 degrees / radians.
-	float zeroAnglePoint;
-	// Pointer to the Sequencer Value mode information.
-	ValueSequencerMode* valueMode;
-	
-	TS_LightArc()
-	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
-		fontSize = 10;
-		bgColor = nvgRGBAf(0.0, 0, 0, /*alpha */ 1.0);
-		baseColor = TSColors::COLOR_WHITE;
-		zeroAnglePoint = TROWA_ANGLE_STRAIGHT_UP_RADIANS;
-	}	
-	void draw(const DrawArgs &args) override
-	{
-		float oradius = box.size.x / 2.0; // 25
-		float radius = oradius - 3; // 23
-		
-		float angle = *currentAngle_radians;
-		zeroAnglePoint = valueMode->zeroPointAngle_radians;
-		int dir = (angle < zeroAnglePoint) ? NVG_CCW : NVG_CW;
-
-		// Background - Solid
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, oradius, oradius, innerRadius);
-		nvgFillColor(args.vg, bgColor);
-		nvgFill(args.vg);
-		
-		nvgStrokeWidth(args.vg, radius - innerRadius);
-		NVGcolor borderColor = color;// bgColor;
-		borderColor.a *= 0.5;//1.0;
-		nvgStrokeColor(args.vg, borderColor);
-		nvgStroke(args.vg);
-		
-		// svg Angles go clockwise from positive x -->
-		
-		// Inner glow
-		nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
-		nvgCircle(args.vg, oradius, oradius, radius);		
-		borderColor = color;
-		borderColor.a = 0.25;
-		nvgStrokeWidth(args.vg, oradius - radius);
-		nvgStrokeColor(args.vg, borderColor);
-		nvgStroke(args.vg);
-		
-		
-		nvgBeginPath(args.vg);
-		//nvgArcTo(args.vg, oradius, oradius, float x2, float y2, float radius);
-		// Creates new circle arc shaped sub-path. The arc center is at cx,cy, the arc radius is r,
-		// and the arc is drawn from angle a0 to a1, and swept in direction dir (NVG_CCW, or NVG_CW).
-		// Angles are specified in radians.
-		// nvgArc(NVGcontext* ctx, float cx, float cy, float r, float a0, float a1, int dir);
-		nvgArc(args.vg, /*cx*/ oradius, /*cy*/ oradius, /*radius*/ innerRadius, 
-			/*a0*/ zeroAnglePoint, /*a1*/ angle, /*dir*/ dir);
-		nvgStrokeWidth(args.vg, oradius - innerRadius);
-		borderColor = baseColor;
-		borderColor.a *= 0.7;
-		nvgStrokeColor(args.vg, borderColor);
-		nvgStroke(args.vg);
-		
-		// Outer glow
-		nvgBeginPath(args.vg);
-		nvgArc(args.vg, /*cx*/ oradius, /*cy*/ oradius, innerRadius - 3, 
-			 /*a0*/ zeroAnglePoint, /*a1*/ angle, /*dir*/ dir);
-	
-		NVGpaint paint;
-		NVGcolor icol = color;
-		icol.a *= 0.8;
-		NVGcolor ocol = color;
-		ocol.a = 0.0;
-		paint = nvgRadialGradient(args.vg, oradius, oradius, innerRadius, oradius, icol, ocol);
-		nvgStrokeWidth(args.vg, oradius - innerRadius + 3);	
-		nvgStrokePaint(args.vg, paint);
-		nvgStroke(args.vg);
-					
-		//if (numericValue != NULL)
-		//if (pValue != NULL)
-		if (paramWidget != NULL && paramWidget->paramQuantity)
-		{
-			nvgBeginPath(args.vg);
-			nvgGlobalCompositeOperation(args.vg, NVG_SOURCE_OVER);//Restore to default.
-			NVGcolor textColor = TSColors::COLOR_WHITE;
-			nvgFontSize(args.vg, fontSize); 	
-			nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-			float v = valueMode->GetOutputValue(paramWidget->paramQuantity->getValue()); //(*numericValue);
-			valueMode->GetDisplayString(v, lightString);
-			nvgFillColor(args.vg, textColor);
-			nvgText(args.vg, oradius, oradius, lightString, NULL);
-		}
-		return;
-	}
-}; // end TS_LightArc
 
 //------------------------------------------------------------------------------------------------
 // TS_LightedKnob - Knob to be used with light arcs. (not actually lit itself)
@@ -1496,9 +1415,10 @@ struct TS_LightedKnob : TS_BaseKnob { // SvgKnob
 	TS_LightedKnob(int id) : TS_LightedKnob() {
 		this->id = id;
 	}
-	void randomize() override { return; }	
+	//void randomize() override { return; }	
 	void setKnobValue(float val)
 	{
+		ParamQuantity* paramQuantity = getParamQuantity();		
 		if (paramQuantity) {						
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			float prevVal = paramQuantity->getValue();
@@ -1516,6 +1436,7 @@ struct TS_LightedKnob : TS_BaseKnob { // SvgKnob
 	}
 	
 	void onChange(const event::Change &e) override {
+		ParamQuantity* paramQuantity = getParamQuantity();		
 		if (paramQuantity) {
 			differentialAngle = rescale(paramQuantity->getValue(), paramQuantity->minValue, paramQuantity->maxValue, minAngle, maxAngle);
 			currentAngle = zeroAnglePoint + differentialAngle;			
@@ -1524,237 +1445,6 @@ struct TS_LightedKnob : TS_BaseKnob { // SvgKnob
 		return;
 	}
 }; // end TS_LightedKnob
-
-//--------------------------------------------------------------
-// TS_LightString - A light with a string (message/text).
-//--------------------------------------------------------------
-struct TS_LightString : ColorValueLight
-{
-	const char * lightString;
-	float cornerRadius = 3.0;	
-	std::shared_ptr<Font> font;
-	int fontSize;
-	TS_LightString()
-	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
-		fontSize = 14;
-		bgColor = nvgRGBAf(0.2, 0.2, 0.2, /*alpha */ 1);
-		baseColor = TSColors::COLOR_WHITE;		
-	}
-	void draw(const DrawArgs &args) override
-	{
-		float radius = box.size.x / 2.0;
-		float oradius = radius + 20.0;
-		float radiusY = box.size.y / 2.0;
-		float oradiusY = radiusY + 20.0;
-
-		NVGcolor outerColor = color;
-		
-		// Solid
-		nvgBeginPath(args.vg);
-		// Border
-		nvgStrokeWidth(args.vg, 1.0);
-		NVGcolor borderColor = bgColor;
-		borderColor.a *= 0.5;
-		nvgStrokeColor(args.vg, borderColor);
-		nvgStroke(args.vg);
-		
-		// Inner glow
-		nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
-		nvgFillColor(args.vg, color);
-		nvgFill(args.vg);
-
-		// Outer glow
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, /*x*/ radius - oradius, /*y*/ radiusY - oradiusY, /*w*/ 3*oradius, /*h*/ 2*oradiusY, cornerRadius);
-		NVGpaint paint;
-		NVGcolor icol = outerColor;// color;
-		icol.a *= 0.5;
-		NVGcolor ocol = outerColor;// color;
-		ocol.a = 0.0;
-		float feather = 3;
-		// Feather defines how blurry the border of the rectangle is.
-		paint = nvgBoxGradient(args.vg, /*x*/ 0, /*y*/ 0, /*w*/ box.size.x, /*h*/ oradiusY - 10, 
-			/*r: corner radius*/ cornerRadius, /*f: feather*/ feather, 
-			/*inner color*/ icol, /*outer color */ ocol);
-		nvgFillPaint(args.vg, paint);
-		nvgFill(args.vg);
-				
-		nvgBeginPath(args.vg);
-		nvgGlobalCompositeOperation(args.vg, NVG_SOURCE_OVER);//Restore to default.
-		NVGcolor textColor = baseColor;
-		nvgFillColor(args.vg, textColor);
-		nvgFontSize(args.vg, fontSize);
-		nvgFontFaceId(args.vg, font->handle);
-		nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-		if (lightString != NULL)
-			nvgText(args.vg, box.size.x / 2, box.size.y / 2, lightString, NULL);
-		return;
-	}	
-}; // end TS_LightString
-
-//--------------------------------------------------------------
-// TS_LightSquare - Square light. 
-//--------------------------------------------------------------
-struct TS_LightSquare : ColorValueLight 
-{
-	// Radius on corners
-	float cornerRadius = 5.0;
-	TS_LightSquare()
-	{
-		bgColor = nvgRGBAf(0, 0, 0, /*alpha */ 0.5);
-		baseColor = TSColors::COLOR_WHITE;
-	}
-	void draw(const DrawArgs &args) override
-	{
-		float radius = box.size.x / 2.0;
-		float oradius = radius*1.1;
-
-		NVGcolor backColor = bgColor;
-		NVGcolor outerColor = color;
-		// Solid
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
-		nvgFillColor(args.vg, backColor);
-		nvgFill(args.vg);
-
-		// Border
-		nvgStrokeWidth(args.vg, 1.0);
-		NVGcolor borderColor = bgColor;
-		borderColor.a *= 0.5;
-		nvgStrokeColor(args.vg, borderColor);
-		nvgStroke(args.vg);
-
-		// Inner glow
-		nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
-		nvgFillColor(args.vg, color);
-		nvgFill(args.vg);
-
-		// Outer glow
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, /*x*/ radius - oradius, /*y*/ radius - oradius, /*w*/ 2*oradius, /*h*/ 2*oradius, cornerRadius);
-		NVGpaint paint;
-		NVGcolor icol = outerColor;// color;
-		icol.a *= 0.25;
-		NVGcolor ocol = outerColor;// color;
-		ocol.a = 0.0;
-		float feather = 2;
-		// Feather defines how blurry the border of the rectangle is. // Fixed 01/19/2018, made it too tiny before
-		paint = nvgBoxGradient(args.vg, /*x*/ radius - oradius, /*y*/ radius - oradius, /*w*/ 2 * oradius, /*h*/ 2 * oradius,  //args.vg, /*x*/ -5, /*y*/ -5, /*w*/ 2*oradius + 10, /*h*/ 2*oradius + 10, 
-			/*r: corner radius*/ cornerRadius, /*f: feather*/ feather, 
-			/*inner color*/ icol, /*outer color */ ocol);
-		nvgFillPaint(args.vg, paint);
-		nvgFill(args.vg);
-		return;
-	}
-}; // end TS_LightSquare
-
-//--------------------------------------------------------------
-// TS_LightRectangle - Square light. 
-//--------------------------------------------------------------
-struct TS_LightRectangle : ColorValueLight 
-{
-	// Radius on corners
-	float cornerRadius = 2.0;
-	TS_LightRectangle()
-	{
-		bgColor = nvgRGBAf(0, 0, 0, /*alpha */ 0.5);
-		baseColor = TSColors::COLOR_WHITE;
-	}
-	void draw(const DrawArgs &args) override
-	{
-		Vec radius = Vec(box.size.x / 2.0f, box.size.y / 2.0f);
-		Vec oradius = Vec(radius.x * 1.1, radius.y * 1.1);
-		
-		NVGcolor backColor = bgColor;
-		NVGcolor outerColor = color;
-		// Solid
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
-		nvgFillColor(args.vg, backColor);
-		nvgFill(args.vg);
-
-		// Border
-		nvgStrokeWidth(args.vg, 1.0);
-		NVGcolor borderColor = bgColor;
-		borderColor.a *= 0.5;
-		nvgStrokeColor(args.vg, borderColor);
-		nvgStroke(args.vg);
-
-		// Inner glow
-		nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
-		nvgFillColor(args.vg, color);
-		nvgFill(args.vg);
-
-		// Outer glow
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, /*x*/ radius.x - oradius.x, /*y*/ radius.y - oradius.y, /*w*/ 2*oradius.x, /*h*/ 2*oradius.y, cornerRadius);
-		NVGpaint paint;
-		NVGcolor icol = outerColor;// color;
-		icol.a *= 0.25;
-		NVGcolor ocol = outerColor;// color;
-		ocol.a = 0.0;
-		float feather = 2;
-		// Feather defines how blurry the border of the rectangle is. 
-		paint = nvgBoxGradient(args.vg, /*x*/ radius.x - oradius.y, /*y*/ radius.y - oradius.y, /*w*/ 2 * oradius.x, /*h*/ 2 * oradius.y,   
-			/*r: corner radius*/ cornerRadius, /*f: feather*/ feather, 
-			/*inner color*/ icol, /*outer color */ ocol);
-		nvgFillPaint(args.vg, paint);
-		nvgFill(args.vg);
-		return;
-	}
-}; // end TS_LightRectangle
-
-//--------------------------------------------------------------
-// TS_LightRing - Light to be used around ports.
-//--------------------------------------------------------------
-struct TS_LightRing : ColorValueLight 
-{
-	// The inner radius 
-	float innerRadius = 6.8;
-	
-	TS_LightRing()
-	{
-		bgColor = nvgRGBAf(0, 0, 0, /*alpha */ 0.2);
-		baseColor = TSColors::COLOR_WHITE;
-	}
-	void draw(const DrawArgs &args) override
-	{
-		float radius = box.size.x / 2.0;
-		float oradius = radius + 10.0;
-		
-
-		// Solid
-		nvgBeginPath(args.vg);
-		nvgCircle(args.vg, radius, radius, radius);
-
-		// Border
-		nvgStrokeWidth(args.vg, radius - innerRadius);
-		NVGcolor borderColor = bgColor;
-		borderColor.a *= 1.0;
-		nvgStrokeColor(args.vg, borderColor);
-		nvgStroke(args.vg);
-
-		// Inner glow
-		nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
-		//nvgFillColor(args.vg, color);
-		//nvgFill(args.vg);
-
-		// Outer glow
-		nvgBeginPath(args.vg);
-		nvgRect(args.vg, radius - oradius, radius - oradius, 2*oradius, 2*oradius);
-		NVGpaint paint;
-		NVGcolor icol = color;
-		icol.a *= (module != NULL) ? module->lights[firstLightId].value : 0;
-		//icol.a *= value;
-		NVGcolor ocol = color;
-		ocol.a = 0.0;
-		paint = nvgRadialGradient(args.vg, radius, radius, innerRadius, oradius, icol, ocol);
-		nvgFillPaint(args.vg, paint);
-		nvgFill(args.vg);
-		return;
-	}
-};
 
 
 //--------------------------------------------------------------
@@ -1771,49 +1461,49 @@ struct TS_Port : SvgPort {
 		setSvg(APP->window->loadSvg(asset::plugin(pluginInstance, "res/ComponentLibrary/TS_Port.svg")));
 		box.size = sw->box.size;
 		this->shadow->opacity = 0.0f;
-		if (plugLight)
+		//if (plugLight)
 		{
-			negColor = plugLight->baseColors[1];
-			posColor = plugLight->baseColors[0];
+			// negColor = plugLight->baseColors[1];
+			// posColor = plugLight->baseColors[0];
 		}
 	}
 	void disableLights()
 	{
 		// Save our colors:
-		if (plugLight)
+		//if (plugLight)
 		{
-			negColor = plugLight->baseColors[1];
-			posColor = plugLight->baseColors[0];		
-			plugLight->baseColors[0] = nvgRGBAf(0,0,0,0);
-			plugLight->baseColors[1] = nvgRGBAf(0,0,0,0);		
+			// negColor = plugLight->baseColors[1];
+			// posColor = plugLight->baseColors[0];		
+			// plugLight->baseColors[0] = nvgRGBAf(0,0,0,0);
+			// plugLight->baseColors[1] = nvgRGBAf(0,0,0,0);		
 		}
 	}
 	void enableLights()
 	{
-		if (plugLight)
+		//if (plugLight)
 		{
-			plugLight->baseColors[1] = negColor;
-			plugLight->baseColors[0] = posColor;		
+			// plugLight->baseColors[1] = negColor;
+			// plugLight->baseColors[0] = posColor;		
 		}
 	}
 	void setLightColor(NVGcolor color)
 	{		
 		negColor = color;
 		posColor = color;
-		if (plugLight)
+		//if (plugLight)
 		{
-			plugLight->baseColors[0] = color;
-			plugLight->baseColors[1] = color;
+			// plugLight->baseColors[0] = color;
+			// plugLight->baseColors[1] = color;
 		}
 	}
 	void setLightColor(NVGcolor negativeColor, NVGcolor positiveColor)
 	{
 		negColor = negativeColor;
 		posColor = positiveColor;
-		if (plugLight)
+		//if (plugLight)
 		{
-			plugLight->baseColors[1] = negativeColor;
-			plugLight->baseColors[2] = positiveColor;			
+			// plugLight->baseColors[1] = negativeColor;
+			// plugLight->baseColors[2] = positiveColor;			
 		}
 	}	
 };
@@ -2020,6 +1710,7 @@ struct TS_ColorSlider : Knob {
 	
 	void setValue(float val)
 	{
+		ParamQuantity* paramQuantity = getParamQuantity();
 		if (paramQuantity)
 		{
 			paramQuantity->setValue(val);
@@ -2027,6 +1718,7 @@ struct TS_ColorSlider : Knob {
 	}
 	float getValue()
 	{
+		ParamQuantity* paramQuantity = getParamQuantity();
 		if (paramQuantity)
 		{
 			return paramQuantity->getValue();
@@ -2124,11 +1816,12 @@ struct TS_ColorSlider : Knob {
 		float val = 0.5;
 		float min = 0;
 		float max = 1.0;
-		if (paramQuantity)
+		ParamQuantity* pQuantity = getParamQuantity();
+		if (pQuantity)
 		{
-			val = paramQuantity->getValue();
-			min = paramQuantity->minValue;
-			max = paramQuantity->maxValue;
+			val = pQuantity->getValue();
+			min = pQuantity->minValue;
+			max = pQuantity->maxValue;
 		}
 		for (int i = 0; i < 3; i++)
 		{
@@ -2150,37 +1843,16 @@ struct TS_ColorSlider : Knob {
 	}
 }; // end TS_ColorSlider
 
-//:::-:::-:::-:::- Helpers -:::-:::-:::-:::
-template <class TModuleLightWidget>
-ColorValueLight * TS_createColorValueLight(Vec pos,  Module *module, int lightId, Vec size, NVGcolor lightColor) {
-	ColorValueLight *light = new TModuleLightWidget();
-	light->box.pos = pos;
-	light->module = module;
-	light->firstLightId = lightId;	
-	//light->value = value;
-	light->box.size = size;
-	light->setColor(lightColor);
-	//light->baseColor = lightColor;
-	return light;
-}
-template <class TModuleLightWidget>
-ColorValueLight * TS_createColorValueLight(Vec pos, Module *module, int lightId, Vec size, NVGcolor lightColor, NVGcolor backColor) {
-	ColorValueLight *light = new TModuleLightWidget();
-	light->box.pos = pos;
-	light->module = module;
-	light->firstLightId = lightId;	
-	light->box.size = size;
-	light->setColor(lightColor);	
-	light->bgColor = backColor;
-	return light;
-}
 
+/////////////////////////////////////////////
+//:::-:::-:::-:::- Helpers -:::-:::-:::-::://
+/////////////////////////////////////////////
 template <class TPort>
 TS_Port* TS_createInput(Vec pos, Module *module, int inputId) {
 	TS_Port *port = new TPort();
 	port->box.pos = pos;
 	port->module = module;
-	port->type = PortWidget::INPUT;
+	port->type = engine::Port::INPUT;
 	port->portId = inputId;
 	port->disableLights();
 	return port;
@@ -2190,7 +1862,7 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId, NVGcolor lightColo
 	TS_Port *port = new TPort();
 	port->box.pos = pos;
 	port->module = module;
-	port->type = PortWidget::INPUT;
+	port->type = engine::Port::INPUT;
 	port->portId = inputId;
 	port->setLightColor(lightColor);
 	port->enableLights();
@@ -2201,7 +1873,7 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId, NVGcolor negColor,
 	TS_Port *port = new TPort();
 	port->box.pos = pos;
 	port->module = module;
-	port->type = PortWidget::INPUT;
+	port->type = engine::Port::INPUT;
 	port->portId = inputId;
 	port->setLightColor(negColor, posColor);
 	port->enableLights();
@@ -2212,7 +1884,7 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId, bool disableLight)
 	TS_Port *port = new TPort();
 	port->box.pos = pos;
 	port->module = module;
-	port->type = PortWidget::INPUT;
+	port->type = engine::Port::INPUT;
 	port->portId = inputId;
 	if (disableLight)
 		port->disableLights();
@@ -2225,7 +1897,7 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId, bool disableLight,
 	TS_Port *port = new TPort();
 	port->box.pos = pos;
 	port->module = module;
-	port->type = PortWidget::INPUT;
+	port->type = engine::Port::INPUT;
 	port->portId = inputId;
 	port->setLightColor(lightColor);
 	if (disableLight)
@@ -2241,7 +1913,7 @@ TS_Port* TS_createOutput(Vec pos, Module *module, int inputId) {
 	TS_Port *port = new TPort();
 	port->box.pos = pos;
 	port->module = module;
-	port->type = PortWidget::OUTPUT;
+	port->type = engine::Port::OUTPUT;
 	port->portId = inputId;
 	port->disableLights();
 	return port;
@@ -2251,7 +1923,7 @@ TS_Port* TS_createOutput(Vec pos, Module *module, int inputId, NVGcolor lightCol
 	TS_Port *port = new TPort();
 	port->box.pos = pos;
 	port->module = module;
-	port->type = PortWidget::OUTPUT;
+	port->type = engine::Port::OUTPUT;
 	port->portId = inputId;
 	port->setLightColor(lightColor);
 	port->enableLights();
@@ -2262,7 +1934,7 @@ TS_Port* TS_createOutput(Vec pos, Module *module, int inputId, NVGcolor negColor
 	TS_Port *port = new TPort();
 	port->box.pos = pos;
 	port->module = module;
-	port->type = PortWidget::OUTPUT;
+	port->type = engine::Port::OUTPUT;
 	port->portId = inputId;
 	port->setLightColor(negColor, posColor);
 	port->enableLights();
@@ -2273,7 +1945,7 @@ TS_Port* TS_createOutput(Vec pos, Module *module, int inputId, bool disableLight
 	TS_Port *port = new TPort();
 	port->box.pos = pos;
 	port->module = module;
-	port->type = PortWidget::OUTPUT;
+	port->type = engine::Port::OUTPUT;
 	port->portId = inputId;
 	if (disableLight)
 		port->disableLights();
@@ -2286,7 +1958,7 @@ TS_Port* TS_createOutput(Vec pos, Module *module, int inputId, bool disableLight
 	TS_Port *port = new TPort();
 	port->box.pos = pos;
 	port->module = module;
-	port->type = PortWidget::OUTPUT;
+	port->type = engine::Port::OUTPUT;
 	port->portId = inputId;
 	port->setLightColor(lightColor);
 	if (disableLight)

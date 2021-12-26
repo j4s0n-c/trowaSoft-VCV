@@ -1,5 +1,5 @@
 ﻿# trowaSoft-VCV
-![trowaSoft Modules for VCV Rack](http://www.geekasaurusrex.net/image.axd?picture=2018%2f6%2f0.6.3_screenshot.png "trowaSoft Modules for VCV Rack")
+![trowaSoft Modules for VCV Rack](https://geekasaurusrex.azurewebsites.net/image.axd?picture=2018%2f6%2f0.6.3_screenshot.png "trowaSoft Modules for VCV Rack")
 
 trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.x, v0.6.x, v1.x. 
 The current pack includes [trigSeq & trigSeq64](#trigseq--trigseq64), [voltSeq](#voltseq), [multiWave](#multiwave), [multiScope](#multiscope), [cvOSCcv](#cvosccv), and [cvOSC & OSCcv](#cvosccv-expansion-modules).

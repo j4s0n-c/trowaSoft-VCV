@@ -29,9 +29,10 @@ void TSParamTextField::saveValue()
 {
 	isEditing = 2; // Wait 2 cycles before setting knob -> text again in step()
 	char buffer[50] = { 0 };
-	if (control != NULL && control->paramQuantity != NULL)
+	if (control != NULL && control->getParamQuantity() != NULL)
 	{
-		float controlVal = control->paramQuantity->getValue();
+		ParamQuantity* cParamQty = control->getParamQuantity();
+		float controlVal = cParamQty->getValue();
 		if (isValid()) {
 			// Set the value on the control:
 			float val = (text.length() > 0) ? std::stof(text.c_str()) : 0.0f;
@@ -39,17 +40,17 @@ void TSParamTextField::saveValue()
 				controlVal = text2KnobVal(val);
 			else
 				controlVal = val;
-			if (controlVal < control->paramQuantity->getMinValue())
+			if (controlVal < cParamQty->getMinValue())
 			{
-				val = (knob2TextVal == NULL) ? control->paramQuantity->getMinValue() : knob2TextVal(control->paramQuantity->getMinValue());
-				controlVal = control->paramQuantity->getMinValue();
+				val = (knob2TextVal == NULL) ? cParamQty->getMinValue() : knob2TextVal(cParamQty->getMinValue());
+				controlVal = cParamQty->getMinValue();
 			}
-			else if (controlVal > control->paramQuantity->getMaxValue())
+			else if (controlVal > cParamQty->getMaxValue())
 			{
-				val = (knob2TextVal == NULL) ? control->paramQuantity->getMaxValue() : knob2TextVal(control->paramQuantity->getMaxValue());
-				controlVal = control->paramQuantity->getMaxValue();
+				val = (knob2TextVal == NULL) ? cParamQty->getMaxValue() : knob2TextVal(cParamQty->getMaxValue());
+				controlVal = cParamQty->getMaxValue();
 			}
-			control->paramQuantity->setValue(controlVal);
+			cParamQty->setValue(controlVal);
 			if (isBufferedCtrl && isDirty != NULL)
 			{
 				*isDirty = true; // Set dirty flag to redraw
@@ -102,9 +103,9 @@ void TSParamTextField::onDeselect(const event::Deselect &e)
 //-----------------------------------------------------------------------------------------------
 void TSParamTextField::step()
 {
-	if (control != NULL && !isEditing && control->paramQuantity != NULL)
+	if (control != NULL && !isEditing && control->getParamQuantity() != NULL)
 	{
-		float val = control->paramQuantity->getValue();
+		float val = control->getParamQuantity()->getValue();
 		if (val != lastControlVal)
 		{
 			char buffer[50] = { 0 };
@@ -131,16 +132,17 @@ void TSParamTextField::setText(float val)
 {
 	char buffer[50] = { 0 };
 	float controlVal = val;
-	if (control != NULL && control->paramQuantity != NULL)
+	if (control != NULL && control->getParamQuantity() != NULL)
 	{
+		ParamQuantity* cParamQty = control->getParamQuantity();		
 		if (text2KnobVal != NULL)
 			controlVal = text2KnobVal(val);
 		else
 			controlVal = val;
-		if (controlVal < control->paramQuantity->getMinValue())
-			val = (knob2TextVal == NULL) ? control->paramQuantity->getMinValue() : knob2TextVal(control->paramQuantity->getMinValue());
-		else if (controlVal > control->paramQuantity->getMaxValue())
-			val = (knob2TextVal == NULL) ? control->paramQuantity->getMaxValue() : knob2TextVal(control->paramQuantity->getMaxValue());
+		if (controlVal < cParamQty->getMinValue())
+			val = (knob2TextVal == NULL) ? cParamQty->getMinValue() : knob2TextVal(cParamQty->getMinValue());
+		else if (controlVal > cParamQty->getMaxValue())
+			val = (knob2TextVal == NULL) ? cParamQty->getMaxValue() : knob2TextVal(cParamQty->getMaxValue());
 	}
 	// Format the text
 	sprintf(buffer, formatString, val);

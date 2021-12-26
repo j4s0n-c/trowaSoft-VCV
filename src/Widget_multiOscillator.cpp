@@ -290,8 +290,9 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 	{
 		// Input CV Ports
 		port = TS_createInput<TS_Port>(Vec(x - 5, y+5), thisModule, baseInputId + paramId, !plugLightsEnabled, thisColor);
-		addChild(port);
-		parentWidget->inputs.push_back(port);
+		addChild(port);		
+		// [Rack v2] inputs, outputs, params no longer members of ModuleWidget.
+		//parentWidget->addInput(port);  //parentWidget->inputs.push_back(port);
 
 		// Input Knobs
 		int xKnob = x + 30;
@@ -307,7 +308,8 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 			tmp->setRotationAmount(20.f);
 		}
 		addChild(knobPtr);
-		parentWidget->params.push_back(knobPtr);
+		// [Rack v2] inputs, outputs, params no longer members of ModuleWidget.
+		//parentWidget->addParam(knobPtr); // parentWidget->params.push_back(knobPtr);
 
 		// Input Text Field
 		TSParamTextField* knobTextBox = new TSParamTextField(TSTextField::TextType::RealNumberOnly, /*maxLength*/ 30, /*control*/ knobPtr, /*formatStr*/ formatStrs[paramId]);
@@ -320,7 +322,7 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 		addChild(knobTextBox);
 		tbParamValues.push_back(knobTextBox);
 		oscillatorDisplay->textBoxes[paramId] = knobTextBox;
-		// Collect all textboxes
+		// Collect all textboxes		
 		tbAllParamValues.push_back(knobTextBox);
 
 		x += dx;
@@ -344,12 +346,13 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 	y = yStart + 5;
 	port = TS_createInput<TS_Port>(Vec(x, y), thisModule, baseInputId + TS_Oscillator::BaseInputIds::OSCWF_SYNC_INPUT, !plugLightsEnabled, thisColor);
 	addChild(port);
-	parentWidget->inputs.push_back(port);
+	// [Rack v2] inputs, outputs, params no longer members of ModuleWidget.
+	//parentWidget->addInput(port); //parentWidget->inputs.push_back(port);
 	// Output:
 	x += dx;
 	port = TS_createOutput<TS_Port>(Vec(x, y), thisModule, baseOutputId + TS_Oscillator::BaseOutputIds::OSCWF_SYNC_OUTPUT, !plugLightsEnabled, thisColor);
 	addChild(port);
-	parentWidget->outputs.push_back(port);
+	//parentWidget->outputs.push_back(port);
 
 	//-----------------------------------------
 	// Channels
@@ -679,7 +682,7 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 		// Input CV Ports
 		port = TS_createInput<TS_Port>(Vec(x - 5, y + 5), thisModule, baseInputId + paramId, !plugLightsEnabled, channelColor);
 		addChild(port);
-		parentModuleWidget->inputs.push_back(port);
+		//parentModuleWidget->inputs.push_back(port);
 
 		// Input Knobs
 		int xKnob = x + 30;
@@ -687,7 +690,7 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 		//knobPtr = dynamic_cast<TS_TinyBlackKnob*>(createParam<TS_TinyBlackKnob>(Vec(xKnob, yKnob), thisModule, /*id*/ baseParamId + paramId, /*min*/ knobVals[paramId][0], /*max*/ knobVals[paramId][1], /*def*/ knobVals[paramId][2]));
 		knobPtr = dynamic_cast<TS_TinyBlackKnob*>(createParam<TS_TinyBlackKnob>(Vec(xKnob, yKnob), thisModule, /*id*/ baseParamId + paramId));		
 		addChild(knobPtr);
-		parentModuleWidget->params.push_back(knobPtr);
+		//parentModuleWidget->params.push_back(knobPtr);
 
 		if (hasTextBox[paramId])
 		{
@@ -740,7 +743,7 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 	//btn->box.size = ledBtnSize;
 	btn->setSize(ledBtnSize);
 	addChild(btn);
-	parentModuleWidget->params.push_back(btn);
+	//parentModuleWidget->params.push_back(btn);
 	ColorValueLight* light = TS_createColorValueLight<ColorValueLight>(Vec(x + 2.5, y + 13.5), thisModule,
 		baseLightId + TS_OscillatorOutput::BaseLightIds::OUT_AM_MODE_LED, ledBtnSize, TSColors::COLOR_WHITE);
 	addChild(light);
@@ -755,13 +758,13 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 	//INFO(" >> Raw Signal id %d", baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_RAW_SIGNAL);
 	port = TS_createOutput<TS_Port>(Vec(x, y), thisModule, baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_RAW_SIGNAL, !plugLightsEnabled, chColor);
 	addChild(port);
-	parentModuleWidget->outputs.push_back(port);
+	//parentModuleWidget->outputs.push_back(port);
 	// * Multiplied * signal
 	x += 30;
 	//INFO(" >> Mod Signal id %d", baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL);
 	port = TS_createOutput<TS_Port>(Vec(x, y), thisModule, baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL, !plugLightsEnabled, chColor);
 	addChild(port);
-	parentModuleWidget->outputs.push_back(port);
+	//parentModuleWidget->outputs.push_back(port);
 	return;
 } // end TSOscilatorChannelWidget()
 

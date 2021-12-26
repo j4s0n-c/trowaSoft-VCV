@@ -374,6 +374,8 @@ multiOscillator::multiOscillator(int numOscillators, int numOscillatorOutputs) :
 	const char* outputParamUnits[outputNumParamVals] = { "", " N/A", "°", "%", "" };
 	
 		
+	int inputId = InputIds::OSC_INPUT_START;
+	int outputId = OutputIds::OSC_OUTPUT_START;
 	for (int i = 0; i < numOscillators; i++)
 	{
 		//--------------------------
@@ -399,17 +401,98 @@ multiOscillator::multiOscillator(int numOscillators, int numOscillatorOutputs) :
 			configParam<TS_ParamQuantityEnum>(bParamId, /*min*/ outputParamVals[0][0], /*max*/ outputParamVals[0][1], /*def*/ outputParamVals[0][2], 
 					/*label*/ outputParamLabels[0], /*unit*/ outputParamUnits[0], /*displayBase*/ outputParamVals[0][3], /*displayMult*/ outputParamVals[0][4], /*displayOffset*/ outputParamVals[0][5]);
 			dynamic_cast<TS_ParamQuantityEnum*>(this->paramQuantities[bParamId])->valMult = 1;
+			dynamic_cast<TS_ParamQuantityEnum*>(this->paramQuantities[bParamId])->snapEnabled = true;
 			for (int w = 0; w < WaveFormType::NUM_WAVEFORMS; w++)
 			{
 				dynamic_cast<TS_ParamQuantityEnum*>(this->paramQuantities[bParamId])->addToEnumMap(w, WaveFormAbbr[w]);				
 			}
 
-			for (int paramId = 1; paramId < outputNumParamVals; paramId++)
+			for (int paramId = 1; paramId < outputNumParamVals - 1; paramId++)
 			{
 				configParam( /*id*/ bParamId + paramId, /*min*/ outputParamVals[paramId][0], /*max*/ outputParamVals[paramId][1], /*def*/ outputParamVals[paramId][2],
 					/*label*/ outputParamLabels[paramId], /*unit*/ outputParamUnits[paramId], /*displayBase*/ outputParamVals[paramId][3], /*displayMult*/ outputParamVals[paramId][4], /*displayOffset*/ outputParamVals[paramId][5]);
 			}
+			
+			// Dig/Ring
+			configButton(bParamId + outputNumParamVals - 1, "Dig/Ring");
 		} // end loop through an oscillator's output
+		
+		//----------------------------------
+		// * Initialize Inputs & Outputs *
+		//----------------------------------
+		// OSCILLATOR 1 ::::::::::::::::::::::::::::::::::::::::::::
+		std::string prefix = "Osc[" + std::to_string(i + 1) + "] ";		
+		//TS_Oscillator
+		// // A_V: Amplitude (Volts). [Voltage Range: +/-12 V]
+		// OSCWF_AMPLITUDE_INPUT,
+		// // f_Hz: Frequency (Hz). [Voltage Range: +/- 10V]
+		// OSCWF_FREQUENCY_INPUT,
+		// // Phi_degrees: Phase Shift (degrees) [0-360].  [Voltage Range: +/- 10V]
+		// OSCWF_PHASE_SHIFT_INPUT,
+		// // y0_V : Offset (Volts).  [Voltage Range: +/- 10V]
+		// OSCWF_OFFSET_INPUT,
+		// // Sync/Restart waveform.
+		// OSCWF_SYNC_INPUT,
+		// // Frequency Modulator Input
+		// OSCWF_FM_INPUT,
+		configInput(inputId++, prefix + "Amplitude");	// 2
+		configInput(inputId++, prefix + "Frequency");	// 3
+		configInput(inputId++, prefix + "Phase Shift");	// 4
+		configInput(inputId++, prefix + "Offset");		// 5
+		configInput(inputId++, prefix + "Sync");		// 6
+		configInput(inputId++, prefix + "Frequency Mod"); // 7
+		
+		// // Any time sync happens or oscillator is at 0 phase.
+		// OSCWF_SYNC_OUTPUT,
+		configOutput(outputId++, prefix + "Sync");	// 2
+			
+		// OUTPUT X1 ::::::::::::::::::::::::::::::::::::::::::::::::
+		prefix = "Osc[" + std::to_string(i + 1) + "] X1 ";
+		//TS_OscillatorOutput::BaseInputIds
+		// // Oscillator type (SIN, SQU, TRI, SAW). [Voltage Range: +/- 5V].
+		// OUT_OSC_TYPE_INPUT,
+		// // Secondary input (i.e. Pulse width for Rectangle, Ramp slope sign for Saw).
+		// OUT_AUX_INPUT,
+		// // Phi_degrees: Phase Shift (degrees) [-360 to 360].  [Voltage Range: +/- 10V]
+		// OUT_PHASE_SHIFT_INPUT,
+		// // Amplitude modulation
+		// OUT_AM_INPUT,		
+		configInput(inputId++, prefix + "Waveform Type"); 	// 8
+		configInput(inputId++, prefix + "Auxillary");		// 9
+		configInput(inputId++, prefix + "Phase Shift");		// 10
+		configInput(inputId++, prefix + "Amplitude Mod");	// 11
+		
+		// // Raw output.
+		// OUT_RAW_SIGNAL,
+		// // After amplitude modulation.
+		// OUT_MULTIPLIED_SIGNAL,
+		configOutput(outputId++, prefix + "Raw");	// 3
+		configOutput(outputId++, prefix + "Mod");	// 4
+		
+		// OUTPUT Y2 ::::::::::::::::::::::::::::::::::::::::::::::::
+		prefix = "Osc[" + std::to_string(i + 1) + "] Y2 ";
+		//TS_OscillatorOutput::BaseInputIds
+		// // Oscillator type (SIN, SQU, TRI, SAW). [Voltage Range: +/- 5V].
+		// OUT_OSC_TYPE_INPUT,
+		// // Secondary input (i.e. Pulse width for Rectangle, Ramp slope sign for Saw).
+		// OUT_AUX_INPUT,
+		// // Phi_degrees: Phase Shift (degrees) [-360 to 360].  [Voltage Range: +/- 10V]
+		// OUT_PHASE_SHIFT_INPUT,
+		// // Amplitude modulation
+		// OUT_AM_INPUT,		
+		configInput(inputId++, prefix + "Waveform Type");	// 12
+		configInput(inputId++, prefix + "Auxillary");		// 13
+		configInput(inputId++, prefix + "Phase Shift");		// 14
+		configInput(inputId++, prefix + "Amplitude Mod");	// 15
+		
+		
+		// // Raw output.
+		// OUT_RAW_SIGNAL,
+		// // After amplitude modulation.
+		// OUT_MULTIPLIED_SIGNAL,
+		configOutput(outputId++, prefix + "Raw");	// 5
+		configOutput(outputId++, prefix + "Mod");	// 6
+		
 	} // end loop through oscillators
 	
 	//--------------------------
@@ -609,16 +692,17 @@ void multiOscillator::process(const ProcessArgs &args)
 			// Change the built-in param quantity labels for the 'Aux' based on waveform type:
 			if (lastType != theOscillator->outputWaveforms[i].waveFormType || setParameterConfigs)
 			{
+				// [Rack v2] label is not member of ParamQuantity anymore... Is it 'name'?
 				switch (theOscillator->outputWaveforms[i].waveFormType)
 				{
-					case WAVEFORM_SAW:
-						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->label = std::string("Slope");
+					case WAVEFORM_SAW:					
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->name = std::string("Slope");
 						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->unit = std::string("");
 						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->displayMultiplier = 2.f/TROWA_MOSC_KNOB_AUX_MAX_V;
 						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->displayOffset = -1.0f; // -1 to 1
 						break;
 					case WAVEFORM_SQR:
-						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->label = std::string("Pulse Width");
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->name = std::string("Pulse Width");
 						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->unit = std::string("%");
 						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->displayMultiplier = 100.f/TROWA_MOSC_KNOB_AUX_MAX_V;
 						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->displayOffset = 0.0f; // 0 to 100
@@ -627,7 +711,7 @@ void multiOscillator::process(const ProcessArgs &args)
 					case WAVEFORM_TRI:
 					default:
 						// No AUX
-						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->label = std::string("Aux");
+						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->name = std::string("Aux");
 						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->unit = std::string(" N/A");
 						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->displayMultiplier = 100.f/TROWA_MOSC_KNOB_AUX_MAX_V;
 						this->paramQuantities[baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AUX_PARAM]->displayOffset = 0.0f; // 0 to 100, doesn't really matter			

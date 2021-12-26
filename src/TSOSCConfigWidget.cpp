@@ -5,10 +5,10 @@ using namespace rack;
 #include "plugin.hpp"
 #include "TSOSCConfigWidget.hpp"
 #include "trowaSoftUtilities.hpp"
-//#include "TSSequencerModuleBase.hpp"
 #include "TSOSCCommon.hpp"
 #include <string>
 #include "trowaSoftComponents.hpp"
+//#include "Module_oscCV.hpp"
 
 #define START_Y   15
 
@@ -213,9 +213,12 @@ TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReco
 }
 
 void TSOSCConfigWidget::step() {
-	// Check for enable/disable data massaging
-	if (autoReconnectTrigger.process(module->params[ckAutoReconnect->paramQuantity->paramId].getValue())) {
-		ckAutoReconnect->checked = !ckAutoReconnect->checked;
+	// Check for enable/disable auto-reconnect
+	if (module && visible)
+	{		
+		if (ckAutoReconnect->getParamQuantity() && autoReconnectTrigger.process(module->params[ckAutoReconnect->getParamQuantity()->paramId].getValue())) {
+			ckAutoReconnect->checked = !ckAutoReconnect->checked;
+		}
 	}
 	Widget::step();
 	return;
