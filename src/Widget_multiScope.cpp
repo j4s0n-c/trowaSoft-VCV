@@ -111,6 +111,7 @@ multiScopeWidget::multiScopeWidget(multiScope *scopeModule) : TSSModuleWidgetBas
 		screenBg->originalBackgroundColor = (isPreview) ? TSColors::COLOR_BLACK : screenBg->backgroundColor;
 		screenBg->box.pos = Vec(0, RACK_GRID_WIDTH);
 		screenBg->box.size = Vec(screenContainer->box.size.x - RACK_GRID_WIDTH, screenContainer->box.size.y - 2 * RACK_GRID_WIDTH);
+		screenBg->emitLight = true; // Added to act like screen
 		screenContainer->addChild(screenBg);
 		addChild(screenContainer);
 	}

@@ -140,8 +140,6 @@ struct TSOscCVExpanderTopDisplay : TransparentWidget {
 	TSOscCVExpanderTopDisplay(oscCVExpanderWidget* widget)
 	{
 		parentWidget = widget;
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		showDisplay = true;
 		displayName = "Input";
@@ -165,7 +163,7 @@ struct TSOscCVExpanderTopDisplay : TransparentWidget {
 	// draw()
 	// @args.vg : (IN) NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ const DrawArgs &args) override;
+	void drawLayer(/*in*/ const DrawArgs &args, int layer) override;
 
 }; // end struct TSOscCVExpanderTopDisplay
 
@@ -181,7 +179,6 @@ struct TSOscCVExpanderLabels : TransparentWidget {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSOscCVExpanderLabels()
 	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 12;
 		return;
 	}

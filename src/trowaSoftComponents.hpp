@@ -6,7 +6,6 @@ using namespace rack;
 
 #include <string.h>
 #include <stdio.h>
-//#include "math.hpp"
 #include "TSColors.hpp"
 #include "componentlibrary.hpp"
 #include "plugin.hpp"
@@ -74,10 +73,12 @@ struct TS_Label : Label {
 	NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
 	NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
 	float padding = 0.f;
+	const char* fontPath;
 
 	TS_Label(const char* fontPath)
 	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, fontPath));
+		this->fontPath = fontPath;
+		font = APP->window->loadFont(asset::plugin(pluginInstance, fontPath)); // Load it into cache on instantiation? [v2] We have load our object everytime we draw though.
 		return;
 	}
 	TS_Label() : TS_Label(TROWA_LABEL_FONT)
@@ -120,7 +121,8 @@ struct TS_Label : Label {
 				nvgStrokeColor(args.vg, borderColor);
 				nvgStroke(args.vg);
 			}
-
+			
+			font = APP->window->loadFont(asset::plugin(pluginInstance, fontPath));
 			nvgFontFaceId(args.vg, font->handle);
 			nvgFontSize(args.vg, fontSize);
 			nvgTextLetterSpacing(args.vg, textLetterSpacing);
@@ -744,57 +746,68 @@ struct TS_ScreenBtn : Switch {
 		this->visible = visible;
 		return;
 	}
-
-	virtual void draw(const DrawArgs &args) override
+	
+	virtual void drawLayer(const DrawArgs &args, int layer) override
 	{
-		if (!visible)
-			return;
-		// Background
-		nvgBeginPath(args.vg);
-		if (cornerRadius > 0)
-			nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
-		else
-			nvgRect(args.vg, 0.0, 0.0, box.size.x, box.size.y);
-		nvgFillColor(args.vg, backgroundColor);
-		nvgFill(args.vg);
-		// Background - border.
-		if (borderWidth > 0) {
-			nvgStrokeWidth(args.vg, borderWidth);
-			nvgStrokeColor(args.vg, borderColor);
-			nvgStroke(args.vg);
-		}
-		// Text
-		nvgBeginPath(args.vg);
-		nvgScissor(args.vg, padding, padding, box.size.x - 2*padding, box.size.y - 2*padding);
-		nvgFontSize(args.vg, fontSize);
-		nvgFontFaceId(args.vg, font->handle);
-		nvgFillColor(args.vg, color);
+		if (visible)
+		{			
+			// Background
+			nvgBeginPath(args.vg);
+			if (cornerRadius > 0)
+				nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
+			else
+				nvgRect(args.vg, 0.0, 0.0, box.size.x, box.size.y);
+			nvgFillColor(args.vg, backgroundColor);
+			nvgFill(args.vg);
+			// Background - border.
+			if (borderWidth > 0) {
+				nvgStrokeWidth(args.vg, borderWidth);
+				nvgStrokeColor(args.vg, borderColor);
+				nvgStroke(args.vg);
+			}
+			// Text
+			nvgBeginPath(args.vg);
+			nvgScissor(args.vg, padding, padding, box.size.x - 2*padding, box.size.y - 2*padding);
+			nvgFontSize(args.vg, fontSize);
+			nvgFontFaceId(args.vg, font->handle);
+			nvgFillColor(args.vg, color);
 
-		float x, y;
-		NVGalign nvgAlign;
-		y = box.size.y / 2.0f;
-		switch (textAlign) {
-			case TextAlignment::Left:
-				nvgAlign = NVG_ALIGN_LEFT;
-				x = box.size.x + padding;
-				break;
-			case TextAlignment::Right:
-				nvgAlign = NVG_ALIGN_RIGHT;
-				x = box.size.x - padding;
-				break;
-			case TextAlignment::Center:
-			default:
-				nvgAlign = NVG_ALIGN_CENTER;
-				x = box.size.x / 2.0f;
-				break;
-		}
+			float x, y;
+			NVGalign nvgAlign;
+			y = box.size.y / 2.0f;
+			switch (textAlign) {
+				case TextAlignment::Left:
+					nvgAlign = NVG_ALIGN_LEFT;
+					x = box.size.x + padding;
+					break;
+				case TextAlignment::Right:
+					nvgAlign = NVG_ALIGN_RIGHT;
+					x = box.size.x - padding;
+					break;
+				case TextAlignment::Center:
+				default:
+					nvgAlign = NVG_ALIGN_CENTER;
+					x = box.size.x / 2.0f;
+					break;
+			}
 
-		nvgTextAlign(args.vg, nvgAlign | NVG_ALIGN_MIDDLE);
-		nvgText(args.vg, x, y, btnText.c_str(), NULL);
-		nvgResetScissor(args.vg);
+			nvgTextAlign(args.vg, nvgAlign | NVG_ALIGN_MIDDLE);
+			nvgText(args.vg, x, y, btnText.c_str(), NULL);
+			nvgResetScissor(args.vg);
 
+			this->Switch::drawLayer(args, layer);
+		}		
 		return;
 	}
+
+	// virtual void draw(const DrawArgs &args) override
+	// {
+		// if (!visible)
+			// return;
+		
+
+		// return;
+	// }
 };
 //--------------------------------------------------------------
 // TS_ScreenCheckBox : Screen checkbox button
@@ -820,7 +833,7 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 	{
 		this->checked = checked;
 		ParamQuantity* paramQuantity = getParamQuantity();		
-		DEBUG("Checkbox %s - paramId = %d. Setting checked to %d.", btnText.c_str(), paramId, checked);
+		//DEBUG("Checkbox %s - paramId = %d. Setting checked to %d.", btnText.c_str(), paramId, checked);
 		if (!paramQuantity && module && paramId > -1)
 		{
 			paramQuantity = module->paramQuantities[paramId];
@@ -833,7 +846,7 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 	
 	void onChange(const event::Change& e) override
 	{
-		DEBUG("Checkbox %s - paramId = %d. OnChange() - Current checked is %d.", btnText.c_str(), paramId, checked);		 	
+		//DEBUG("Checkbox %s - paramId = %d. OnChange() - Current checked is %d.", btnText.c_str(), paramId, checked);		 	
 		ParamQuantity* paramQuantity = getParamQuantity();		
 		if (!paramQuantity && module)
 		{
@@ -854,73 +867,79 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 		}
 	}
 
-	void draw(const DrawArgs &args) override
+	void drawLayer(const DrawArgs &args, int layer) override
 	{
-		if (!visible)
-			return;
-		// Background
-		nvgBeginPath(args.vg);
-		if (cornerRadius > 0)
-			nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
-		else
-			nvgRect(args.vg, 0.0, 0.0, box.size.x, box.size.y);
-		nvgFillColor(args.vg, backgroundColor);
-		nvgFill(args.vg);
-		// Background - border.
-		if (borderWidth > 0) {
-			nvgStrokeWidth(args.vg, borderWidth);
-			nvgStrokeColor(args.vg, borderColor);
-			nvgStroke(args.vg);
-		}
-
-		// Text
-		nvgBeginPath(args.vg);
-		nvgScissor(args.vg, padding, padding, box.size.x - 2 * padding, box.size.y - 2 * padding);
-		nvgFontSize(args.vg, fontSize);
-		nvgFontFaceId(args.vg, font->handle);
-		nvgFillColor(args.vg, color);
-
-		float x, y;
-		NVGalign nvgAlign;
-		y = box.size.y / 2.0f;
-		switch (textAlign) {
-		case TextAlignment::Left:
-			nvgAlign = NVG_ALIGN_LEFT;
-			x = checkBoxWidth + padding;
-			break;
-		case TextAlignment::Right:
-			nvgAlign = NVG_ALIGN_RIGHT;
-			x = box.size.x - padding;
-			break;
-		case TextAlignment::Center:
-		default:
-			nvgAlign = NVG_ALIGN_CENTER;
-			x = box.size.x / 2.0f;
-			break;
-		}
-		nvgTextAlign(args.vg, nvgAlign | NVG_ALIGN_MIDDLE);
-		float txtBounds[4] = { 0,0,0,0 };
-		nvgTextBounds(args.vg, x, y, btnText.c_str(), NULL, txtBounds);
-		nvgText(args.vg, x, y, btnText.c_str(), NULL);
-		nvgResetScissor(args.vg);
-
-		// Check box ::::::::::::::::::::::::::::::::::::::::::::::
-		float boxX = txtBounds[0] - checkBoxWidth - padding;
-		float boxY = y - checkBoxHeight / 2.0 - padding;
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, boxX, boxY, checkBoxWidth, checkBoxHeight, 3);
-		nvgStrokeColor(args.vg, color);
-		nvgStrokeWidth(args.vg, 1.0f);
-		nvgStroke(args.vg);
-
-		if (checked)
+		if (visible)
 		{
-			nvgBeginPath(args.vg);
-			nvgRoundedRect(args.vg, boxX + padding, boxY + padding, checkBoxWidth - padding * 2, checkBoxHeight - padding*2, 3);
-			nvgFillColor(args.vg, color);
-			nvgFill(args.vg);
-		}
+			if (layer == 1)
+			{
+				// Background
+				nvgBeginPath(args.vg);
+				if (cornerRadius > 0)
+					nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
+				else
+					nvgRect(args.vg, 0.0, 0.0, box.size.x, box.size.y);
+				nvgFillColor(args.vg, backgroundColor);
+				nvgFill(args.vg);
+				// Background - border.
+				if (borderWidth > 0) {
+					nvgStrokeWidth(args.vg, borderWidth);
+					nvgStrokeColor(args.vg, borderColor);
+					nvgStroke(args.vg);
+				}
 
+				// Text
+				nvgBeginPath(args.vg);
+				nvgScissor(args.vg, padding, padding, box.size.x - 2 * padding, box.size.y - 2 * padding);
+				nvgFontSize(args.vg, fontSize);
+				nvgFontFaceId(args.vg, font->handle);
+				nvgFillColor(args.vg, color);
+
+				float x, y;
+				NVGalign nvgAlign;
+				y = box.size.y / 2.0f;
+				switch (textAlign) {
+				case TextAlignment::Left:
+					nvgAlign = NVG_ALIGN_LEFT;
+					x = checkBoxWidth + padding;
+					break;
+				case TextAlignment::Right:
+					nvgAlign = NVG_ALIGN_RIGHT;
+					x = box.size.x - padding;
+					break;
+				case TextAlignment::Center:
+				default:
+					nvgAlign = NVG_ALIGN_CENTER;
+					x = box.size.x / 2.0f;
+					break;
+				}
+				nvgTextAlign(args.vg, nvgAlign | NVG_ALIGN_MIDDLE);
+				float txtBounds[4] = { 0,0,0,0 };
+				nvgTextBounds(args.vg, x, y, btnText.c_str(), NULL, txtBounds);
+				nvgText(args.vg, x, y, btnText.c_str(), NULL);
+				nvgResetScissor(args.vg);
+
+				// Check box ::::::::::::::::::::::::::::::::::::::::::::::
+				float boxX = txtBounds[0] - checkBoxWidth - padding;
+				float boxY = y - checkBoxHeight / 2.0 - padding;
+				nvgBeginPath(args.vg);
+				nvgRoundedRect(args.vg, boxX, boxY, checkBoxWidth, checkBoxHeight, 3);
+				nvgStrokeColor(args.vg, color);
+				nvgStrokeWidth(args.vg, 1.0f);
+				nvgStroke(args.vg);
+
+				if (checked)
+				{
+					nvgBeginPath(args.vg);
+					nvgRoundedRect(args.vg, boxX + padding, boxY + padding, checkBoxWidth - padding * 2, checkBoxHeight - padding*2, 3);
+					nvgFillColor(args.vg, color);
+					nvgFill(args.vg);
+				}
+				
+			} // end if layer == 1
+			
+			this->Widget::drawLayer(args, layer);			
+		}
 		return;
 	}
 };
@@ -1522,6 +1541,7 @@ struct TS_Panel : TransparentWidget
 	float borderLeft = 0;
 	float borderRight = 0;
 	float borderBottom = 0;
+	bool emitLight = false;
 	
 	void setBorderWidth(float top, float right, float bottom, float left)
 	{
@@ -1536,7 +1556,8 @@ struct TS_Panel : TransparentWidget
 	//	backgroundColor = ColorInvertToNegative(originalBackgroundColor);
 	//	return;
 	//}	
-	void draw(const DrawArgs &args) override
+	
+	void drawPanel(const DrawArgs &args)
 	{
 		nvgBeginPath(args.vg);
 		nvgRect(args.vg, 0.0, 0.0, box.size.x, box.size.y);
@@ -1616,6 +1637,20 @@ struct TS_Panel : TransparentWidget
 			nvgStrokeWidth(args.vg, borderLeft);
 			nvgStroke(args.vg);													
 		}
+		return;		
+	}	
+	void drawLayer(const DrawArgs &args, int layer) override
+	{
+		if (layer == 1 && emitLight)
+		{
+			drawPanel(args);			
+		}
+		this->Widget::drawLayer(args, layer);
+		return;
+	}	
+	void draw(const DrawArgs &args) override
+	{
+		drawPanel(args);		
 		this->Widget::draw(args);
 	} // end draw()
 }; // end TS_Panel
@@ -1775,17 +1810,8 @@ struct TS_ColorSlider : Knob {
 		if (visible)
 			this->Knob::onChange(e);
 	}
-	//void step() override {
-	//	return;
-	//}
-	//void onChange(const event::Change &e) override {
-	//	//dirty = true;
-	//	ParamWidget::onChange(e);
-	//}
-	void draw(const DrawArgs &args) override {
-		if (!visible)
-			return;
-
+	void drawControl(const DrawArgs &args)
+	{
 		// Draw the background:
 		float x = 0;
 		float y = 0;
@@ -1831,6 +1857,7 @@ struct TS_ColorSlider : Knob {
 		float handleHeight = box.size.y + 2 * handleMargin;
 		float handleX = rescale(val, min, max, 0, box.size.x) - handleWidth / 2.0;
 		float handleY = -handleMargin;// rescale(value, minValue, maxValue, minHandlePos.y, maxHandlePos.y);
+		
 		// Draw handle
 		nvgBeginPath(args.vg);
 		nvgRoundedRect(args.vg, handleX, handleY, handleWidth, handleHeight, 5);
@@ -1839,9 +1866,224 @@ struct TS_ColorSlider : Knob {
 		nvgStrokeWidth(args.vg, 1.0);
 		NVGcolor strokeColor = ((val < 0.5) ? TSColors::COLOR_WHITE : TSColors::COLOR_BLACK);
 		nvgStrokeColor(args.vg, strokeColor);
-		nvgStroke(args.vg);
+		nvgStroke(args.vg);		
+		return;
 	}
+	
+	void drawLayer(const DrawArgs &args, int layer) override {
+		if (visible)
+		{
+			if (layer == 1)
+			{
+				drawControl(args);
+			}
+			this->Knob::drawLayer(args, layer);			
+		}
+	}	
 }; // end TS_ColorSlider
+
+//---------------------------------------------------------
+// Simple Slider for screens.
+//---------------------------------------------------------
+struct TS_ScreenSlider : SliderKnob {
+	// If this control should be rendered
+	bool visible = true;
+	float handleMarginX = 3.0;
+	float handleMarginY = 3.0;
+	
+	NVGcolor backgroundColor;
+	NVGcolor borderColor;	
+	NVGcolor handleColor;	
+		
+	float borderWidth = 1.0f;	
+	// Box corner radius
+	float cornerRadius = 3.0f;
+	
+	// If we should fill the background with color up to the value
+	bool fillToValue = true;
+	// If the value can be pos/negative (i.e. fill from the center [0] either up towards positive or down towards negative).
+	// If false, just uses the fillToValueColorPos.
+	bool fillPosAndNeg = false;
+	NVGcolor fillToValueColorPos;
+	NVGcolor fillToValueColorNeg;
+	
+	
+		
+	enum SliderDirection : uint8_t {
+		Vertical,
+		Horizontal
+	};
+	
+	SliderDirection direction = SliderDirection::Vertical;
+	
+	TS_ScreenSlider() : SliderKnob()
+	{
+		backgroundColor = nvgRGB(0x33, 0x33, 0x33);
+		borderColor = nvgRGB(0x66, 0x66, 0x66);
+		handleColor = nvgRGB(0x99, 0x99, 0x99);
+		fillToValueColorPos = nvgRGB(0x70, 0xFF, 0x70);
+		fillToValueColorNeg = nvgRGB(0xFF, 0x70, 0x70);		
+		return;
+	}
+	
+	TS_ScreenSlider(SliderDirection dir) : TS_ScreenSlider()
+	{		
+		setSliderDirection(dir);
+		return;
+	}
+	
+	void setSliderDirection(SliderDirection dir)
+	{
+		this->direction = dir;		
+		this->horizontal = dir == SliderDirection::Horizontal;
+		return;
+	}
+	
+	void drawControl(const DrawArgs &args)
+	{
+		// Calculate Sizes
+		float width = box.size.x - 2 * handleMarginX;
+		float height = box.size.y - 2 * handleMarginY;
+		
+		// Get the value from the parameter:
+		float val = 0.5;
+		float min = 0;
+		float max = 1.0;
+		ParamQuantity* pQuantity = getParamQuantity();
+		if (pQuantity)
+		{
+			val = pQuantity->getValue();
+			min = pQuantity->minValue;
+			max = pQuantity->maxValue;
+		}
+		
+		// Filling to value
+		float valX = 0; 
+		float valY = 0;
+		float valWidth = 0; 
+		float valHeight = 0;
+		float val0 = 0;
+		float zeroValue = 0.0f;
+		NVGcolor valColor = fillToValueColorPos;
+				
+		// Calculate handle position:
+		float handleX, handleY;
+		float handleWidth, handleHeight;
+		if (horizontal)
+		{
+			handleX = rescale(val, min, max, 0, width);
+			handleY = 0;
+			handleWidth = 2 * handleMarginX;
+			handleHeight = box.size.y;
+			
+			if (fillToValue)
+			{
+				valX = handleX + handleMarginX; // rescale(val, min, max, 0, box.size.x - handleMarginX);				
+				if (fillPosAndNeg)
+				{
+					val0 = rescale(zeroValue, min, max, 0, width) + handleMarginX;
+					if (val < zeroValue)
+					{
+						valWidth = val0 - valX;
+						valColor = fillToValueColorNeg;
+					}
+					else
+					{
+						valWidth = valX - val0;
+						valX = val0; // Start at 0 point
+					}
+				}
+				else {
+					// Only fill one direction
+					valWidth =  handleX - handleMarginX;
+					valX = handleMarginX;
+				}
+				valY = handleMarginY;
+				valHeight = height;
+			} // end if fill to the value (slider handle)
+		} // end if horizontal slider
+		else
+		{
+			handleX = 0;
+			handleY = rescale(val, min, max, height, 0); // 0 is top, box.size.y is bottom, so reverse
+			handleWidth = box.size.x;
+			handleHeight = 2* handleMarginY;
+			
+			if (fillToValue)
+			{
+				valY = handleY + handleMarginY; // Start at the handle
+				if (fillPosAndNeg)
+				{
+					val0 = rescale(zeroValue, min, max, height, 0) + handleMarginY;
+					if (val < zeroValue)
+					{
+						valHeight = val0 - valY;
+						valColor = fillToValueColorNeg;						
+					}
+					else
+					{
+						valHeight = valY - val0;
+						valY = val0; // Start at 0 point
+					}
+				}
+				else {
+					// Only fill one direction
+					valHeight = height - handleY;
+				}
+				valX = handleMarginX;
+				valWidth = width;
+			} // end if fill to the value (slider handle)
+		} // end if vertical slider
+				
+		// Background
+		nvgBeginPath(args.vg);		
+	    nvgRoundedRect(args.vg, handleMarginX, handleMarginY, width, height, cornerRadius);			
+		nvgFillColor(args.vg, backgroundColor);
+		nvgFill(args.vg);
+		
+		// Fill up to our Handle
+		if (fillToValue && valWidth > 0 && valHeight > 0) 
+		{
+			nvgBeginPath(args.vg);			
+			nvgRoundedRect(args.vg, valX, valY, valWidth, valHeight, cornerRadius);
+			nvgFillColor(args.vg, valColor);
+			nvgFill(args.vg);			
+		}
+		
+		// Border
+		if (borderColor.a > 0 && borderWidth > 0)
+		{
+			nvgBeginPath(args.vg);		
+			nvgRoundedRect(args.vg, handleMarginX, handleMarginY, width, height, cornerRadius);			
+			nvgStrokeWidth(args.vg, borderWidth);
+			nvgFillColor(args.vg, borderColor);			
+			nvgStroke(args.vg);
+		}
+		
+	
+		// Draw handle
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, handleX, handleY, handleWidth, handleHeight, 5);
+		nvgFillColor(args.vg, handleColor);
+		nvgFill(args.vg);
+		nvgStrokeWidth(args.vg, 1.0);
+		NVGcolor strokeColor = borderColor;
+		nvgStrokeColor(args.vg, strokeColor);
+		nvgStroke(args.vg);			
+		return;
+	} // end drawControl()
+	
+	void drawLayer(const DrawArgs &args, int layer) override {
+		if (visible)
+		{
+			if (layer == 1)
+			{
+				drawControl(args);
+			}
+			this->Knob::drawLayer(args, layer);			
+		}
+	} // end drawLayer()	
+}; // end TS_ScreenSlider
 
 
 /////////////////////////////////////////////

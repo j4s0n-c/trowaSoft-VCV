@@ -113,6 +113,8 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 	
 	x = xStart;
 	y = yStart;
+	// Fix OSCcv lights not lighting up on message received:
+	int lightOffset = (expanderType == TSOSCCVExpanderDirection::Input) ? 0 : 1; // For our LightIds, we still reserve 2 per channel in case we want to use them.
 	for (int r = 0; r < numberChannels; r++)
 	{
 		TS_Port* port = NULL;
@@ -152,7 +154,7 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 		
 		// Light (to indicate when we send/recv OSC)
 		float ledX = (expanderType == TSOSCCVExpanderDirection::Input) ? xStart - ledSize.x : x + dx + ledSize.x/2.0;		
-		addChild(TS_createColorValueLight<ColorValueLight>(Vec(ledX, y + ledYOffset), oscExpanderModule, oscCVExpander::LightIds::CH_LIGHT_START + r * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL, ledSize, TSColors::CHANNEL_COLORS[r]));		
+		addChild(TS_createColorValueLight<ColorValueLight>(Vec(ledX, y + ledYOffset), oscExpanderModule, oscCVExpander::LightIds::CH_LIGHT_START + r * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + lightOffset, ledSize, TSColors::CHANNEL_COLORS[r]));
 
 		y += dy;
 	} // end ports
@@ -341,61 +343,68 @@ void TSOscCVExpanderTopDisplay::step() {
 // draw()
 // @args.vg : (IN) NVGcontext to draw on
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSOscCVExpanderTopDisplay::draw(/*in*/ const DrawArgs &args)
+void TSOscCVExpanderTopDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer)
 {
-	// Background Colors:
-	NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
-	NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
+	if (layer == 1)
+	{
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+		
+		// Background Colors:
+		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
+		NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
 
-	// Screen:
-	nvgBeginPath(args.vg);
-	nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-	nvgFillColor(args.vg, backgroundColor);
-	nvgFill(args.vg);
-	nvgStrokeWidth(args.vg, 1.0);
-	nvgStrokeColor(args.vg, borderColor);
-	nvgStroke(args.vg);
+		// Screen:
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+		nvgFillColor(args.vg, backgroundColor);
+		nvgFill(args.vg);
+		nvgStrokeWidth(args.vg, 1.0);
+		nvgStrokeColor(args.vg, borderColor);
+		nvgStroke(args.vg);
 
-	if (!showDisplay)
-		return;
+		if (!showDisplay)
+			return;
 
-	int margin = 9;
-	Rect b = Rect(Vec(0, 0), Vec(box.size.x - margin, box.size.y));
-	nvgScissor(args.vg, b.pos.x, b.pos.y, b.size.x, b.size.y);
+		int margin = 9;
+		Rect b = Rect(Vec(0, 0), Vec(box.size.x - margin, box.size.y));
+		nvgScissor(args.vg, b.pos.x, b.pos.y, b.size.x, b.size.y);
 
-	int x, y;
+		int x, y;
 
-	nvgFontSize(args.vg, fontSize);
-	nvgFontFaceId(args.vg, labelFont->handle);
-	nvgTextLetterSpacing(args.vg, 1); // 2.5;			
-	nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);	
-	x = box.size.x / 2.f;
-	y = 11;
-	NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-	nvgFillColor(args.vg, textColor);
-	nvgText(args.vg, x, y, directionName.c_str(), NULL);	
+		nvgFontSize(args.vg, fontSize);
+		nvgFontFaceId(args.vg, labelFont->handle);
+		nvgTextLetterSpacing(args.vg, 1); // 2.5;			
+		nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);	
+		x = box.size.x / 2.f;
+		y = 11;
+		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
+		nvgFillColor(args.vg, textColor);
+		nvgText(args.vg, x, y, directionName.c_str(), NULL);	
 
-	nvgFontSize(args.vg, fontSize);
-	nvgFontFaceId(args.vg, font->handle);
-	nvgTextLetterSpacing(args.vg, 1); // 2.5;		
-	nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);	
-	x = margin;	
-	y += 15;
-	nvgFillColor(args.vg, parentWidget->expanderColor);	
-	//nvgText(args.vg, x, y, displayName.c_str(), NULL);	
-	// Start (left on screen) of scrolling message:
-	const char * subStr = scrollingMsg + scrollIx;
-	nvgText(args.vg, x, y, subStr, NULL);
-	// Get circular wrap (right part of screen) - start of message again:
-	float txtBounds[4] = { 0,0,0,0 };
-	float nextX = nvgTextBounds(args.vg, x, y, subStr, NULL, txtBounds);
-	x = nextX; // +24
-	if (x < b.size.x) {
-		// Wrap the start of the string around
-		nvgText(args.vg, x, y, scrollingMsg, subStr);
-	}	
+		nvgFontSize(args.vg, fontSize);
+		nvgFontFaceId(args.vg, font->handle);
+		nvgTextLetterSpacing(args.vg, 1); // 2.5;		
+		nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);	
+		x = margin;	
+		y += 15;
+		nvgFillColor(args.vg, parentWidget->expanderColor);	
+		//nvgText(args.vg, x, y, displayName.c_str(), NULL);	
+		// Start (left on screen) of scrolling message:
+		const char * subStr = scrollingMsg + scrollIx;
+		nvgText(args.vg, x, y, subStr, NULL);
+		// Get circular wrap (right part of screen) - start of message again:
+		float txtBounds[4] = { 0,0,0,0 };
+		float nextX = nvgTextBounds(args.vg, x, y, subStr, NULL, txtBounds);
+		x = nextX; // +24
+		if (x < b.size.x) {
+			// Wrap the start of the string around
+			nvgText(args.vg, x, y, scrollingMsg, subStr);
+		}			
+		nvgResetScissor(args.vg);		
+	}
+	this->Widget::drawLayer(args, layer);
 	
-	nvgResetScissor(args.vg);
 	return;
 } // end TSOscCVExpanderTopDisplay::draw()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -404,6 +413,8 @@ void TSOscCVExpanderTopDisplay::draw(/*in*/ const DrawArgs &args)
 // Draw labels on our widget.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSOscCVExpanderLabels::draw(/*in*/ const DrawArgs &args) {
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+	
 	// Default Font:
 	nvgFontSize(args.vg, fontSize);
 	nvgFontFaceId(args.vg, font->handle);

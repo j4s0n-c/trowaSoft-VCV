@@ -80,7 +80,7 @@ void voltSeq::configValueModeParam()
 // voltSeq::randomize()
 // Only randomize the current gate/trigger steps.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void voltSeq::onRandomize()
+void voltSeq::onRandomize(const RandomizeEvent& e)
 {
 	//int r, c;
 	valuesChanging = true;
@@ -517,49 +517,6 @@ void voltSeq::process(const ProcessArgs &args)
 	return;
 } // end step()
 
-// Gets the display string based on our value mode.
-std::string TS_ValueSequencerParamQuantity::getDisplayValueString()
-{
-	std::string str;
-	if (valueMode)
-	{
-		float val = valueMode->GetOutputValue(this->getValue());
-		valueMode->GetDisplayString(val, buffer);
-		str = std::string(buffer);
-	}
-	else 
-	{
-		str = ParamQuantity::getDisplayValueString();
-	}
-	return str;
-}
-
-void TS_ValueSequencerParamQuantity::setDisplayValueString(std::string s)
-{
-	float val = 0.0f;
-	if (valueMode)
-	{
-		val = valueMode->GetKnobValueFromString(s);
-		this->setDisplayValue(val);
-	}
-	else 
-	{
-		ParamQuantity::setDisplayValueString(s);
-	}
-	return;	
-}
-void TS_ValueSequencerParamQuantity::setValueMode(ValueSequencerMode* vMode)
-{
-	valueMode = vMode;
-	minValue = valueMode->voltageMin;
-	maxValue = valueMode->voltageMax;
-	defaultValue = valueMode->zeroValue;
-	//DEBUG("Setting valueMode = %s", valueMode->displayName);
-	unit = std::string(" ") + std::string(valueMode->unit);
-	//label = valueMode->displayName;
-	return;
-}
-
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // voltSeqWidget()
@@ -726,11 +683,11 @@ struct voltSeq_ShiftVoltageSubMenu : Menu {
 
 	void createChildren()
 	{
-		voltSeq_ShiftVoltageSubMenuItem* menuItem = new voltSeq_ShiftVoltageSubMenuItem("Current Edit Channel", voltSeq_ShiftVoltageSubMenuItem::ShiftType::CurrentChannelOnly, this->amount, this->sequencerModule);
+		voltSeq_ShiftVoltageSubMenuItem* menuItem = new voltSeq_ShiftVoltageSubMenuItem(STR_CURR_EDIT_CHANNEL, voltSeq_ShiftVoltageSubMenuItem::ShiftType::CurrentChannelOnly, this->amount, this->sequencerModule);
 		addChild(menuItem); //this->pushChild(menuItem);
-		menuItem = new voltSeq_ShiftVoltageSubMenuItem("Current Edit Pattern", voltSeq_ShiftVoltageSubMenuItem::ShiftType::ThisPattern, this->amount, this->sequencerModule);
+		menuItem = new voltSeq_ShiftVoltageSubMenuItem(STR_CURR_EDIT_PATTERN, voltSeq_ShiftVoltageSubMenuItem::ShiftType::ThisPattern, this->amount, this->sequencerModule);
 		addChild(menuItem);// this->pushChild(menuItem);
-		menuItem = new voltSeq_ShiftVoltageSubMenuItem("ALL Patterns", voltSeq_ShiftVoltageSubMenuItem::ShiftType::AllPatterns, this->amount, this->sequencerModule);
+		menuItem = new voltSeq_ShiftVoltageSubMenuItem(STR_ALL_PATTERNS, voltSeq_ShiftVoltageSubMenuItem::ShiftType::AllPatterns, this->amount, this->sequencerModule);
 		addChild(menuItem);// this->pushChild(menuItem);
 		return;
 	}

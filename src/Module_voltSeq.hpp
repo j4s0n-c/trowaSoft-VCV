@@ -59,7 +59,7 @@ struct voltSeq : TSSequencerModuleBase
 		new NoteValueSequencerMode(/*displayName*/ "NOTE",			
 			/*inVoltageMin*/ voltSeq_STEP_KNOB_MIN, /*inVoltageMax*/ voltSeq_STEP_KNOB_MAX),
 			
-		// Sequence Mode (1-64 for the patterns)			
+		// Sequence Mode (1-64 for the patterns).
 		new ValueSequencerMode(/*displayName*/ "PATT",  /*unit*/ "pattern",
 			/*minDisplayValue*/ 1, /*maxDisplayValue*/ TROWA_SEQ_NUM_PATTERNS, 
 			/*inVoltageMin*/ voltSeq_STEP_KNOB_MIN, /*inVoltageMax*/ voltSeq_STEP_KNOB_MAX, 
@@ -68,7 +68,9 @@ struct voltSeq : TSSequencerModuleBase
 			/*zeroPointAngle*/ 0.67*NVG_PI, 
 			/*display format String */ "%02.0f",
 			/*roundDisplay*/ 0, /*roundOutput*/ 0,
-			/*zeroValue*/ voltSeq_STEP_KNOB_MIN)			
+			/*zeroValue*/ voltSeq_STEP_KNOB_MIN,
+			/*outputIsBoolean*/ false,
+			/*displayIsInt*/ true)
 	};
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -125,9 +127,19 @@ struct voltSeq : TSSequencerModuleBase
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void process(const ProcessArgs &args) override;
 	// Only randomize the current gate/trigger steps.
-	void onRandomize() override;
+	void onRandomize(const RandomizeEvent& e) override;
 	// Configure the value mode parameters on the steps.
 	void configValueModeParam();
+	
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getValueSeqChannelModes()
+	// Gets the array of ValueSequencerModes if any.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
+	ValueSequencerMode** getValueSeqChannelModes() override
+	{
+		return ValueModes;
+	}
+
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// getRandomValue()
@@ -162,24 +174,7 @@ struct voltSeq : TSSequencerModuleBase
 	void shiftValues(/*in*/ int patternIx, /*in*/ int channelIx, /*in*/ float volts);
 };
 
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// ParamQuantity for our value modes.
-//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-struct TS_ValueSequencerParamQuantity : TS_ParamQuantity 
-{
-	// Most of this functionality was already done in ValueSequencerMode back in v0.5 or whatever, so use it.
-	ValueSequencerMode* valueMode;	
-	char buffer[50];
-	TS_ValueSequencerParamQuantity() : TS_ParamQuantity()
-	{
-		return;
-	}
-	void setValueMode(ValueSequencerMode* vMode);
-	// Returns a string representation of the display value 
-	std::string getDisplayValueString() override;
-	// Given the string make it the float voltage.
-	void setDisplayValueString(std::string s) override;
-};
+
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // voltSeqWidget

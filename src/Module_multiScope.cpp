@@ -324,9 +324,6 @@ void multiScopeDisplay::drawLayer(const DrawArgs& args, int layer)
 	if (layer != 1)
 		return;
 
-	// Background lines
-	//drawBackground(args);
-
 	if (module == NULL || !module->initialized)
 		return;
 	

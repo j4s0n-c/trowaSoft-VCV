@@ -30,45 +30,49 @@ oscCV::oscCV(int numChannels, bool cv2osc, bool osc2cv) // : Module(NUM_PARAMS +
 	this->doCVPort2OSC = cv2osc;
 
 	this->numberChannels = numChannels;
-	char buffer[50];	
+	char buffer[100];	
 	if (doCVPort2OSC)
 	{
 		inputTriggers = new dsp::SchmittTrigger[numberChannels];
 		inputChannels = new TSOSCCVInputChannel[numberChannels];
-		// [Rack v2] Add labels for inputs and outputs
-		int inputId = 0;
+		// [Rack v2] Add labels for inputs and outputs (and lights)
+		int portId = 0;
 		DEBUG("oscCV - Setting Input Labels");
 		for (int i = 0; i < numberChannels; i++)
 		{
-			inputId = i * 2;
+			portId = i * 2;
 			sprintf(buffer, "Ch %d Trigger Send", i + 1);
-			configInput(InputIds::CH_INPUT_START + inputId, buffer);
+			configInput(InputIds::CH_INPUT_START + portId, buffer);
 			sprintf(buffer, "Ch %d Value", i + 1);
-			configInput(InputIds::CH_INPUT_START + inputId + 1, buffer);			
+			configInput(InputIds::CH_INPUT_START + portId + 1, buffer);			
+			// Configure the Light Also:
+			sprintf(buffer, "Ch %d Message Sent", i + 1);			
+			configLight(LightIds::CH_LIGHT_START + portId, buffer);
 		}		
 	}
 	if (doOSC2CVPort)
 	{
 		outputChannels = new TSOSCCVChannel[numberChannels];
 		pulseGens = new dsp::PulseGenerator[numberChannels];
-		// [Rack v2] Add labels for inputs and outputs
-		int inputId = 0;
-		DEBUG("oscCV - Setting Output Labels");		
+		// [Rack v2] Add labels for inputs and outputs (and lights)
+		int portId = 0;
+		//DEBUG("oscCV - Setting Output Labels");		
 		for (int i = 0; i < numberChannels; i++)
 		{
-			inputId = i * 2;
+			portId = i * 2;
 			sprintf(buffer, "Ch %d Received Trigger", i + 1);
-			configOutput(OutputIds::CH_OUTPUT_START + inputId, buffer);
+			configOutput(OutputIds::CH_OUTPUT_START + portId, buffer);
 			sprintf(buffer, "Ch %d Value Received", i + 1);
-			configOutput(OutputIds::CH_OUTPUT_START + inputId + 1, buffer);			
+			configOutput(OutputIds::CH_OUTPUT_START + portId + 1, buffer);
+			// Configure the Light Also:			
+			sprintf(buffer, "Ch %d Message Received", i + 1);
+			configLight(LightIds::CH_LIGHT_START + portId + 1, buffer);
 		}
 	}
+	// Initialize the actual channel objects and real names.
 	initialChannels();
 	
-	// Configure parameters:
-	// id, min, max, def
-	// configParam(/*paramId*/ oscCV::ParamIds::OSC_SHOW_CONF_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);	
-	// configParam(/*paramId*/ oscCV::ParamIds::OSC_AUTO_RECONNECT_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);	
+	// Configure parameters
 	
 	// [Rack v2] : configButton
 	// Main Configuation Navigation Buttons:
@@ -385,6 +389,9 @@ void oscCV::dataFromJson(json_t *rootJ) {
 			} // end if channel object
 		} // end if there is an outputChannels array
 	} // end loop through channels
+		
+	// Rename our ports [Rack v2]
+	renamePorts();
 
 	if (autoReconnect)
 	{

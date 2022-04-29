@@ -14,23 +14,38 @@ If you like the modules and wish to donate, you may do so [here](https://paypal.
 
 ## Binaries/Builds
 Any builds that are currently available are at [Github Releases page](https://github.com/j4s0n-c/trowaSoft-VCV/releases) and [geeksaurusrex](http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx). 
-Recent builds should also be available in the [VCV plugin manager](https://vcvrack.com/plugins.html).
+Recent builds should also be available in the [VCV plugin manager](https://library.vcvrack.com/?query=&brand=trowaSoft).
 
+**VCV Rack v2.x.x**:
+**2022-01-01**: The latest version is [v2.0.4](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v2.0.4) (for Rack v2.x).
+
+No more versions for older Rack versions will be developed, but they are still available here:
 **VCV Rack v1.x.x**:
-**2020-09-13**: The latest version is [v1.0.3](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v1.0.3) (for Rack v1.x).
+2020-09-13: The latest version is [v1.0.3](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v1.0.3) (for Rack v1.x).
 
 **VCV Rack v0.6.x**:
 2018-09-20: The latest version is [v0.6.4a](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.6.4a) (for Rack v0.6.2).
 
 **VCV Rack v0.5.x**:
-2018-02-17: The last version is [v0.5.5.2](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.5.5.2). No more versions for Rack 0.5.x will be developed.
+2018-02-17: The last version is [v0.5.5.2](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.5.5.2). 
 
 
-To build for your platform, please visit the [VCV rack documentation](https://vcvrack.com/manual/Building.html).
+To build for your platform, please visit the [VCV rack documentation](https://vcvrack.com/manual/Building#Building-Rack-plugins).
 
+## Modules
+
++ Sequencers
+    + **[trigSeq & trigSeq64]**(#trigseq--trigseq64) - Simple On/Off step sequencers.
+	+ **[voltSeq]**(#voltseq) - Variable voltage step sequencer.
+	+ **[multiSeq]**(#multiseq) (new as of v2.04) - trigSeq and voltSeq smooshed into one module.
++ **[multiWave]**(#multiwave) - Module with three (3) oscillator clocks.
++ **[multiScope]**(#multiscope) - Scope that allows three (3) waveforms to be drawn on the same canvas.
++ Open Sound Control CV Interface
+	+ **[cvOSCcv]**(#cvosccv) - Simple module for sending CV to OSC and receiving OSC to CVs.
+	+ **[cvOSC & OSCcv]**(#cvosccv-expansion-modules) - Expansion modules for cvOSCcv.
 
 ## Sequencers
-Currently there are three (3) sequencer modules.
+Currently there are four (4) sequencer modules.
 
 ### trigSeq & trigSeq64
 ![trigSeq](https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/trigSeq_screenshot.png?raw=true "trigSeq 16 step sequencer") ![trigSeq64](https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/trigSeq64_screenshot.png?raw=true "trigSeq64 64 step sequencer")
@@ -59,7 +74,28 @@ These are basic boolean on/off pad step sequencers (0V or 10V), based off the [F
 + Output modes: (as of v1.0.2) Each channel may have its own separate output mode.
     + **VOLT** - Voltage (-10V to +10V): Output whatever voltage you want.
     + **NOTE** - Midi Note (-5V to +5V) ~~(-4V to +6V)~~: Output notes (12 notes per 1 V; 10 octaves). [Base pitch (0V)](https://github.com/j4s0n-c/trowaSoft-VCV/issues/9) is now C4 (as of v0.5.5.2). Range is C-1 to C9 as of v0.6.0.
-    + **PATT** - Pattern (-10V to +10V): To control the currently playing Pattern (or Length) on another **trigSeq** or **voltSeq**. (Now 1 to 64 in range).  
+    + **PATT** - Pattern (-10V to +10V): To control the currently playing Pattern (or Length) on another **trigSeq**, **voltSeq**, or **multiSeq**. (Now 1 to 64 in range).  
++ Inputs: Pattern, BPM, (step) Length, Clock, Reset.
++ Copy & Paste of channel or entire pattern.
++ Open Sound Control (OSC) interface (as of v.0.5.5.1). [(more info)](https://github.com/j4s0n-c/trowaSoft-VCV/wiki/Open-Sound-Control-(OSC)-Interface)
++ Advanced Randomization options (as of v.0.5.5.2) for all patterns, current edit pattern, or only the displayed channel. Chose from 'normal random' or 'structured' random patterns.
++ Shift Values (as of v0.5.5.2): +/- 1 Volt or 1 Octave or 1 Pattern for all patterns, current edit pattern, or only the displayed channel.
+
+### multiSeq
+
+**multiSeq** is a combination of trigSeq and voltSeq. It supports triggers or variable voltages.
+
++ **multiSeq** is 64-step.
++ 64 patterns.
++ 16 channels (outputs).
++ Output modes: Each channel may have its own separate output mode.
+    + **TRIG** (trigger) (0 or 10V)
+    + **RTRG** (retrigger) (0 or 10V)
+    + **GATE** (continuous) (0 or 10V)
+    + **VOLT** - Voltage (-10V to +10V): Output whatever voltage you want.
+    + **NOTE** - Midi Note (-5V to +5V).
+    + **PATT** - Pattern (-10V to +10V): To control the currently playing Pattern (or Length) on another **trigSeq**, **voltSeq**, or **multiSeq**. 
++ **"Song Mode" Internal Pattern Sequencer**: Setup automatic pattern changes so you don't need another sequencer to send CV into the PATT input. Up to 64 sequences.
 + Inputs: Pattern, BPM, (step) Length, Clock, Reset.
 + Copy & Paste of channel or entire pattern.
 + Open Sound Control (OSC) interface (as of v.0.5.5.1). [(more info)](https://github.com/j4s0n-c/trowaSoft-VCV/wiki/Open-Sound-Control-(OSC)-Interface)

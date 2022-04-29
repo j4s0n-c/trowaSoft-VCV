@@ -46,7 +46,7 @@ struct oscCVWidget : TSSModuleWidgetBase {
 	std::vector<TS_ScreenBtn*> btnDrawOutputAdvChConfig;
 	// Flag if we have the master oscCV module loaded for configuration or an Expander.
 	bool masterConfigLoaded = true;
-
+	
 	bool showConfigScreen = false;
 	// -- EXPANDERS --
 	int showConfigIndex = 0;
@@ -137,8 +137,7 @@ struct TSOscCVLabels : TransparentWidget {
 	// TSOscCVLabels(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSOscCVLabels()
-	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+	{		
 		fontSize = 12;
 		return;
 	}
@@ -172,7 +171,6 @@ struct TSOscCVDataTypeSelectBtn : ChoiceButton {
 	TSOscCVChannelConfigScreen* parentScreen = NULL;
 
 	TSOscCVDataTypeSelectBtn(int numVals, int* itemVals, std::string* itemStrs, int selVal) {
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
 		fontSize = 14.0f;
 		backgroundColor = FORMS_DEFAULT_BG_COLOR;
 		color = FORMS_DEFAULT_TEXT_COLOR;
@@ -217,7 +215,7 @@ struct TSOscCVDataTypeSelectBtn : ChoiceButton {
 	}
 	void onAction(const event::Action &e) override;
 	// Draw if visible
-	void draw(const DrawArgs &args) override;
+	void drawLayer(const DrawArgs &args, int layer) override;
 };
 // An OSC client option in dropdown.
 struct TSOscCVDataTypeItem : MenuItem {
@@ -317,23 +315,17 @@ struct TSOscCVChannelConfigScreen : OpaqueWidget {
 	// Set visible or not.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void setVisibility(bool visible) {
-		//DEBUG("setVisibility(%d)", visible);
 		this->visible = visible;
 		try
 		{
-			//DEBUG("setVisibility(%d) - btn", visible);
 			if (btnToggleTranslateVals)
 				btnToggleTranslateVals->visible = visible;
-			//DEBUG("setVisibility(%d) - light", visible);
-			//if (lightTranslateVals)
-			//	lightTranslateVals->visible = visible;
-			//DEBUG("setVisibility(%d) - dropdown", visible);
+			if (btnToggleTranslateClipVals)
+				btnToggleTranslateClipVals->visible = visible;
 			this->btnSelectDataType->visible = visible;
 
-			//DEBUG("setVisibility(%d) - buttons", visible);
 			btnSave->visible = visible;
 			btnCancel->visible = visible;
-			//DEBUG("setVisibility(%d) - text boxes", visible);
 			for (int i = 0; i < TextBoxIx::NumTextBoxes; i++)
 			{
 				tbNumericBounds[i]->visible = visible;
@@ -343,7 +335,6 @@ struct TSOscCVChannelConfigScreen : OpaqueWidget {
 		{
 			WARN("Error %s.", e.what());
 		}
-		//DEBUG("setVisibility(%d) - Done", visible);
 		return;
 	} // end setVisibility()
 
@@ -402,7 +393,7 @@ struct TSOscCVChannelConfigScreen : OpaqueWidget {
 	// draw()
 	// @args.vg : (IN) NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ const DrawArgs &args) override;
+	void drawLayer(/*in*/ const DrawArgs &args, int layer) override;
 };
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -454,7 +445,7 @@ struct TSOscCVTopDisplay : TransparentWidget {
 	// draw()
 	// @args.vg : (IN) NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ const DrawArgs &args) override;
+	void drawLayer(/*in*/ const DrawArgs &args, int layer) override;
 
 }; // end struct TSOscCVTopDisplay
 
@@ -493,8 +484,6 @@ struct TSOscCVMiddleDisplay : TransparentWidget {
 	TSOscCVMiddleDisplay(oscCVWidget* widget)
 	{
 		parentWidget = widget;
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 12;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -524,7 +513,7 @@ struct TSOscCVMiddleDisplay : TransparentWidget {
 	// draw()
 	// @args.vg : (IN) NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ const DrawArgs &args) override;
+	void drawLayer(/*in*/ const DrawArgs &args, int layer) override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// drawChannelChart()
 	// Draw the channel data.

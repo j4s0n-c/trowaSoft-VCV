@@ -100,7 +100,7 @@ struct TSSeqLabelArea : TransparentWidget {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSSeqLabelArea() 
 	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+		
 		fontSize = 13;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -148,11 +148,17 @@ struct TSSeqPatternSeqConfigWidget : OpaqueWidget
 		}
 		return;
 	}
+	// //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// // draw()
+	// // @args.vg : (IN) NVGcontext to draw on
+	// //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// void draw(const DrawArgs &args) override;	
+	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// draw()
-	// @args.vg : (IN) NVGcontext to draw on
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(const DrawArgs &args) override;	
+	// Draw the light layer (v2). For light emission when dark.
+	// @layer : Layer #.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	void drawLayer(const DrawArgs& args, int layer) override;	
 	
 	void onHover(const event::Hover& e) override {
 		if (!visible)
@@ -219,7 +225,9 @@ struct TSSeqDisplay : TransparentWidget {
 	
 	enum SeqViewType : uint8_t 
 	{
+		// Display values of knobs
 		NormalView,
+		// Display currently edit step value (for multiSeq)
 		EditStepView
 	};
 	
@@ -234,8 +242,6 @@ struct TSSeqDisplay : TransparentWidget {
 	// TSSeqDisplay(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSSeqDisplay() {
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 12;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -250,41 +256,45 @@ struct TSSeqDisplay : TransparentWidget {
 	// Draw the edit step view.
 	// @currEditStep : Step number (1 - N).
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void drawEditStepView(const DrawArgs &args, int currEditStep);
-	
-	
+	void drawEditStepView(const DrawArgs &args, int currEditStep);	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// draw()
-	// @args.vg : (IN) NVGcontext to draw on
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ const DrawArgs &args) override 
-	{
+	// Draw the light layer (v2). For light emission when dark.
+	// @layer : Layer #.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	void drawLayer(const DrawArgs& args, int layer) override;
+	
+	// //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// // draw()
+	// // @args.vg : (IN) NVGcontext to draw on
+	// //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// void draw(/*in*/ const DrawArgs &args) override 
+	// {
 
-		// Screen:
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(args.vg, backgroundColor); 
-		nvgFill(args.vg);
-		nvgStrokeWidth(args.vg, 1.0);
-		nvgStrokeColor(args.vg, borderColor);
-		nvgStroke(args.vg);
+		// // Screen:
+		// nvgBeginPath(args.vg);
+		// nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+		// nvgFillColor(args.vg, backgroundColor); 
+		// nvgFill(args.vg);
+		// nvgStrokeWidth(args.vg, 1.0);
+		// nvgStrokeColor(args.vg, borderColor);
+		// nvgStroke(args.vg);
 
-		if (!showDisplay)
-			return;
+		// if (!showDisplay)
+			// return;
 		
-		switch (currentView)
-		{
-			case SeqViewType::NormalView:			
-				drawNormalView(args);
-				lastStepEditShownParamId = -1;
-				lastStepEditShownValue = -20.0f;
-				break;
-			case SeqViewType::EditStepView:
-				drawEditStepView(args, module->currentStepBeingEditedIx + 1);
-				break;
-		}
-		return;
-	} // end draw()
+		// switch (currentView)
+		// {
+			// case SeqViewType::NormalView:			
+				// drawNormalView(args);
+				// lastStepEditShownParamId = -1;
+				// lastStepEditShownValue = -20.0f;
+				// break;
+			// case SeqViewType::EditStepView:
+				// drawEditStepView(args, module->currentStepBeingEditedIx + 1);
+				// break;
+		// }
+		// return;
+	// } // end draw()
 }; // end struct TSSeqDisplay
 
 #endif // end !TROWASOFT_MODULE_TSSEQUENCERWIDGETBASE_HPP

@@ -119,7 +119,7 @@ struct ColorValueLight : ModuleLightWidget {
 			}
 			else
 			{
-				// // Creates new rounded rectangle shaped sub-path.
+				// Creates new rounded rectangle shaped sub-path.
 				// void nvgRoundedRect(NVGcontext* ctx, float x, float y, float w, float h, float r);				
 				nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, cornerRadius);				
 			}
@@ -178,23 +178,7 @@ struct ColorValueLight : ModuleLightWidget {
 		
 		nvgFillPaint(args.vg, paint);
 		nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
-		nvgFill(args.vg);
-		
-		
-		// float radius = box.size.x / 2.0;
-		// float oradius = radius + ((outerRadiusRelative) ? (radius*outerRadiusHalo) : outerRadiusHalo);
-
-		// nvgBeginPath(args.vg);
-		// nvgRect(args.vg, radius - oradius, radius - oradius, 2 * oradius, 2 * oradius);		
-
-		// NVGpaint paint;
-		// NVGcolor icol = color::mult(color, 0.10);//colorMult(color, 0.10);
-		// NVGcolor ocol = nvgRGB(0, 0, 0);
-		// paint = nvgRadialGradient(args.vg, radius, radius, radius, oradius, icol, ocol);
-		// nvgFillPaint(args.vg, paint);
-		// nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
-		// nvgFill(args.vg);
-		
+		nvgFill(args.vg);		
 		return;
 	}
 };
@@ -756,15 +740,13 @@ struct TS_LightRing : ColorValueLight
 //--------------------------------------------------------------
 struct TS_LightMeter : ColorValueLight 
 {
-	//int DEBUG_COUNT = 0;
-	
-	// Radius on corners
-	//float cornerRadius = 3.0;
 	float meterValue = 0.0f;
 	ParamWidget* paramWidget = NULL;
 	ValueSequencerMode* valueMode = NULL;
 	
-	float innerGlowAlphaAdj = 1.0f;
+	float innerGlowAlphaAdj = 1.0f;	
+	bool useSeparateValueColor = false;
+	NVGcolor valueColor;
 	
 	int id = 0;
 	TS_LightMeter()
@@ -773,36 +755,35 @@ struct TS_LightMeter : ColorValueLight
 		//baseColor = TSColors::COLOR_WHITE;
 		shape = LightShape::Rectangular;
 		cornerRadius = 3.0f;
+		outerRadiusHalo = 0.15f;
 	}
-	void draw(const DrawArgs &args) override
+	
+	// To use a different color to represent the value than the light flashing...
+	void setValueColor(NVGcolor valColor, bool diffColorEnabled = true)
+	{
+		useSeparateValueColor = diffColorEnabled;
+		valueColor = valColor;
+	}
+	
+	//------------------------------------------------	
+	// Draw the background.
+	//------------------------------------------------	
+	void drawBackground(const DrawArgs& args) override 
 	{
 		if (!visible)
 			return;
-		float radius = box.size.x / 2.0;
-		//float oradius = radius*1.1;
-		//float halo = 0.1 * radius;
-
-		NVGcolor backColor = bgColor;
-		NVGcolor outerColor = color;
 		
-		// Background =========================
-		// Solid
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
-		nvgFillColor(args.vg, backColor);
-		nvgFill(args.vg);
-
-		// Border
-		nvgStrokeWidth(args.vg, 1.0);
-		NVGcolor borderColor = bgColor;
-		borderColor.a *= 0.5;
-		nvgStrokeColor(args.vg, borderColor);
-		nvgStroke(args.vg);
+		this->ColorValueLight::drawBackground(args);
+		return;
+	}
+	
+	void drawValueIndicator(const DrawArgs& args)
+	{
 		
 		// Light =========================		
-		float height = box.size.y;
+		float height = 0.0f;
 		float y = 0.0f;
-		meterValue = 1.0f;		
+		meterValue = 0.0f;		
 		if (paramWidget != NULL && paramWidget->getParamQuantity())
 		{
 			float v = valueMode->GetOutputValue(paramWidget->getParamQuantity()->getValue()); //(*numericValue);
@@ -819,49 +800,158 @@ struct TS_LightMeter : ColorValueLight
 				meterValue = rescale(clamp(v, min, max), min, max, 0.0f, 1.0f);
 				height = meterValue * box.size.y;
 				//halo = height / 2.0f * 0.1;
-				y = box.size.y - height;				
+					y = box.size.y - height;				
 			}
 		}		
 		
-		NVGcolor lightColor = color;
-		if (!valueMode->isBoolean || meterValue > 0)
+		if (meterValue > 0)
 		{
-			// Value Indication		
-			nvgBeginPath(args.vg);
-			nvgRoundedRect(args.vg, 0.0, y, box.size.x, height, cornerRadius);		
-			NVGcolor valueColor = color;
-			valueColor.a = 1.0f;
-			nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);		
-			nvgFillColor(args.vg, valueColor);
-			nvgFill(args.vg);
-			lightColor.a *= innerGlowAlphaAdj;
-		}
-		
-		// Inner glow
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0.0, 0, box.size.x, box.size.y, cornerRadius);				
-		nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
-		nvgFillColor(args.vg, lightColor);
-		nvgFill(args.vg);
-		
-		
-		float offset = radius*0.1;
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, -offset, y - offset, box.size.x + offset, height + offset, cornerRadius);				
-		NVGpaint paint;
-		NVGcolor icol = outerColor;// color;
-		icol.a *= 0.25;
-		NVGcolor ocol = outerColor;// color;
-		ocol.a = 0.0;
-		float feather = 2;
-		paint = nvgBoxGradient(args.vg, -offset, y - offset, box.size.x + offset, height + offset,   
-			/*r: corner radius*/ cornerRadius, /*f: feather*/ feather, 
-			/*inner color*/ icol, /*outer color */ ocol);
-		nvgFillPaint(args.vg, paint);
-		nvgFill(args.vg);
-
+			NVGcolor lightColor = color;
+			if (useSeparateValueColor)
+			{
+				lightColor = valueColor;
+			}
+			else
+			{	
+				float v = (module != NULL) ? module->lights[firstLightId].value : 0.0f;
+				// Show the value indicator light but if the light is active (i.e. current step), then reduce the brightness
+				// so that the light of the current step can show through.
+				lightColor.r *= 0.9f;
+				lightColor.g *= 0.9f;
+				lightColor.b *= 0.9f;
+				lightColor.a = 1.0f - v;				
+			}
+			
+			if (lightColor.a > 0)
+			{
+				// Value Indication		
+				nvgBeginPath(args.vg);
+				nvgRoundedRect(args.vg, 0.0, y, box.size.x, height, cornerRadius);		
+				//NVGcolor valueColor = color;
+				//lightColor.a = 1.0f; // Full Opacity
+				//nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
+				nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
+				nvgFillColor(args.vg, lightColor);
+				nvgFill(args.vg);	
+			}
+		}		
 		return;
 	}
+	
+	//------------------------------------------------	
+	// Draw the light.
+	//------------------------------------------------	
+	void drawLight(const DrawArgs& args) override 
+	{
+		if (!visible)
+			return;
+		
+		drawValueIndicator(args);
+		
+		// Draw if we are active
+		this->ColorValueLight::drawLight(args);			
+		return;
+	}
+	
+	void drawHalo(const DrawArgs &args) override
+	{
+		if (!visible)
+			return;
+		
+		this->ColorValueLight::drawHalo(args);
+		return;
+	}
+	
+	
+	// void draw(const DrawArgs &args) override
+	// {
+		// if (!visible)
+			// return;
+		// float radius = box.size.x / 2.0;
+		// //float oradius = radius*1.1;
+		// //float halo = 0.1 * radius;
+
+		// NVGcolor backColor = bgColor;
+		// NVGcolor outerColor = color;
+		
+		// // Background =========================
+		// // Solid
+		// nvgBeginPath(args.vg);
+		// nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
+		// nvgFillColor(args.vg, backColor);
+		// nvgFill(args.vg);
+
+		// // Border
+		// nvgStrokeWidth(args.vg, 1.0);
+		// NVGcolor borderColor = bgColor;
+		// borderColor.a *= 0.5;
+		// nvgStrokeColor(args.vg, borderColor);
+		// nvgStroke(args.vg);
+		
+		// // Light =========================		
+		// float height = box.size.y;
+		// float y = 0.0f;
+		// meterValue = 1.0f;		
+		// if (paramWidget != NULL && paramWidget->getParamQuantity())
+		// {
+			// float v = valueMode->GetOutputValue(paramWidget->getParamQuantity()->getValue()); //(*numericValue);
+			// float min = valueMode->outputVoltageMin;//minDisplayValue;
+			// float max = valueMode->outputVoltageMax;//maxDisplayValue;
+			// if (valueMode->isBoolean)
+			// {
+				// meterValue = v > 0;
+				// height = (v > 0) ? box.size.y : 0;
+				// y = 0;
+			// }
+			// else
+			// {
+				// meterValue = rescale(clamp(v, min, max), min, max, 0.0f, 1.0f);
+				// height = meterValue * box.size.y;
+				// //halo = height / 2.0f * 0.1;
+				// y = box.size.y - height;				
+			// }
+		// }		
+		
+		// NVGcolor lightColor = color;
+		// if (!valueMode->isBoolean || meterValue > 0)
+		// {
+			// // Value Indication		
+			// nvgBeginPath(args.vg);
+			// nvgRoundedRect(args.vg, 0.0, y, box.size.x, height, cornerRadius);		
+			// NVGcolor valueColor = color;
+			// valueColor.a = 1.0f;
+			// nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);		
+			// nvgFillColor(args.vg, valueColor);
+			// nvgFill(args.vg);
+			// lightColor.a *= innerGlowAlphaAdj;
+		// }
+		
+		// // Inner glow
+		// nvgBeginPath(args.vg);
+		// nvgRoundedRect(args.vg, 0.0, 0, box.size.x, box.size.y, cornerRadius);		
+		// nvgGlobalCompositeOperation(args.vg, NVG_LIGHTER);
+		// nvgFillColor(args.vg, lightColor);
+		// nvgFill(args.vg);
+		
+		
+		// float offset = radius*0.1;
+		// nvgBeginPath(args.vg);
+		// nvgRoundedRect(args.vg, -offset, y - offset, box.size.x + offset, height + offset, cornerRadius);				
+		// NVGpaint paint;
+		// NVGcolor icol = outerColor;// color;
+		// icol.a *= 0.25;
+		// NVGcolor ocol = outerColor;// color;
+		// ocol.a = 0.0;
+		// float feather = 2;
+		// paint = nvgBoxGradient(args.vg, -offset, y - offset, box.size.x + offset, height + offset,   
+			// /*r: corner radius*/ cornerRadius, /*f: feather*/ feather, 
+			// /*inner color*/ icol, /*outer color */ ocol);
+		// nvgFillPaint(args.vg, paint);
+		// nvgFill(args.vg);
+
+		// return;
+	// }
+	
 }; // end TS_LightMeter
 
 /////////////////////////////////////////////

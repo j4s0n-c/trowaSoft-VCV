@@ -35,6 +35,7 @@ void TSOSCCVChannel::addValToBuffer(float buffVal)
 json_t* TSOSCCVChannel::serialize()
 {
 	json_t* channelJ = json_object();
+	json_object_set_new(channelJ, "chNum", json_integer(channelNum));	
 	json_object_set_new(channelJ, "path", json_string(getPath().c_str()));
 	json_object_set_new(channelJ, "dataType", json_integer(dataType));
 	json_object_set_new(channelJ, "convertVals", json_integer(convertVals));
@@ -52,9 +53,12 @@ json_t* TSOSCCVChannel::serialize()
 void TSOSCCVChannel::deserialize(json_t* rootJ) {
 	json_t* currJ = NULL;
 	if (rootJ) {
+		currJ = json_object_get(rootJ, "chNum");
+		if (currJ)
+			channelNum = json_integer_value(currJ);				
 		currJ = json_object_get(rootJ, "path");
 		if (currJ)
-			setPath(json_string_value(currJ));
+			setPath(json_string_value(currJ));		
 		currJ = json_object_get(rootJ, "dataType");
 		if (currJ)
 			dataType = static_cast<TSOSCCVChannel::ArgDataType>(json_integer_value(currJ));

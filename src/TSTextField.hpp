@@ -198,7 +198,7 @@ struct TSTextField : TextField {
 
 	// Remove invalid chars.
 	std::string cleanseString(std::string newText);
-	void draw(const DrawArgs &args) override;
+	void drawLayer(const DrawArgs &args, int layer) override;
 	void insertText(std::string newText);
 	void onTextChange();
 	

@@ -45,7 +45,7 @@ struct trigSeq : TSSequencerModuleBase
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void process(const ProcessArgs &args) override;
 	// Only randomize the current gate/trigger steps.
-	void onRandomize() override;
+	void onRandomize(const RandomizeEvent& e) override;
 	// Get the toggle step value
 	float getToggleStepValue(int step, float val, int channel, int pattern) override;
 	// Calculate a representation of all channels for this step

@@ -20,6 +20,15 @@ extern Model* modelOscCVExpanderOutput;
 #include "TSOSCCV_Common.hpp"
 #include "TSColors.hpp"
 
+#define CV2OSC_LBL_IN_TRIG			"Send Trigger: "
+#define CV2OSC_LBL_IN_VALUE			"Send Value: "
+#define CV2OSC_LBL_LIGHT_MSG_TX		"Message Sent: "
+#define OSC2CV_LBL_OUT_TRIG			"Received Trigger: "
+#define OSC2CV_LBL_OUT_VALUE		"Received Value: "
+#define OSC2CV_LBL_LIGHT_MSG_RX		"Message Received: "
+
+
+
 //=== DEBUG MacOS ====
 //#define USE_MODULE_STATIC_RX					1 // Debug MAC OS issues. Start keeping a static buffer of msg objects for each module.
 //#define OSC_RX_MSG_BUFFER_SIZE				   40 // Debug MAC OS issues. Start keeping a static buffer of msg objects for each module.
@@ -137,6 +146,28 @@ struct oscCVExpander : Module
 	// Initialize the channels.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	void initChannels(int baseChannel);
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// Rename the ports (i.e. after loading from save) after our actual
+	// real channel addresses.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	void renamePorts() {
+		for (int i = 0; i < numberChannels; i++)
+		{
+			int portId = i *2;
+			if (expanderType == TSOSCCVExpanderDirection::Input) {
+				inputInfos[InputIds::CH_INPUT_START + portId]->PortInfo::name = CV2OSC_LBL_IN_TRIG + inputChannels[i].path;		  // Send Trigger
+				inputInfos[InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = CV2OSC_LBL_IN_VALUE + inputChannels[i].path;  // Send Value
+				lightInfos[LightIds::CH_LIGHT_START + portId]->LightInfo::name = CV2OSC_LBL_LIGHT_MSG_TX + inputChannels[i].path; // Message Sent
+			}
+			else {
+				outputInfos[OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = OSC2CV_LBL_OUT_TRIG + outputChannels[i].path;	  // Received Trigger
+				outputInfos[OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = OSC2CV_LBL_OUT_VALUE + outputChannels[i].path; // Received Value
+				lightInfos[LightIds::CH_LIGHT_START + portId + 1]->LightInfo::name = OSC2CV_LBL_LIGHT_MSG_RX + outputChannels[i].path; // Message Received
+			}
+		}				
+		return;
+	}
+	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// reset(void)
 	// Initialize values.

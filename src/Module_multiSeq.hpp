@@ -21,8 +21,6 @@ extern Model *modelMultiSeq64;
 #define  MULTISEQ_STEP_KNOB_MIN		voltSeq_STEP_KNOB_MIN
 #define  MULTISEQ_STEP_KNOB_MAX		voltSeq_STEP_KNOB_MAX
 
-//struct TS_LightMeter;
-
 // Simple Pattern Value mode (basically 0-63, displayed 1 to 64).
 // Doesn't try to use 'voltages'.
 extern ValueSequencerMode* SimplePatternValueMode;
@@ -65,7 +63,7 @@ struct multiSeq : TSSequencerModuleBase
 			/*zeroPointAngle*/ TROWA_ANGLE_STRAIGHT_UP_RADIANS,
 			/*display format String */ "%1.0f",
 			/*roundDisplay*/ 1, /*roundOutput*/ 0,
-			/*zeroValue*/ voltSeq_STEP_KNOB_MIN, 
+			/*zeroValue*/ 0.0f,  //voltSeq_STEP_KNOB_MIN
 			/*outputIsBoolean*/ true),	
 		// RTRG (simple bool)
 		new ValueSequencerMode(/*displayName*/ "RTRG", /*unit*/ "",
@@ -76,7 +74,7 @@ struct multiSeq : TSSequencerModuleBase
 			/*zeroPointAngle*/ TROWA_ANGLE_STRAIGHT_UP_RADIANS,
 			/*display format String */ "%1.0f",
 			/*roundDisplay*/ 1, /*roundOutput*/ 0,
-			/*zeroValue*/ voltSeq_STEP_KNOB_MIN,
+			/*zeroValue*/ 0.0f,  //voltSeq_STEP_KNOB_MIN
 			/*outputIsBoolean*/ true),				
 		// GATE (simple bool)
 		new ValueSequencerMode(/*displayName*/ "GATE", /*unit*/ "",
@@ -87,7 +85,7 @@ struct multiSeq : TSSequencerModuleBase
 			/*zeroPointAngle*/ TROWA_ANGLE_STRAIGHT_UP_RADIANS,
 			/*display format String */ "%1.0f",
 			/*roundDisplay*/ 1, /*roundOutput*/ 0,
-			/*zeroValue*/ voltSeq_STEP_KNOB_MIN,
+			/*zeroValue*/ 0.0f,  //voltSeq_STEP_KNOB_MIN
 			/*outputIsBoolean*/ true),			
 	
 		// Voltage Mode 
@@ -114,7 +112,9 @@ struct multiSeq : TSSequencerModuleBase
 			/*zeroPointAngle*/ 0.67*NVG_PI, 
 			/*display format String */ "%02.0f",
 			/*roundDisplay*/ 0, /*roundOutput*/ 0,
-			/*zeroValue*/ voltSeq_STEP_KNOB_MIN)			
+			/*zeroValue*/ voltSeq_STEP_KNOB_MIN,
+			/*outputIsBoolean*/ false,
+			/*displayIsInt*/ true)			
 	};	
 	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -155,8 +155,22 @@ struct multiSeq : TSSequencerModuleBase
 	// [Previously step(void)]
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void process(const ProcessArgs &args) override;
-	// Only randomize the current gate/trigger steps.
-	void onRandomize() override;
+	
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getValueSeqChannelModes()
+	// Gets the array of ValueSequencerModes if any.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
+	ValueSequencerMode** getValueSeqChannelModes() override
+	{
+		return ValueModes;
+	}
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// randomize()
+	// Only randomize the current gate/trigger steps by default OR the 
+	// the pattern sequences if that is shown.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	virtual void onRandomize(const RandomizeEvent& e) override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// getRandomValue()
 	// Get a random value for a step in this sequencer.
@@ -197,6 +211,16 @@ struct multiSeq : TSSequencerModuleBase
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void shiftValues(/*in*/ int patternIx, /*in*/ int channelIx, /*in*/ float volts);
 	
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// dataFromJson(void)
+	// Read in our junk from json.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	virtual void dataFromJson(json_t *rootJ) override
+	{
+		this->allowPatternSequencing = true; // make sure this is set
+		this->TSSequencerModuleBase::dataFromJson(rootJ);
+		return;
+	}
 };
 
 
@@ -245,7 +269,7 @@ struct TSSwitchKnob : TS_BaseKnob
 			if (isStepValue)
 			{
 #if DEBUG_PATT_SEQ				
-				DEBUG("+> Set id %d as Active Edit Step (ParamId %d). Value = %4.2f.", id, paramQuantity->paramId, paramQuantity->getValue());
+//				DEBUG("+> Set id %d as Active Edit Step (ParamId %d). Value = %4.2f.", id, paramId, paramQuantity->getValue());
 #endif				
 				seqModule->currentStepBeingEditedIx = id;
 				seqModule->currentStepBeingEditedParamId = paramId;// paramQuantity->paramId;				
@@ -253,7 +277,7 @@ struct TSSwitchKnob : TS_BaseKnob
 			else
 			{
 #if DEBUG_PATT_SEQ
-				DEBUG("+> Set id %d as Active Edit PATTERN SEQ (ParamId %d). Value = %4.2f.", id, paramQuantity->paramId, paramQuantity->getValue());			
+//				DEBUG("+> Set id %d as Active Edit PATTERN SEQ (ParamId %d). Value = %4.2f.", id, paramId, paramQuantity->getValue());			
 #endif
 				// The current pattern index being edited (index into patternData).
 				seqModule->currentPatternDataBeingEditedIx = id;
@@ -350,7 +374,7 @@ struct TSSwitchKnob : TS_BaseKnob
 		if (e.button != GLFW_MOUSE_BUTTON_LEFT || !visible)
 			return;		
 #if DEBUG_PATT_SEQ		
-		DEBUG("onDragSTART(%d) fired (Current Value is %3.1f). Selected Widget = %d.", id, paramQuantity->getValue(), APP->event->selectedWidget == this);		
+	//	DEBUG("onDragSTART(%d) fired (Current Value is %3.1f). Selected Widget = %d.", id, paramQuantity->getValue(), APP->event->selectedWidget == this);		
 #endif
 		ParamQuantity* paramQuantity = getParamQuantity();
 		if (paramQuantity)

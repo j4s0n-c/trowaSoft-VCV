@@ -103,8 +103,6 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 	// TSSingleOscillatorTopDisplay(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSSingleOscillatorDisplay() {
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -122,7 +120,7 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 	// A single oscillator info.
 	// @args : (IN) Draw args and NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ const DrawArgs &args) override;
+	void drawLayer(/*in*/ const DrawArgs &args, int layer) override;
 
 	/**
 	Called when a mouse button is pressed over this widget
@@ -134,6 +132,8 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 	void onButton(const event::Button &e) override {
 		if (module == NULL)
 			return;
+		DEBUG("TSSingleOscillatorDisplay::onMouseDown() = CLICK!");					
+		
 		if (showDisplay) {
 			if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT) {
 				// Left click, check position, find which text box this would go to.
@@ -153,13 +153,13 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 				}
 				if (txtBoxIx > -1 && !textBoxes[txtBoxIx]->visible)
 				{
-//DEBUG("TSSingleOscillatorDisplay::onMouseDown() = Showing Txt Id %d, visible = %d", txtBoxIx, textBoxes[txtBoxIx]->visible);					
+DEBUG("TSSingleOscillatorDisplay::onMouseDown() = Showing Txt Id %d, visible = %d", txtBoxIx, textBoxes[txtBoxIx]->visible);					
 					// Show the text box:
 					textBoxes[txtBoxIx]->visible = true;
 					//e.target = textBoxes[txtBoxIx];
 					//e.consumed = true;
 					e.consume(textBoxes[txtBoxIx]);
-//DEBUG("TSSingleOscillatorDisplay::onMouseDown() = Txt Id %d -- REQUEST FOCUS", txtBoxIx);					
+DEBUG("TSSingleOscillatorDisplay::onMouseDown() = Txt Id %d -- REQUEST FOCUS", txtBoxIx);					
 					textBoxes[txtBoxIx]->requestFocus();
 				}		
 			} // end if left click (previously e.button == 0)
@@ -257,8 +257,8 @@ struct TSOscillatorChannelDisplayWidget : TransparentWidget
 	// TSOscillatorChannelDisplayWidget(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSOscillatorChannelDisplayWidget() {
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+		// font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+		// labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -278,7 +278,7 @@ struct TSOscillatorChannelDisplayWidget : TransparentWidget
 	// A single oscillator info.
 	// @args : (IN) Draw args and NVGcontext to draw on
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void draw(/*in*/ const DrawArgs &args) override;
+	void drawLayer(/*in*/ const DrawArgs &args, int layer) override;
 
 	/**
 	Called when a mouse button is pressed over this widget

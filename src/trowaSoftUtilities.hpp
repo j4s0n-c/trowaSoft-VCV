@@ -66,7 +66,7 @@ extern const char * TROWA_NOTES[TROWA_SEQ_NUM_NOTES]; // Our note labels.
 // [2018-11-20] Remove rounding so that each pattern is ~0.32 V.
 inline int VoltsToPattern(float voltsInput)
 {	
-	// (float x, float xMin, float xMax, float yMin, float yMax)
+	// (float x, float xMin, float xMax, float yMin, float yMax)	
 	return (int)clamp((int)(rescale(voltsInput, (float)TROWA_SEQ_PATTERN_MIN_V, (float)TROWA_SEQ_PATTERN_MAX_V, 1.0f, (float)TROWA_SEQ_NUM_PATTERNS)), 1, TROWA_SEQ_NUM_PATTERNS);
 }
 // Pattern index [0-63] to output voltage.
@@ -209,6 +209,8 @@ struct ValueSequencerMode
 	
 	float roundNearestDisplay = 0;
 	float roundNearestOutput = 0;
+	// If the display value should be integer
+	bool displayIsInt = false;
 	// Format string for the display value
 	const char * displayFormatString;
 	// The display name.
@@ -216,9 +218,13 @@ struct ValueSequencerMode
 	// The unit.
 	const char * unit;
 	
-	float zeroValue;
+	float zeroValue = 0.0f;
 	
 	float snapValue = 0.0f;
+	// True for boolean
+	const char* bDisplayTrueStr = "On";
+	// False for boolean
+	const char* bDisplayFalseStr = "Off";
 	
 	ValueSequencerMode()
 	{
@@ -228,7 +234,7 @@ struct ValueSequencerMode
 	ValueSequencerMode(const char* displayName, const char* unit, float minDisplayValue, float maxDisplayValue, float min_V, float max_V, 
 		float outVoltageMin, float outVoltageMax,
 		bool wholeNumbersOnly, float zeroPointAngle, const char * formatStr,
-		float roundDisplay, float roundOutput, float zeroValue, bool outputIsBoolean = false)
+		float roundDisplay, float roundOutput, float zeroValue, bool outputIsBoolean = false, bool displayIsInt = false)
 	{
 		this->displayName = displayName;
 		this->unit = unit; // add unit
@@ -244,6 +250,7 @@ struct ValueSequencerMode
 		this->roundNearestDisplay = roundDisplay;
 		this->roundNearestOutput = roundOutput;
 		this->zeroValue = zeroValue;
+		this->displayIsInt = displayIsInt;
 		
 		needsTranslationDisplay = minDisplayValue != voltageMin || maxDisplayValue != voltageMax;
 		needsTranslationOutput = outputVoltageMin != voltageMin || outputVoltageMax != voltageMax;
@@ -258,26 +265,68 @@ struct ValueSequencerMode
 	virtual void GetDisplayString(/*in*/ float val, /*out*/ char* buffer)
 	{
 		float dVal = val;
-		if (needsTranslationDisplay)
+		if (isBoolean)
 		{
-			dVal = rescale(val, voltageMin, voltageMax, minDisplayValue, maxDisplayValue);
+			// Allow for multiSeq to have -10 V as false (anything positive should be true, anything 0 or negative should be false).
+			//dVal = (dVal > zeroValue) ? voltageMax : zeroValue;
+			if (dVal > zeroValue) {
+				strncpy(buffer, bDisplayTrueStr, 20);
+			}
+			else {
+				strncpy(buffer, bDisplayFalseStr, 20);				
+			}
 		}
-		if (roundNearestDisplay > 0)
+		else 
 		{
-			dVal = static_cast<int>(dVal  / roundNearestDisplay) * roundNearestDisplay;
+			if (needsTranslationDisplay)
+			{
+				// Clip
+				if (dVal < voltageMin)
+					dVal = voltageMin;
+				else if (dVal > voltageMax)
+					dVal = voltageMax; 
+				dVal = rescale(dVal, voltageMin, voltageMax, minDisplayValue, maxDisplayValue);
+				//DEBUG("Value: %6.4f, Ending Value: %6.4f. (Out Range: %6.2f - %6.4f)", val, dVal, minDisplayValue, maxDisplayValue);				
+			}
+			if (roundNearestDisplay > 0)
+			{
+				dVal = static_cast<int>(round(dVal/roundNearestDisplay)) * roundNearestDisplay;
+				//DEBUG("> Value: %6.4f, Ending Rounded: %6.4f", val, dVal);
+			}
+			// Need this now since I didn't notice the sprintf will automatically round, so our Pattern #'s were rounding up sometimes when they should always be floored...
+			if (displayIsInt)
+			{
+				dVal = static_cast<int>(dVal);
+				//DEBUG("> Value: %6.4f, Ending (forced to INT): %6.4f", val, dVal);
+			}
+			sprintf(buffer, displayFormatString, dVal);				
 		}
-		sprintf(buffer, displayFormatString, dVal);	
 		return;
 	}
 	// Given the display string, return the output knob voltage.
 	virtual float GetKnobValueFromString(std::string displayStr)
 	{
-		float dVal = std::stof(displayStr);
-		float val = dVal;
-		if (needsTranslationDisplay)
+		float val = 0.0f;
+		if (isBoolean) 
 		{
-			// Display value back to knob voltage:
-			val = rescale(dVal, minDisplayValue, maxDisplayValue, voltageMin, voltageMax);			
+			if (displayStr.compare(bDisplayTrueStr) == 0 || displayStr.compare("1") == 0)
+			{
+				val = voltageMax;
+			}
+			else
+			{
+				val = voltageMin;
+			}
+		}
+		else
+		{
+			float dVal = std::stof(displayStr);
+			val = dVal;
+			if (needsTranslationDisplay)
+			{
+				// Display value back to knob voltage:
+				val = rescale(dVal, minDisplayValue, maxDisplayValue, voltageMin, voltageMax);			
+			}			
 		}
 		return val;
 	}
@@ -285,9 +334,22 @@ struct ValueSequencerMode
 	virtual float GetOutputValue(float val)
 	{
 		float oVal = val;
+		// Clip
+		if (oVal < voltageMin)
+			oVal = voltageMin;
+		else if (oVal > voltageMax)
+			oVal = voltageMax; 		
 		if (needsTranslationOutput)
 		{
-			oVal = rescale(val, voltageMin, voltageMax, outputVoltageMin, outputVoltageMax);
+			if (isBoolean)
+			{
+				// Allow for multiSeq to have -10 V as false (anything positive should be true, anything 0 or negative should be false).
+				oVal = (oVal > zeroValue) ? outputVoltageMax : outputVoltageMin;
+			}
+			else 
+			{
+				oVal = rescale(val, voltageMin, voltageMax, outputVoltageMin, outputVoltageMax);				
+			}
 		}
 		if (roundNearestOutput > 0)
 		{ // Round this

@@ -24,3 +24,4 @@ voltSeq_Maschine.pd
 res/ComponentLibrary/TS_RoundBlackKnob_20_oops.svg
 *.excl
 *.backup
+*.orig

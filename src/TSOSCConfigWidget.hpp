@@ -35,8 +35,13 @@ struct TSOSCClientSelectBtn : ChoiceButton {
 	TSOSCClientSelectBtn();
 	void step() override;
 	void onAction(const event::Action &e) override;
+	// Draw the control.
+	void drawControl(const DrawArgs &args);
+	// Draw if visible
+	void drawLayer(const DrawArgs &args, int layer) override;
 	// Draw if visible
 	void draw(const DrawArgs &args) override;
+	
 };
 // An OSC client option in dropdown.
 struct TSOSCClientItem : MenuItem {
@@ -118,7 +123,7 @@ struct TSOSCConfigWidget : OpaqueWidget
 	void step() override;
 
 	// Draw if visible
-	void draw(const DrawArgs &args) override;
+	void drawLayer(const DrawArgs &args, int layer) override;
 	// Callback for tabbing between our text boxes.
 	void onTabField(int id);
 	// Callback for shift-tabbing between our text boxes.

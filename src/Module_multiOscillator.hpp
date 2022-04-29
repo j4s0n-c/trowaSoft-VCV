@@ -485,7 +485,7 @@ struct multiOscillator : Module {
 	// randomize(void)
 	// Randomize button stuff.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void onRandomize() override
+	void onRandomize(const RandomizeEvent& e) override
 	{
 		for (int i = 0; i < numberOscillators; i++)
 		{

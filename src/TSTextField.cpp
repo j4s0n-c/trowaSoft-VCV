@@ -12,7 +12,6 @@ using namespace rack;
 TSTextField::TSTextField(TextType textType) : TextField() {
 	multiline = false; // Default to no multiline.
 	setTextType(textType);
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
 	fontSize = 14.0f;
 	backgroundColor = FORMS_DEFAULT_BG_COLOR;
 	color = FORMS_DEFAULT_TEXT_COLOR;
@@ -31,6 +30,7 @@ TSTextField::TSTextField(TextType textType, int maxLength) : TSTextField(textTyp
 
 // Taken from Rack's LEDTextField
 int TSTextField::getTextPosition(Vec mousePos) {
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
 	bndSetFont(font->handle);
 	int textPos = bndIconLabelTextPosition(APP->window->vg, textOffset.x, textOffset.y,
 		box.size.x - 2 * textOffset.x, box.size.y - 2 * textOffset.y,
@@ -46,92 +46,98 @@ void TSTextField::setVisible(bool isVisible){
 }
 
 // Draw if visible.
-void TSTextField::draw(const DrawArgs &args) 
+void TSTextField::drawLayer(const DrawArgs &args, int layer) 
 {
 	if (this->visible)
 	{
-		// Draw taken from Rack's LEDTextField and modified for scrolling (my quick & dirty ghetto text scrolling---ONLY truly effective for calculating the width with MONOSPACE font
-		// since I don't want to do a bunch of calcs... [lazy]).
-		nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);
+		if (layer == 1)
+		{
+			// v2: Load font reference every draw call			
+			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
+	
+			// Draw taken from Rack's LEDTextField and modified for scrolling (my quick & dirty ghetto text scrolling---ONLY truly effective for calculating the width with MONOSPACE font
+			// since I don't want to do a bunch of calcs... [lazy]).
+			nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);
 
-		// Background
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(args.vg, backgroundColor);
-		nvgFill(args.vg);
+			// Background
+			nvgBeginPath(args.vg);
+			nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, 5.0);
+			nvgFillColor(args.vg, backgroundColor);
+			nvgFill(args.vg);
 
-		// Border
-		if (borderWidth > 0) {
-			nvgStrokeWidth(args.vg, borderWidth);
-			nvgStrokeColor(args.vg, borderColor);
-			nvgStroke(args.vg);
-		}
-
-		// Text
-		if (font->handle >= 0) {
-			bndSetFont(font->handle);
-			
-			
-			BNDwidgetState state;
-			if (this == APP->event->selectedWidget)
-				state = BND_ACTIVE;
-			else if (this == APP->event->hoveredWidget)
-				state = BND_HOVER;
-			else
-				state = BND_DEFAULT;			
-
-			//NVGcolor highlightColor = color;
-			//highlightColor.a = 0.5;
-			int begin = std::min(cursor, selection);
-			int end = (state == BND_ACTIVE) ? std::max(cursor, selection) : -1;
-
-			// Calculate overflow and the displayed text (based on bounding box)
-			// Currently the scrolling should work for any font, **BUT** the width calculation is only really good for monospace.
-			float txtBounds[4] = { 0,0,0,0 };
-			nvgTextAlign(args.vg, NVG_ALIGN_LEFT);
-			nvgFontSize(args.vg, fontSize);
-			nvgFontFaceId(args.vg, font->handle);
-			int maxTextWidth = box.size.x - textOffset.x * 2 - fontSize / 2.0; // There should be a caret
-			float estLetterSize = nvgTextBounds(args.vg, 0, 0, "X", NULL, txtBounds); // Estimate size of a letter (accurate for monospace)
-			float nextX = nvgTextBounds(args.vg, 0, 0, text.c_str(), NULL, txtBounds); // Calculate full string size
-
-			displayStr = text;
-			if (nextX > maxTextWidth) {
-				int nChars = maxTextWidth / estLetterSize - 1;
-				if (nChars < 1)
-					nChars = 1;
-
-				if (state == BND_ACTIVE) {
-					int lastIx = (cursor > nChars) ? cursor : nChars;
-					int startIx = clamp(lastIx - nChars, 0, lastIx);
-					displayStr = text.substr(startIx, nChars);
-					begin -= startIx;
-					if (end > -1)
-						end -= startIx;
-				}
-				else {
-					displayStr = text.substr(0, nChars);
-				}
+			// Border
+			if (borderWidth > 0) {
+				nvgStrokeWidth(args.vg, borderWidth);
+				nvgStrokeColor(args.vg, borderColor);
+				nvgStroke(args.vg);
 			}
 
+			// Text
+			if (font->handle >= 0) {
+				bndSetFont(font->handle);
+				
+				
+				BNDwidgetState state;
+				if (this == APP->event->selectedWidget)
+					state = BND_ACTIVE;
+				else if (this == APP->event->hoveredWidget)
+					state = BND_HOVER;
+				else
+					state = BND_DEFAULT;			
 
-			// The caret color actually isn't the cursor color (that is hard-coded as nvgRGBf(0.337,0.502,0.761))
-			// 
+				//NVGcolor highlightColor = color;
+				//highlightColor.a = 0.5;
+				int begin = std::min(cursor, selection);
+				int end = (state == BND_ACTIVE) ? std::max(cursor, selection) : -1;
 
-			//void bndIconLabelCaret(NVGcontext *ctx, float x, float y, float w, float h,
-			//	int iconid, NVGcolor color, float fontsize, const char *label,
-			//	NVGcolor caretcolor, int cbegin, int cend
-			bndIconLabelCaret(args.vg, /*x*/ textOffset.x, /*y*/ textOffset.y,
-				/*w*/ box.size.x - 2 * textOffset.x, /*h*/ box.size.y - 2 * textOffset.y,
-				/*iconid*/ -1, /*textColor*/ color, /*fontsize*/ fontSize, 
-				/*label*/ displayStr.c_str(), 
-				/*caretcolor*/ caretColor, /*cbegin*/ begin, /*cend*/ end);
+				// Calculate overflow and the displayed text (based on bounding box)
+				// Currently the scrolling should work for any font, **BUT** the width calculation is only really good for monospace.
+				float txtBounds[4] = { 0,0,0,0 };
+				nvgTextAlign(args.vg, NVG_ALIGN_LEFT);
+				nvgFontSize(args.vg, fontSize);
+				nvgFontFaceId(args.vg, font->handle);
+				int maxTextWidth = box.size.x - textOffset.x * 2 - fontSize / 2.0; // There should be a caret
+				float estLetterSize = nvgTextBounds(args.vg, 0, 0, "X", NULL, txtBounds); // Estimate size of a letter (accurate for monospace)
+				float nextX = nvgTextBounds(args.vg, 0, 0, text.c_str(), NULL, txtBounds); // Calculate full string size
 
-			bndSetFont(APP->window->uiFont->handle);
-		}
+				displayStr = text;
+				if (nextX > maxTextWidth) {
+					int nChars = maxTextWidth / estLetterSize - 1;
+					if (nChars < 1)
+						nChars = 1;
 
-		nvgResetScissor(args.vg);
-	}
+					if (state == BND_ACTIVE) {
+						int lastIx = (cursor > nChars) ? cursor : nChars;
+						int startIx = clamp(lastIx - nChars, 0, lastIx);
+						displayStr = text.substr(startIx, nChars);
+						begin -= startIx;
+						if (end > -1)
+							end -= startIx;
+					}
+					else {
+						displayStr = text.substr(0, nChars);
+					}
+				}
+
+
+				// The caret color actually isn't the cursor color (that is hard-coded as nvgRGBf(0.337,0.502,0.761))
+				// 
+
+				//void bndIconLabelCaret(NVGcontext *ctx, float x, float y, float w, float h,
+				//	int iconid, NVGcolor color, float fontsize, const char *label,
+				//	NVGcolor caretcolor, int cbegin, int cend
+				bndIconLabelCaret(args.vg, /*x*/ textOffset.x, /*y*/ textOffset.y,
+					/*w*/ box.size.x - 2 * textOffset.x, /*h*/ box.size.y - 2 * textOffset.y,
+					/*iconid*/ -1, /*textColor*/ color, /*fontsize*/ fontSize, 
+					/*label*/ displayStr.c_str(), 
+					/*caretcolor*/ caretColor, /*cbegin*/ begin, /*cend*/ end);
+
+				bndSetFont(APP->window->uiFont->handle);
+			} // end if font->handle
+			nvgResetScissor(args.vg);
+		} // end if layer == 1
+	} // end if visible
+	this->Widget::drawLayer(args, 1);
 } // end draw()
 
 // Request focus on this field.

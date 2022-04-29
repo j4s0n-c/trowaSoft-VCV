@@ -21,7 +21,6 @@ void TSOSCClientItem::onAction(const event::Action &e) {
 }
 
 TSOSCClientSelectBtn::TSOSCClientSelectBtn() {
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
 	fontSize = 14.0f;
 	backgroundColor = FORMS_DEFAULT_BG_COLOR;
 	color = FORMS_DEFAULT_TEXT_COLOR;
@@ -52,40 +51,63 @@ void TSOSCClientSelectBtn::step() {
 	text = string::ellipsize(OSCClientStr[selectedOSCClient], 15);
 }
 
+void TSOSCClientSelectBtn::drawControl(const DrawArgs &args)
+{
+	// v2: Load font reference every draw call
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
+	
+	nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);
+
+	// Background
+	nvgBeginPath(args.vg);
+	nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, 5.0);
+	nvgFillColor(args.vg, backgroundColor);
+	nvgFill(args.vg);
+
+	// Border
+	if (borderWidth > 0) {
+		nvgStrokeWidth(args.vg, borderWidth);
+		nvgStrokeColor(args.vg, borderColor);
+		nvgStroke(args.vg);
+	}
+	nvgResetScissor(args.vg);
+
+	if (font->handle >= 0) {
+
+		nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);	
+		nvgScissor(args.vg, 0, 0, box.size.x - 5, box.size.y);
+
+		nvgFillColor(args.vg, color);
+		nvgFontFaceId(args.vg, font->handle);
+		nvgTextLetterSpacing(args.vg, 0.0);
+
+		nvgFontSize(args.vg, fontSize);
+		nvgText(args.vg, textOffset.x, textOffset.y, text.c_str(), NULL);
+
+		nvgResetScissor(args.vg);
+
+		bndUpDownArrow(args.vg, box.size.x - 10,  10, 5, color);
+	}
+	return;
+}
+
+void TSOSCClientSelectBtn::drawLayer(const DrawArgs &args, int layer) {
+	if (visible)
+	{
+		if (layer == 1)
+		{
+			drawControl(args);
+		}
+		//this->Widget::drawLayer(args, layer);
+	}
+	return;
+}
 void TSOSCClientSelectBtn::draw(const DrawArgs &args) {
 	if (visible)
 	{
-		nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);
-
-		// Background
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(args.vg, backgroundColor);
-		nvgFill(args.vg);
-
-		// Border
-		if (borderWidth > 0) {
-			nvgStrokeWidth(args.vg, borderWidth);
-			nvgStrokeColor(args.vg, borderColor);
-			nvgStroke(args.vg);
-		}
-		nvgResetScissor(args.vg);
-
-		if (font->handle >= 0) {
-			nvgScissor(args.vg, 0, 0, box.size.x - 5, box.size.y);
-
-			nvgFillColor(args.vg, color);
-			nvgFontFaceId(args.vg, font->handle);
-			nvgTextLetterSpacing(args.vg, 0.0);
-
-			nvgFontSize(args.vg, fontSize);
-			nvgText(args.vg, textOffset.x, textOffset.y, text.c_str(), NULL);
-
-			nvgResetScissor(args.vg);
-
-			bndUpDownArrow(args.vg, box.size.x - 10,  10, 5, color);
-		}
-		//ChoiceButton::draw(args.vg);
+		drawControl(args);
+		
+		//this->Widget::draw(args);
 	}
 	return;
 }
@@ -101,8 +123,7 @@ TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReco
 {
 	
 	this->module = mod;
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
-
+	
 	this->showClientSelect = showClient;
 	this->showNamespace = showNamespace;
 
@@ -243,91 +264,97 @@ void TSOSCConfigWidget::onShiftTabField(int id)
 	return;
 }
 
-void TSOSCConfigWidget::draw(const DrawArgs &args) {
-	if (!this->visible)
+void TSOSCConfigWidget::drawLayer(const DrawArgs &args, int layer) {
+	if (this->visible)
 	{
-		return;
+		if (layer == 1)
+		{
+			// v2: Load font reference every draw call	
+			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+
+			nvgFontSize(args.vg, fontSize);
+			nvgFontFaceId(args.vg, font->handle);
+
+			// Screen:
+			nvgBeginPath(args.vg);
+			nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+			nvgFillColor(args.vg, backgroundColor);
+			nvgFill(args.vg);
+			nvgStrokeWidth(args.vg, 1.0);
+			nvgStrokeColor(args.vg, borderColor);
+			nvgStroke(args.vg);
+
+			// Draw labels
+			nvgFillColor(args.vg, textColor);
+			nvgFontSize(args.vg, fontSize);
+			nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_BOTTOM);
+			float y = START_Y - 1;
+			float x;
+			const char* labels[] = { "OSC IP Address", "Out Port", "In Port" };
+			for (int i = 0; i < TSOSC_NUM_TXTFIELDS; i++)
+			{
+				x = textBoxes[i]->box.pos.x + 2;
+				nvgText(args.vg, x, y, labels[i], NULL);
+			}
+			if (xNamespace > -1)
+			{
+				nvgText(args.vg, xNamespace + 1, y, "Namespace", NULL);
+			}
+
+			// Current status:
+			x = box.size.x - 8;
+			nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_BOTTOM);
+			nvgFillColor(args.vg, statusColor);
+			nvgText(args.vg, x, y, statusMsg.c_str(), NULL);
+			// Status 2
+			y += textBoxes[0]->box.size.y + 2;
+			if (!statusMsg2.empty())
+			{
+				nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
+				nvgText(args.vg, x, y, statusMsg2.c_str(), NULL);
+			}
+
+			// Draw Messages:
+			x = textBoxes[0]->box.pos.x + 2;
+			nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+			if (!errorMsg.empty())
+			{
+				nvgFillColor(args.vg, errorColor);		
+				nvgText(args.vg, x, y, errorMsg.c_str(), NULL);
+			}
+			else if (!successMsg.empty())
+			{
+				nvgFillColor(args.vg, successColor);
+				nvgText(args.vg, x, y, successMsg.c_str(), NULL);
+			}
+			else
+			{
+				nvgFillColor(args.vg, textColor);
+				nvgText(args.vg, x, y, "Open Sound Control Configuration", NULL);
+			}
+
+			// Draw children:
+			this->OpaqueWidget::draw(args);	
+			
+			// Quick and dirty -- Draw labels on buttons:
+			nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
+			y = btnSave->box.pos.y + btnSave->box.size.y / 2.0 + 1;
+			// Save:
+			x = btnSave->box.pos.x + btnSave->box.size.x / 2.0 + 7;
+			if (btnActionEnable)
+			{
+				nvgFillColor(args.vg, TSColors::COLOR_TS_GREEN);
+				nvgText(args.vg, x, y, "ENABLE", NULL);
+			}
+			else
+			{
+				nvgFillColor(args.vg, TSColors::COLOR_TS_ORANGE);
+				nvgText(args.vg, x, y, "DISABLE", NULL);
+			}
+		} // end if layer		
+		this->OpaqueWidget::drawLayer(args, 1);
 	}
 	
-	nvgFontSize(args.vg, fontSize);
-	nvgFontFaceId(args.vg, font->handle);
-
-	// Screen:
-	nvgBeginPath(args.vg);
-	nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-	nvgFillColor(args.vg, backgroundColor);
-	nvgFill(args.vg);
-	nvgStrokeWidth(args.vg, 1.0);
-	nvgStrokeColor(args.vg, borderColor);
-	nvgStroke(args.vg);
-
-	// Draw labels
-	nvgFillColor(args.vg, textColor);
-	nvgFontSize(args.vg, fontSize);
-	nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_BOTTOM);
-	float y = START_Y - 1;
-	float x;
-	const char* labels[] = { "OSC IP Address", "Out Port", "In Port" };
-	for (int i = 0; i < TSOSC_NUM_TXTFIELDS; i++)
-	{
-		x = textBoxes[i]->box.pos.x + 2;
-		nvgText(args.vg, x, y, labels[i], NULL);
-	}
-	if (xNamespace > -1)
-	{
-		nvgText(args.vg, xNamespace + 1, y, "Namespace", NULL);
-	}
-
-	// Current status:
-	x = box.size.x - 8;
-	nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_BOTTOM);
-	nvgFillColor(args.vg, statusColor);
-	nvgText(args.vg, x, y, statusMsg.c_str(), NULL);
-	// Status 2
-	y += textBoxes[0]->box.size.y + 2;
-	if (!statusMsg2.empty())
-	{
-		nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
-		nvgText(args.vg, x, y, statusMsg2.c_str(), NULL);
-	}
-
-	// Draw Messages:
-	x = textBoxes[0]->box.pos.x + 2;
-	nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-	if (!errorMsg.empty())
-	{
-		nvgFillColor(args.vg, errorColor);		
-		nvgText(args.vg, x, y, errorMsg.c_str(), NULL);
-	}
-	else if (!successMsg.empty())
-	{
-		nvgFillColor(args.vg, successColor);
-		nvgText(args.vg, x, y, successMsg.c_str(), NULL);
-	}
-	else
-	{
-		nvgFillColor(args.vg, textColor);
-		nvgText(args.vg, x, y, "Open Sound Control Configuration", NULL);
-	}
-
-	// Draw children:
-	this->OpaqueWidget::draw(args);	
-	
-	// Quick and dirty -- Draw labels on buttons:
-	nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
-	y = btnSave->box.pos.y + btnSave->box.size.y / 2.0 + 1;
-	// Save:
-	x = btnSave->box.pos.x + btnSave->box.size.x / 2.0 + 7;
-	if (btnActionEnable)
-	{
-		nvgFillColor(args.vg, TSColors::COLOR_TS_GREEN);
-		nvgText(args.vg, x, y, "ENABLE", NULL);
-	}
-	else
-	{
-		nvgFillColor(args.vg, TSColors::COLOR_TS_ORANGE);
-		nvgText(args.vg, x, y, "DISABLE", NULL);
-	}
 	return;
 }
 void onTabField(int id)

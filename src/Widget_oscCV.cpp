@@ -493,8 +493,10 @@ void oscCVWidget::step()
 			int paramId = oscCV::ParamIds::CH_PARAM_START 
 				+ c*TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
 			if (thisModule->inputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].getValue())) {
-				//DEBUG("btnClick: Input Ch %d, paramId = %d", c, paramId);
-				if (masterConfigLoaded)					
+				//DEBUG("btnClick: Input Ch %d, paramId = %d", c, paramId);				
+				// Read any changes that may have happened. (we don't have room for a save button) on the previous screen
+				readChannelPathConfig(showConfigIndex); 			
+				if (masterConfigLoaded)			
 					editChannelPtr = &(thisModule->inputChannels[c]);
 				else if (thisModule->expCurrentEditExpander != NULL)
 				{
@@ -515,6 +517,8 @@ void oscCVWidget::step()
 			// Output Channel:
 			if (thisModule->outputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].getValue())) {
 				//DEBUG("btnClick: Output Ch %d, paramId = %d", c, paramId);
+				// Read any changes that may have happened. (we don't have room for a save button) on the previous screen
+				readChannelPathConfig(showConfigIndex);				
 				if (masterConfigLoaded)
 					editChannelPtr = &(thisModule->outputChannels[c]);
 				else if (thisModule->expCurrentEditExpander != NULL)
@@ -772,21 +776,8 @@ void oscCVWidget::readChannelPathConfig(int index)
 		{
 			if (masterConfigLoaded)
 			{
-				readChannelPathConfig(thisModule->inputChannels, thisModule->outputChannels, this->numberChannels);			
-				for (int i = 0; i < numberChannels; i++)
-				{
-					int portId = i * 2;
-					if (thisModule->doCVPort2OSC)
-					{
-						thisModule->inputInfos[oscCV::InputIds::CH_INPUT_START + portId]->PortInfo::name = "Trigger Send: " + thisModule->inputChannels[i].path;
-						thisModule->inputInfos[oscCV::InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = "Value: " + thisModule->inputChannels[i].path;						
-					}
-					if (thisModule->doOSC2CVPort)
-					{
-						thisModule->outputInfos[oscCV::OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = "Received Trigger: " + thisModule->outputChannels[i].path;
-						thisModule->outputInfos[oscCV::OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = "Value Received: " + thisModule->outputChannels[i].path;											
-					}
-				}
+				readChannelPathConfig(thisModule->inputChannels, thisModule->outputChannels, this->numberChannels);	
+				thisModule->renamePorts(); // [Rack v2] Ports can have labels.
 			}
 			else if (index != 0)
 			{
@@ -794,24 +785,7 @@ void oscCVWidget::readChannelPathConfig(int index)
 				if (exp)
 				{
 					exp->displayName = readChannelPathConfig(exp->inputChannels, exp->outputChannels, exp->numberChannels);
-					if (exp->inputChannels != NULL)
-					{
-						for (int i = 0; i < numberChannels; i++)
-						{
-							int portId = i * 2;
-							exp->inputInfos[oscCVExpander::InputIds::CH_INPUT_START + portId]->PortInfo::name = "Trigger Send: " + exp->inputChannels[i].path;
-							exp->inputInfos[oscCVExpander::InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = "Value: " + exp->inputChannels[i].path;
-						}											
-					}
-					if (exp->outputChannels != NULL)
-					{
-						for (int i = 0; i < numberChannels; i++)
-						{
-							int portId = i * 2;
-							exp->outputInfos[oscCVExpander::OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = "Received Trigger: " + exp->outputChannels[i].path;
-							exp->outputInfos[oscCVExpander::OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = "Value Received: " + exp->outputChannels[i].path;					
-						}											
-					}					
+					exp->renamePorts(); // [Rack v2] Ports can have labels.
 				}
 			}
 		}
@@ -915,7 +889,9 @@ struct oscCVMenuItemDebug : MenuItem
 // @args.vg : (IN) NVGcontext to draw on
 // Draw labels on our widget.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSOscCVLabels::draw(/*in*/ const DrawArgs &args) {
+void TSOscCVLabels::draw(/*in*/ const DrawArgs &args) {	
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+	
 	// Default Font:
 	nvgFontSize(args.vg, fontSize);
 	nvgFontFaceId(args.vg, font->handle);
@@ -1047,63 +1023,69 @@ void TSOscCVTopDisplay::step() {
 // @args.vg : (IN) NVGcontext to draw on
 // Top display
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSOscCVTopDisplay::draw(/*in*/ const DrawArgs &args)
+void TSOscCVTopDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer)
 {
-	// Background Colors:
-	NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
-	NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
+	if (visible)
+	{
+		if (layer == 1)
+		{
+			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+			labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 
-	// Screen:
-	nvgBeginPath(args.vg);
-	nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-	nvgFillColor(args.vg, backgroundColor);
-	nvgFill(args.vg);
-	nvgStrokeWidth(args.vg, 1.0);
-	nvgStrokeColor(args.vg, borderColor);
-	nvgStroke(args.vg);
+			// Background Colors:
+			NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
+			NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
 
-	if (!showDisplay)
-		return;
+			// Screen:
+			nvgBeginPath(args.vg);
+			nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+			nvgFillColor(args.vg, backgroundColor);
+			nvgFill(args.vg);
+			nvgStrokeWidth(args.vg, 1.0);
+			nvgStrokeColor(args.vg, borderColor);
+			nvgStroke(args.vg);
 
-	Rect b = Rect(Vec(0, 0), Vec(box.size.x - 13, box.size.y));
-	nvgScissor(args.vg, b.pos.x, b.pos.y, b.size.x, b.size.y);
+			if (!showDisplay)
+				return;
 
-	int x, y;
+			Rect b = Rect(Vec(0, 0), Vec(box.size.x - 13, box.size.y));
+			nvgScissor(args.vg, b.pos.x, b.pos.y, b.size.x, b.size.y);
 
-	// Default Font:
-	nvgFontSize(args.vg, fontSize);
-	nvgFontFaceId(args.vg, font->handle);
-	nvgTextLetterSpacing(args.vg, 2.5);
-	NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-	nvgFillColor(args.vg, textColor);
+			int x, y;
 
-	// SCROLLING MESSAGE ====================================
-	x = 13;// -scrollIx * 0.5;
-	y = 13;
-	nvgFontSize(args.vg, fontSize * 1.5);	// Large font
-	//nvgFontFaceId(args.vg, font->handle);
-	nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-	
-	if (parentWidget->module == NULL)
-		sprintf(scrollingMsg, "trowaSoft - cv<->OSC<->cv - %s", "NO CONNECTION");
+			// Default Font:
+			nvgFontSize(args.vg, fontSize);
+			nvgFontFaceId(args.vg, font->handle);
+			nvgTextLetterSpacing(args.vg, 2.5);
+			NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
+			nvgFillColor(args.vg, textColor);
 
-	// Start (left on screen) of scrolling message:
-	const char * subStr = scrollingMsg + scrollIx;
-	nvgText(args.vg, x, y, subStr, NULL);
-	// Get circular wrap (right part of screen) - start of message again:
-	float txtBounds[4] = { 0,0,0,0 };
-	float nextX = nvgTextBounds(args.vg, x, y, subStr, NULL, txtBounds);
-	x = nextX; // +24
-	if (x < b.size.x) {
-		// Wrap the start of the string around
-		nvgText(args.vg, x, y, scrollingMsg, subStr);
-	}
-	//// Measures the specified text string. Parameter bounds should be a pointer to float[4],
-	//// if the bounding box of the text should be returned. The bounds value are [xmin,ymin, xmax,ymax]
-	//// Returns the horizontal advance of the measured text (i.e. where the next character should drawn).
-	//// Measured values are returned in local coordinate space.
-	//float nvgTextBounds(NVGcontext* ctx, float x, float y, const char* string, const char* end, float* bounds);
-	nvgResetScissor(args.vg);
+			// SCROLLING MESSAGE ====================================
+			x = 13;// -scrollIx * 0.5;
+			y = 13;
+			nvgFontSize(args.vg, fontSize * 1.5);	// Large font
+			//nvgFontFaceId(args.vg, font->handle);
+			nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+			
+			if (parentWidget->module == NULL)
+				sprintf(scrollingMsg, "trowaSoft - cv<->OSC<->cv - %s", "NO CONNECTION");
+
+			// Start (left on screen) of scrolling message:
+			const char * subStr = scrollingMsg + scrollIx;
+			nvgText(args.vg, x, y, subStr, NULL);
+			// Get circular wrap (right part of screen) - start of message again:
+			float txtBounds[4] = { 0,0,0,0 };
+			float nextX = nvgTextBounds(args.vg, x, y, subStr, NULL, txtBounds);
+			x = nextX; // +24
+			if (x < b.size.x) {
+				// Wrap the start of the string around
+				nvgText(args.vg, x, y, scrollingMsg, subStr);
+			}
+			nvgResetScissor(args.vg);			
+		} // end if layer == 1
+		
+		this->Widget::drawLayer(args, layer); // Children if we have any
+	} // end if visible	
 	return;
 } // end TSOscCVTopDisplay::draw()
 
@@ -1132,170 +1114,177 @@ void TSOscCVMiddleDisplay::step() {
 // @args.vg : (IN) NVGcontext to draw on
 // Middle display drawing.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSOscCVMiddleDisplay::draw(/*in*/ const DrawArgs &args) {
-	bool isPreview = parentWidget->module == NULL; // May get a NULL module for preview
-
-	// Background Colors:
-	NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
-	NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
-
-	// Screen:
-	nvgBeginPath(args.vg);
-	nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-	nvgFillColor(args.vg, backgroundColor);
-	nvgFill(args.vg);
-	nvgStrokeWidth(args.vg, 1.0);
-	nvgStrokeColor(args.vg, borderColor);
-	nvgStroke(args.vg);
-
-	if (!displayMode)
-		return;
-	
-	if (displayMode == DisplayMode::Default)
+void TSOscCVMiddleDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer) {	
+	if (layer == 1)
 	{
-		// Default Display Mode
-		oscCV* thisModule = (isPreview) ? NULL : dynamic_cast<oscCV*>(parentWidget->module);
-		// Default Font:
-		nvgFontSize(args.vg, 9);
-		nvgFontFaceId(args.vg, font->handle);
-		nvgTextLetterSpacing(args.vg, 1);
-		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-		nvgFillColor(args.vg, textColor);
+		bool isPreview = parentWidget->module == NULL; // May get a NULL module for preview
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 
-		int dy = 2;
-		int dx = 4;
-		int height = 28;
-		int width = box.size.x / 2.0 - 4;
-		int y = 2;
-		float txtBounds[4] = { 0,0,0,0 };
-		const int txtPadding = 4;
-		int txtWidth = width - txtPadding;
-		bool drawBoxes = false;
-		int numChannels = (isPreview) ? TROWA_OSCCV_DEFAULT_NUM_CHANNELS : thisModule->numberChannels;
-		char buffer[50];
-		for (int c = 0; c < numChannels; c++) {
-			int ix = 0;
-			float nextX;
+		// Background Colors:
+		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
+		NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
 
-			//---- INPUT ----
-			int x = 2;
-			if (drawBoxes) {
-				// Debug draw box:
-				nvgBeginPath(args.vg);
-				nvgRect(args.vg, x, y, width, height);
-				nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[c]);
-				nvgStrokeWidth(args.vg, 1.0);
-				nvgStroke(args.vg);
-			}
-			// Label:
-			const char* lbl = NULL;
-			int len = 0;
-			if (isPreview)
-			{
-				sprintf(buffer, "/ch/%d", c + 1);
-				lbl = buffer;
-				len = strlen(lbl);
-			}
-			else
-			{
-				lbl = thisModule->inputChannels[c].path.c_str();
-				// Chart:
-				drawChannelChart(args, &(thisModule->inputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
-				len = thisModule->inputChannels[c].path.length();
-			}
-			nextX = nvgTextBounds(args.vg, x, y, lbl, NULL, txtBounds);
-			ix = 0;
-			if (nextX > txtWidth) {
-				ix = chPathPosition * len;
-			}
-			nvgScissor(args.vg, x, y, txtWidth, height);
-			nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-			nvgText(args.vg, x, y + 1, &(lbl[ix]), NULL);
-			nvgResetScissor(args.vg);
+		// Screen:
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+		nvgFillColor(args.vg, backgroundColor);
+		nvgFill(args.vg);
+		nvgStrokeWidth(args.vg, 1.0);
+		nvgStrokeColor(args.vg, borderColor);
+		nvgStroke(args.vg);
 
-			//---- OUTPUT ----
-			x += dx + width;
-			if (drawBoxes) {
-				// Debug draw box:
-				nvgBeginPath(args.vg);
-				nvgRect(args.vg, x, y, width, height);
-				nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[thisModule->numberChannels - c - 1]);
-				nvgStrokeWidth(args.vg, 1.0);
-				nvgStroke(args.vg);
-			}
-			// Label:
-			if (isPreview)
-			{
-				sprintf(buffer, "/ch/%d", c + 1);
-				lbl = buffer;
-				len = strlen(lbl);			
-			}
-			else
-			{
-				lbl = thisModule->outputChannels[c].path.c_str();
-				// Chart:
-				drawChannelChart(args, &(thisModule->outputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
-				len = thisModule->outputChannels[c].path.length();
-			}
-			nextX = nvgTextBounds(args.vg, x, y, lbl, NULL, txtBounds);
-			ix = len;
-			if (nextX > txtWidth) {
-				ix = len - chPathPosition * len;
-			}
-			nvgScissor(args.vg, x + txtPadding, y, txtWidth, height);
-			nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
-			nvgText(args.vg, x + width, y + 1, lbl, &(lbl[ix]));
-			nvgResetScissor(args.vg);
-
-			y += dy + height;
-		} // end loop		
-	} // end if default display
-	else 
-	{		
-		// Just show the config name
-		const int margin = 20;
-		int mult = 1;
-		//int xOffset = box.size.y/2;
-		//int yOffset = box.size.x/2;
-		int x = box.size.y - margin;
-		int y = box.size.x - margin;//(parentWidget->configNameLeft) ? box.size.x - margin : margin ;
-		int align = NVG_ALIGN_RIGHT;
-		if (!parentWidget->configNameLeft)
+		if (!displayMode)
+			return;
+		
+		if (displayMode == DisplayMode::Default)
 		{
-			x = margin;
-			align = NVG_ALIGN_LEFT;
-			mult = -1;
-		}
+			// Default Display Mode
+			oscCV* thisModule = (isPreview) ? NULL : dynamic_cast<oscCV*>(parentWidget->module);
+			// Default Font:
+			nvgFontSize(args.vg, 9);
+			nvgFontFaceId(args.vg, font->handle);
+			nvgTextLetterSpacing(args.vg, 1);
+			NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
+			nvgFillColor(args.vg, textColor);
 
-		nvgSave(args.vg);
-		nvgTranslate(args.vg, box.size.x / 2.0, box.size.y / 2.0);		
-		nvgRotate(args.vg, mult*NVG_PI*0.5);
-		nvgTranslate(args.vg, -box.size.y / 2.0, -box.size.x / 2.0);		
-		
-		// Default Font:
-		nvgFontSize(args.vg, 14);
-		nvgFontFaceId(args.vg, font->handle);
-		nvgTextLetterSpacing(args.vg, 0.2);
-		//NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-		nvgTextAlign(args.vg, align | NVG_ALIGN_MIDDLE);
-		nvgFillColor(args.vg, parentWidget->showConfigColor);		
-		nvgText(args.vg, x, y, parentWidget->configName.c_str(), NULL); 
-		
-		nvgRestore(args.vg);
-		
-		if (displayMode == DisplayMode::ConfigNameAndLabel)
-		{
-			// Label for ID textbox:
-			x = (parentWidget->configNameLeft) ? 3 : box.size.x/2.0 + 4;  //parentWidget->tbExpanderID->box.pos.x;
-			y = 5;
-			nvgFontSize(args.vg, 11);
-			nvgFontFaceId(args.vg, labelFont->handle);
-			nvgFillColor(args.vg, parentWidget->showConfigColor);				
-			nvgTextLetterSpacing(args.vg, 0);
-			nvgTextAlign(args.vg, NVG_ALIGN_TOP | NVG_ALIGN_LEFT);
-			nvgText(args.vg, x, y, "Expander Name", NULL); 			
-		}
-	} // end if show config name
+			int dy = 2;
+			int dx = 4;
+			int height = 28;
+			int width = box.size.x / 2.0 - 4;
+			int y = 2;
+			float txtBounds[4] = { 0,0,0,0 };
+			const int txtPadding = 4;
+			int txtWidth = width - txtPadding;
+			bool drawBoxes = false;
+			int numChannels = (isPreview) ? TROWA_OSCCV_DEFAULT_NUM_CHANNELS : thisModule->numberChannels;
+			char buffer[50];
+			for (int c = 0; c < numChannels; c++) {
+				int ix = 0;
+				float nextX;
+
+				//---- INPUT ----
+				int x = 2;
+				if (drawBoxes) {
+					// Debug draw box:
+					nvgBeginPath(args.vg);
+					nvgRect(args.vg, x, y, width, height);
+					nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[c]);
+					nvgStrokeWidth(args.vg, 1.0);
+					nvgStroke(args.vg);
+				}
+				// Label:
+				const char* lbl = NULL;
+				int len = 0;
+				if (isPreview)
+				{
+					sprintf(buffer, "/ch/%d", c + 1);
+					lbl = buffer;
+					len = strlen(lbl);
+				}
+				else
+				{
+					lbl = thisModule->inputChannels[c].path.c_str();
+					// Chart:
+					drawChannelChart(args, &(thisModule->inputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
+					len = thisModule->inputChannels[c].path.length();
+				}
+				nextX = nvgTextBounds(args.vg, x, y, lbl, NULL, txtBounds);
+				ix = 0;
+				if (nextX > txtWidth) {
+					ix = chPathPosition * len;
+				}
+				nvgScissor(args.vg, x, y, txtWidth, height);
+				nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+				nvgText(args.vg, x, y + 1, &(lbl[ix]), NULL);
+				nvgResetScissor(args.vg);
+
+				//---- OUTPUT ----
+				x += dx + width;
+				if (drawBoxes) {
+					// Debug draw box:
+					nvgBeginPath(args.vg);
+					nvgRect(args.vg, x, y, width, height);
+					nvgStrokeColor(args.vg, oscCVWidget::CHANNEL_COLORS[thisModule->numberChannels - c - 1]);
+					nvgStrokeWidth(args.vg, 1.0);
+					nvgStroke(args.vg);
+				}
+				// Label:
+				if (isPreview)
+				{
+					sprintf(buffer, "/ch/%d", c + 1);
+					lbl = buffer;
+					len = strlen(lbl);			
+				}
+				else
+				{
+					lbl = thisModule->outputChannels[c].path.c_str();
+					// Chart:
+					drawChannelChart(args, &(thisModule->outputChannels[c]), x, y, width, height, oscCVWidget::CHANNEL_COLORS[c]);
+					len = thisModule->outputChannels[c].path.length();
+				}
+				nextX = nvgTextBounds(args.vg, x, y, lbl, NULL, txtBounds);
+				ix = len;
+				if (nextX > txtWidth) {
+					ix = len - chPathPosition * len;
+				}
+				nvgScissor(args.vg, x + txtPadding, y, txtWidth, height);
+				nvgTextAlign(args.vg, NVG_ALIGN_RIGHT | NVG_ALIGN_TOP);
+				nvgText(args.vg, x + width, y + 1, lbl, &(lbl[ix]));
+				nvgResetScissor(args.vg);
+
+				y += dy + height;
+			} // end loop		
+		} // end if default display
+		else 
+		{		
+			// Just show the config name
+			const int margin = 20;
+			int mult = 1;
+			//int xOffset = box.size.y/2;
+			//int yOffset = box.size.x/2;
+			int x = box.size.y - margin;
+			int y = box.size.x - margin;//(parentWidget->configNameLeft) ? box.size.x - margin : margin ;
+			int align = NVG_ALIGN_RIGHT;
+			if (!parentWidget->configNameLeft)
+			{
+				x = margin;
+				align = NVG_ALIGN_LEFT;
+				mult = -1;
+			}
+
+			nvgSave(args.vg);
+			nvgTranslate(args.vg, box.size.x / 2.0, box.size.y / 2.0);		
+			nvgRotate(args.vg, mult*NVG_PI*0.5);
+			nvgTranslate(args.vg, -box.size.y / 2.0, -box.size.x / 2.0);		
+			
+			// Default Font:
+			nvgFontSize(args.vg, 14);
+			nvgFontFaceId(args.vg, font->handle);
+			nvgTextLetterSpacing(args.vg, 0.2);
+			//NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
+			nvgTextAlign(args.vg, align | NVG_ALIGN_MIDDLE);
+			nvgFillColor(args.vg, parentWidget->showConfigColor);		
+			nvgText(args.vg, x, y, parentWidget->configName.c_str(), NULL); 
+			
+			nvgRestore(args.vg);
+			
+			if (displayMode == DisplayMode::ConfigNameAndLabel)
+			{
+				// Label for ID textbox:
+				x = (parentWidget->configNameLeft) ? 3 : box.size.x/2.0 + 4;  //parentWidget->tbExpanderID->box.pos.x;
+				y = 5;
+				nvgFontSize(args.vg, 11);
+				nvgFontFaceId(args.vg, labelFont->handle);
+				nvgFillColor(args.vg, parentWidget->showConfigColor);				
+				nvgTextLetterSpacing(args.vg, 0);
+				nvgTextAlign(args.vg, NVG_ALIGN_TOP | NVG_ALIGN_LEFT);
+				nvgText(args.vg, x, y, "Expander Name", NULL); 			
+			}
+		} // end if show config name		
+	} // end if layer == 1
+	
+	this->Widget::drawLayer(args, layer);
 	return;
 } // end draw()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -1369,40 +1358,47 @@ void TSOscCVDataTypeSelectBtn::onAction(const event::Action &e) {
 	}
 	return;
 }
+
+
 // Draw if visible
-void TSOscCVDataTypeSelectBtn::draw(const DrawArgs &args) {
+void TSOscCVDataTypeSelectBtn::drawLayer(const DrawArgs &args, int layer) {
 	if (visible) {
-		nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);
+		if (layer == 1)
+		{
+			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
+			nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);
 
-		// Background
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(args.vg, backgroundColor);
-		nvgFill(args.vg);
+			// Background
+			nvgBeginPath(args.vg);
+			nvgRoundedRect(args.vg, 0, 0, box.size.x, box.size.y, 5.0);
+			nvgFillColor(args.vg, backgroundColor);
+			nvgFill(args.vg);
 
-		// Border
-		if (borderWidth > 0) {
-			nvgStrokeWidth(args.vg, borderWidth);
-			nvgStrokeColor(args.vg, borderColor);
-			nvgStroke(args.vg);
-		}
-		nvgResetScissor(args.vg);
-
-		if (font->handle >= 0) {
-			nvgScissor(args.vg, 0, 0, box.size.x - 5, box.size.y);
-
-			nvgFillColor(args.vg, color);
-			nvgFontFaceId(args.vg, font->handle);
-			//nvgTextLetterSpacing(args.vg, 0.0);
-
-			nvgFontSize(args.vg, fontSize);
-			nvgText(args.vg, textOffset.x, textOffset.y, text.c_str(), NULL);
-
+			// Border
+			if (borderWidth > 0) {
+				nvgStrokeWidth(args.vg, borderWidth);
+				nvgStrokeColor(args.vg, borderColor);
+				nvgStroke(args.vg);
+			}
 			nvgResetScissor(args.vg);
 
-			bndUpDownArrow(args.vg, box.size.x - 10, 10, 5, color);
-		}
-	}
+			if (font->handle >= 0) {
+				nvgScissor(args.vg, 0, 0, box.size.x - 5, box.size.y);
+
+				nvgFillColor(args.vg, color);
+				nvgFontFaceId(args.vg, font->handle);
+				//nvgTextLetterSpacing(args.vg, 0.0);
+
+				nvgFontSize(args.vg, fontSize);
+				nvgText(args.vg, textOffset.x, textOffset.y, text.c_str(), NULL);
+
+				nvgResetScissor(args.vg);
+
+				bndUpDownArrow(args.vg, box.size.x - 10, 10, 5, color);
+			}			
+		} // end layer == 1
+		this->Widget::drawLayer(args, layer);
+	} // end if visible
 	return;
 } // end draw()
 // When the selected item chagnes.
@@ -1424,8 +1420,6 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 	box.size = boxSize;
 	parentWidget = widget;
 	Module* thisModule = (widget != NULL) ? widget->module : NULL;
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-	labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 	fontSize = 10;
 	box.pos = pos;
 	//visible = true;
@@ -1538,95 +1532,112 @@ TSOscCVChannelConfigScreen::TSOscCVChannelConfigScreen(oscCVWidget* widget, Vec 
 // draw()
 // @args.vg : (IN) NVGcontext to draw on
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSOscCVChannelConfigScreen::draw(/*in*/ const DrawArgs &args)
+void TSOscCVChannelConfigScreen::drawLayer(/*in*/ const DrawArgs &args, int layer)
 {
-	if (this->visible) {
-		// Default Font:
-		nvgFontSize(args.vg, fontSize);
-		nvgFontFaceId(args.vg, font->handle);
-		nvgTextLetterSpacing(args.vg, 1);
-		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-		NVGcolor errorColor = TSColors::COLOR_TS_RED;
+	if (this->visible) 
+	{		
+		if (layer == 1)
+		{
+			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+			labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+			
+			// Default Font:
+			nvgFontSize(args.vg, fontSize);
+			nvgFontFaceId(args.vg, font->handle);
+			nvgTextLetterSpacing(args.vg, 1);
+			NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
+			NVGcolor errorColor = TSColors::COLOR_TS_RED;
 
-		// Draw labels
-		int x, y;
-		Vec tbSize = Vec(70, 20);
-		//Vec ledSize = Vec(15, 15);
-		int dx = 20;
-		int dy = 15;
-		const int errorDy = 32;
+			// Draw labels
+			int x, y;
+			Vec tbSize = Vec(70, 20);
+			//Vec ledSize = Vec(15, 15);
+			int dx = 20;
+			int dy = 15;
+			const int errorDy = 32;
 
-		NVGcolor channelColor = this->parentWidget->CHANNEL_COLORS[this->currentChannelPtr->channelNum - 1];
+			int cIx = (this->currentChannelPtr->channelNum - 1) % TROWA_OSCCV_NUM_COLORS;
+			NVGcolor channelColor = this->parentWidget->CHANNEL_COLORS[cIx];
 
-		// -- Heading --
-		// Channel Number and address
-		x = startX;// +ledSize.x + 10;
-		y = startY;
-		sprintf(buffer, "CH %d %sPUT", this->currentChannelPtr->channelNum, (isInput) ? "IN" : "OUT");
-		float txtBounds[4] = { 0,0,0,0 };
-		const float padding = 2.0f;
-		nvgFontSize(args.vg, fontSize*1.1);
-		nvgFontFaceId(args.vg, font->handle);
-		nvgTextBounds(args.vg, x, y, buffer, NULL, txtBounds); //float txtWidth = 
-		nvgBeginPath(args.vg);
-		nvgRect(args.vg, txtBounds[0], y, txtBounds[2] - txtBounds[0] + padding*2, txtBounds[3] - txtBounds[1] + padding*2);
-		nvgFillColor(args.vg, channelColor);
-		nvgFill(args.vg);
-		nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
-		nvgFillColor(args.vg, TSColors::COLOR_BLACK);
-		nvgText(args.vg, x + padding, y + padding, buffer, NULL);
+			// -- Heading --
+			// Channel Number and address
+			x = startX;// +ledSize.x + 10;
+			y = startY;
+			sprintf(buffer, "CH %d %sPUT", this->currentChannelPtr->channelNum, (isInput) ? "IN" : "OUT");
+			float txtBounds[4] = { 0,0,0,0 };
+			const float padding = 2.0f;
+			nvgFontSize(args.vg, fontSize*1.1);
+			nvgFontFaceId(args.vg, font->handle);
+			nvgTextBounds(args.vg, x, y, buffer, NULL, txtBounds); //float txtWidth = 
+			nvgBeginPath(args.vg);
+			float rectHeight = txtBounds[3] - txtBounds[1] + padding*2;
+			nvgRect(args.vg, txtBounds[0], y, txtBounds[2] - txtBounds[0] + padding*2, rectHeight);
+			nvgFillColor(args.vg, channelColor);
+			nvgFill(args.vg);
+			nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
+			nvgFillColor(args.vg, TSColors::COLOR_BLACK);
+			nvgText(args.vg, x + padding, y + padding, buffer, NULL);
+			
+			// Add the address:
+			nvgFontSize(args.vg, fontSize*0.9);
+			nvgFontFaceId(args.vg, labelFont->handle);
+			nvgFillColor(args.vg, channelColor);			
+			nvgText(args.vg, x, y + rectHeight + padding, this->currentChannelPtr->path.c_str(), NULL);			
 
+			// Control Labels:
+			nvgFillColor(args.vg, textColor);
+			// -- Min/Max Text Boxes
+			x = startX;
+			y = startY + 15 + dy;
+			//	y = startY + ledSize.y + dy + fontSize*2; // 13 + 15 + 20 + fontSize
+			nvgFontSize(args.vg, fontSize*0.9);
+			nvgFontFaceId(args.vg, font->handle);			
+			sprintf(buffer, "Control Voltage (%s)", (isInput) ? "IN" : "OUT");
+			nvgText(args.vg, x, y, buffer, NULL);
+			y += fontSize + 1;
+			const char* labels[] = { "Min", "Max", "Min", "Max" };
+			for (int i = 0; i < TextBoxIx::NumTextBoxes; i++) {
+				if (i == 2) {
+					nvgFontSize(args.vg, fontSize*0.9);
+					nvgFontFaceId(args.vg, font->handle);
 
-		nvgFillColor(args.vg, textColor);
-		// -- Min/Max Text Boxes
-		x = startX;
-		y = startY + 15 + dy;
-		//	y = startY + ledSize.y + dy + fontSize*2; // 13 + 15 + 20 + fontSize
-		nvgFontSize(args.vg, fontSize*0.9);
-		sprintf(buffer, "Control Voltage (%s)", (isInput) ? "IN" : "OUT");
-		nvgText(args.vg, x, y, buffer, NULL);
-		y += fontSize + 1;
-		const char* labels[] = { "Min", "Max", "Min", "Max" };
-		for (int i = 0; i < TextBoxIx::NumTextBoxes; i++) {
-			if (i == 2) {
-				nvgFontSize(args.vg, fontSize*0.9);
-				nvgFontFaceId(args.vg, font->handle);
+					sprintf(buffer, "OSC Value (%s)", (isInput) ? "OUT" : "IN");
+					nvgText(args.vg, x, y, buffer, NULL);
+					y += fontSize + 1;
+				}
 
-				sprintf(buffer, "OSC Value (%s)", (isInput) ? "OUT" : "IN");
-				nvgText(args.vg, x, y, buffer, NULL);
-				y += fontSize + 1;
-			}
+				nvgFontSize(args.vg, fontSize);
+				nvgFontFaceId(args.vg, labelFont->handle);
+				nvgText(args.vg, x, y, labels[i], NULL);
 
+				// Errors if any
+				if (tbErrors[i].length() > 0) {
+					nvgFontFaceId(args.vg, labelFont->handle);
+					nvgFillColor(args.vg, errorColor);
+					nvgText(args.vg, x, y + errorDy, tbErrors[i].c_str(), NULL);
+					nvgFillColor(args.vg, textColor);
+				}
+
+				// Position:
+				if (i % 2)
+				{
+					x = startX; // New row
+					y += dy + tbSize.y + fontSize + 5;
+				}
+				else
+				{
+					x += tbSize.x + dx; // Next column
+				}
+			} // end for
+
+			// Data Type
 			nvgFontSize(args.vg, fontSize);
 			nvgFontFaceId(args.vg, labelFont->handle);
-			nvgText(args.vg, x, y, labels[i], NULL);
+			nvgText(args.vg, x, y, "Data Type", NULL);
 
-			// Errors if any
-			if (tbErrors[i].length() > 0) {
-				nvgFontFaceId(args.vg, labelFont->handle);
-				nvgFillColor(args.vg, errorColor);
-				nvgText(args.vg, x, y + errorDy, tbErrors[i].c_str(), NULL);
-				nvgFillColor(args.vg, textColor);
-			}
-
-			// Position:
-			if (i % 2)
-			{
-				x = startX; // New row
-				y += dy + tbSize.y + fontSize + 5;
-			}
-			else
-			{
-				x += tbSize.x + dx; // Next column
-			}
-		} // end for
-
-		// Data Type
-		nvgFontSize(args.vg, fontSize);
-		nvgFontFaceId(args.vg, labelFont->handle);
-		nvgText(args.vg, x, y, "Data Type", NULL);
-
-		this->OpaqueWidget::draw(args); // Parent
+			
+		} // end if layer == 1
+		this->Widget::drawLayer(args, layer); // Parent
 	}
 	return;
 } // end draw()

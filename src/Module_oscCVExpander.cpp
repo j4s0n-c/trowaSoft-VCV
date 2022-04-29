@@ -42,13 +42,12 @@ oscCVExpander::oscCVExpander(int numChannels, TSOSCCVExpanderDirection direction
 		pulseGens = new dsp::PulseGenerator[numberChannels];		
 	}
 	
-	config(NUM_PARAMS, NUM_INPUTS + numInputs, NUM_OUTPUTS + numOutputs, NUM_LIGHTS + numChannels * 2);
+	config(NUM_PARAMS, NUM_INPUTS + numInputs, NUM_OUTPUTS + numOutputs, NUM_LIGHTS + numChannels * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL);
 	
 	if (direction == TSOSCCVExpanderDirection::Input)
 	{
-		DEBUG("Expander Input - Setting Input Labels");		
-		// [Rack v2] Add labels for inputs and outputs		
-		char buffer[50];	
+		// [Rack v2] Add labels for inputs and outputs (and lights)
+		char buffer[100];	
 		for (int i = 0; i < numberChannels; i++)
 		{
 			int inputId = i * 2;
@@ -56,13 +55,15 @@ oscCVExpander::oscCVExpander(int numChannels, TSOSCCVExpanderDirection direction
 			configInput(InputIds::CH_INPUT_START + inputId, buffer);
 			sprintf(buffer, "Ch %d Value", i + 1);
 			configInput(InputIds::CH_INPUT_START + inputId + 1, buffer);
+			// Configure the Light Also:
+			sprintf(buffer, "Ch %d Message Sent", i + 1);			
+			configLight(LightIds::CH_LIGHT_START + inputId, buffer);	
 		}
 	}
 	else
 	{
-		DEBUG("Expander Output - Setting Output Labels");				
-		// [Rack v2] Add labels for inputs and outputs		
-		char buffer[50];	
+		// [Rack v2] Add labels for inputs and outputs (and lights)
+		char buffer[100];	
 		for (int i = 0; i < numberChannels; i++)
 		{
 			int inputId = i * 2;
@@ -70,7 +71,10 @@ oscCVExpander::oscCVExpander(int numChannels, TSOSCCVExpanderDirection direction
 			configOutput(OutputIds::CH_OUTPUT_START + inputId, buffer);
 			sprintf(buffer, "Ch %d Value Received", i + 1);
 			configOutput(OutputIds::CH_OUTPUT_START + inputId + 1, buffer);
-		}		
+			// Configure the Light Also:			
+			sprintf(buffer, "Ch %d Message Received", i + 1);			
+			configLight(LightIds::CH_LIGHT_START + inputId + 1, buffer);			
+		}
 	}
 	
 	// Can we see how far away a master is right now?	
@@ -127,35 +131,27 @@ void oscCVExpander::initChannels(int baseChannel) {
 	//char buffer[50];	
 	for (int i = 0; i < numberChannels; i++)
 	{
-		int portId = i * 2;
+		//int portId = i * 2;
 		if (this->expanderType == TSOSCCVExpanderDirection::Input) {
 			inputChannels[i].channelNum = i + 1 + baseChannel;
 			inputChannels[i].path = "/ch/" + std::to_string(i + 1 + baseChannel);
 			inputChannels[i].initialize();
 			
-			// [Rack v2] Add labels for inputs and outputs			
-			// int ch = i * 2;
-			// sprintf(buffer, "Ch %d Trigger Send", inputChannels[i].channelNum);
-			// inputInfos[InputIds::CH_INPUT_START + ch]->PortInfo::name = std::string(buffer);
-			// sprintf(buffer, "Ch %d Value", inputChannels[i].channelNum);
-			// inputInfos[InputIds::CH_INPUT_START + ch + 1]->PortInfo::name = std::string(buffer);
-			inputInfos[oscCVExpander::InputIds::CH_INPUT_START + portId]->PortInfo::name = "Trigger Send: " + inputChannels[i].path;
-			inputInfos[oscCVExpander::InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = "Value: " + inputChannels[i].path;
+			// // [Rack v2] Add labels for inputs and outputs			
+			// inputInfos[oscCVExpander::InputIds::CH_INPUT_START + portId]->PortInfo::name = "Trigger Send: " + inputChannels[i].path;
+			// inputInfos[oscCVExpander::InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = "Value: " + inputChannels[i].path;
 		}
 		else {
 			outputChannels[i].channelNum = i + 1 + baseChannel;
 			outputChannels[i].path = "/ch/" + std::to_string(i + 1 + baseChannel);
 			outputChannels[i].initialize();
 			// [Rack v2] Add labels for inputs and outputs
-			// int ch = i * 2;
-			// sprintf(buffer, "Ch %d Received Trigger", outputChannels[i].channelNum);
-			// outputInfos[OutputIds::CH_OUTPUT_START + ch]->PortInfo::name = std::string(buffer);
-			// sprintf(buffer, "Ch %d Value Received", outputChannels[i].channelNum);
-			// outputInfos[OutputIds::CH_OUTPUT_START + ch + 1]->PortInfo::name = std::string(buffer);
-			outputInfos[oscCVExpander::OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = "Received Trigger: " + outputChannels[i].path;
-			outputInfos[oscCVExpander::OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = "Value Received: " + outputChannels[i].path;			
+			// outputInfos[oscCVExpander::OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = "Received Trigger: " + outputChannels[i].path;
+			// outputInfos[oscCVExpander::OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = "Value Received: " + outputChannels[i].path;			
 		}
 	}
+	// [Rack v2] Add labels for inputs and outputs
+	renamePorts();
 	return;
 }
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -655,6 +651,9 @@ void oscCVExpander::dataFromJson(json_t *rootJ) {
 			} // end if channel object
 		} // end if there is an outputChannels array
 	} // end loop through channels
+	
+	// Rename our ports [Rack v2]
+	renamePorts();
 	return;
 } // end dataFromJson() 
 #if USE_MODULE_STATIC_RX

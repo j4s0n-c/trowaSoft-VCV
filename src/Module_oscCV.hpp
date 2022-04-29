@@ -227,30 +227,54 @@ struct oscCV : Module {
 	}
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// Rename the ports (i.e. after loading from save) after our actual
+	// real channel addresses. [Rack v2]
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	void renamePorts() {
+		for (int i = 0; i < numberChannels; i++)
+		{
+			int portId = i *2;
+			if (doCVPort2OSC) {
+				inputInfos[InputIds::CH_INPUT_START + portId]->PortInfo::name = CV2OSC_LBL_IN_TRIG + inputChannels[i].path;		  // Send Trigger
+				inputInfos[InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = CV2OSC_LBL_IN_VALUE + inputChannels[i].path;  // Send Value
+				lightInfos[LightIds::CH_LIGHT_START + portId]->LightInfo::name = CV2OSC_LBL_LIGHT_MSG_TX + inputChannels[i].path; // Message Sent
+			}
+			if (doOSC2CVPort) {
+				outputInfos[OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = OSC2CV_LBL_OUT_TRIG + outputChannels[i].path;	  // Received Trigger
+				outputInfos[OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = OSC2CV_LBL_OUT_VALUE + outputChannels[i].path; // Received Value
+				lightInfos[LightIds::CH_LIGHT_START + portId + 1]->LightInfo::name = OSC2CV_LBL_LIGHT_MSG_RX + outputChannels[i].path; // Message Received
+			}
+		}				
+		return;
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// initializeChannels(void)
 	// Set channels to default values.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void initialChannels() {
 		for (int i = 0; i < numberChannels; i++)
 		{
-			int portId = i *2;
+			//int portId = i *2;
 			if (doCVPort2OSC) {
 				inputChannels[i].channelNum = i + 1;
 				inputChannels[i].path = "/ch/" + std::to_string(i + 1);
 				inputChannels[i].initialize();
-				inputInfos[InputIds::CH_INPUT_START + portId]->PortInfo::name = "Trigger Send: " + inputChannels[i].path;
-				inputInfos[InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = "Value: " + inputChannels[i].path;						
+				// inputInfos[InputIds::CH_INPUT_START + portId]->PortInfo::name = "Trigger Send: " + inputChannels[i].path;
+				// inputInfos[InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = "Value: " + inputChannels[i].path;						
 			}
 			if (doOSC2CVPort) {
 				outputChannels[i].channelNum = i + 1;
 				outputChannels[i].path = "/ch/" + std::to_string(i + 1);
 				outputChannels[i].initialize();
-				outputInfos[OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = "Received Trigger: " + outputChannels[i].path;
-				outputInfos[OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = "Value Received: " + outputChannels[i].path;				
+				// outputInfos[OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = "Received Trigger: " + outputChannels[i].path;
+				// outputInfos[OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = "Value Received: " + outputChannels[i].path;				
 			}
 		}
+		// Rename the ports:
+		renamePorts();
 		return;
 	}
+	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// initOSC()
 	// @ipAddres : (IN) The ip address of the OSC client / server.

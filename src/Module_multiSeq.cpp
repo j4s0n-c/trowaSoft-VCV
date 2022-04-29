@@ -51,15 +51,23 @@ Model* modelMultiSeq64 = createModel<multiSeq, multiSeqWidget>(/*slug*/ "multiSe
 
 // Simple Pattern Value mode (basically 0-63, displayed 1 to 64).
 // Doesn't try to use 'voltages'.
-ValueSequencerMode* SimplePatternValueMode = new ValueSequencerMode(/*displayName*/ "PATT",  /*unit*/ "pattern",
+ValueSequencerMode* SimplePatternValueMode = new ValueSequencerMode(/*displayName*/ "Sequence",  /*unit*/ "",
 	/*minDisplayValue*/ 1, /*maxDisplayValue*/ TROWA_SEQ_NUM_PATTERNS, 
 	/*inVoltageMin*/ 0, /*inVoltageMax*/ TROWA_SEQ_NUM_PATTERNS - 1, 
 	/*outVoltageMin*/ 0, /*outVoltageMax*/ TROWA_SEQ_NUM_PATTERNS - 1, 
 	/*whole numbers*/ true, 
 	/*zeroPointAngle*/ 0.67*NVG_PI, 
 	/*display format String */ "%02.0f",
-	/*roundDisplay*/ 1, /*roundOutput*/ 0,
-	/*zeroValue*/ 0);
+	/*roundDisplay*/ 0, /*roundOutput*/ 0,
+	/*zeroValue*/ 0, /*outputIsBoolean*/ false, /*displayIsInt*/ true);
+	
+	
+	
+//=======================================================================================================================================
+//
+// multiSeq (Module)
+//
+//=======================================================================================================================================
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // multiSeq()
@@ -91,9 +99,10 @@ multiSeq::multiSeq(int numSteps, int numRows, int numCols) : TSSequencerModuleBa
 }
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // multiSeq::randomize()
-// Only randomize the current gate/trigger steps.
+// Only randomize the current gate/trigger steps by default OR the 
+// the pattern sequences if that is shown.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void multiSeq::onRandomize()
+void multiSeq::onRandomize(const RandomizeEvent& e)
 {
 	if (!showPatternSequencingConfig)
 	{
@@ -126,6 +135,11 @@ void multiSeq::onRandomize()
 		}	
 		reloadEditMatrix = true;
 		valuesChanging = false;
+	}
+	else 
+	{
+		// Showing pattern configuration, randomize the pattern config.
+		randomizePatternSequence(false);		
 	}
 	return;
 } // end randomize()
@@ -202,7 +216,14 @@ void multiSeq::setStepValue(int step, float val, int channel, int pattern)
 	c = step % this->numCols;
 	if (pattern == currentPatternEditingIx && channel == currentChannelEditingIx)
 	{
-		if (triggerState[pattern][channel][step])
+		bool isOn = false;
+		ValueSequencerMode* currOutputValueMode = ValueModes[selectedOutputValueModeIx];
+		if (currOutputValueMode->isBoolean)
+			isOn = triggerState[pattern][channel][step] > currOutputValueMode->zeroValue;
+		else {
+			isOn = true; // Values like -9 are still 'on'.
+		}
+		if (isOn) // (triggerState[pattern][channel][step])
 		{
 			gateLights[r][c] = 1.0f - stepLights[r][c];
 			if (gateTriggers != NULL)
@@ -255,7 +276,7 @@ void multiSeq::setStepValue(int step, float val, int channel, int pattern)
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // Shift all steps (+/-) some number of volts.
-// @patternIx : (IN) The index into our pattern matrix (0-15). Or TROWA_INDEX_UNDEFINED for all patterns.
+// @patternIx : (IN) The index into our pattern matrix (0-63). Or TROWA_INDEX_UNDEFINED for all patterns.
 // @channelIx : (IN) The index of the channel (gate/trigger/voice) if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL/TROWA_INDEX_UNDEFINED for all).
 // @volts: (IN) The number of volts to add.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -264,15 +285,20 @@ void multiSeq::shiftValues(/*in*/ int patternIx, /*in*/ int channelIx, /*in*/ fl
 	// Normal Range -10 to +10 V (20)
 	// Midi: -5 to +5 V or -4 to + 6 V (10), so +1 octave will be +2V in 'Normal' range.
 	float add = volts;
-
-	if (selectedOutputValueMode == ValueMode::VALUE_MIDINOTE)
-	{
-		add = volts * 2.0;
-	}
-	else if (selectedOutputValueMode == ValueMode::VALUE_PATTERN)
-	{
-		add = (MULTISEQ_STEP_KNOB_MAX - MULTISEQ_STEP_KNOB_MIN) / TROWA_SEQ_NUM_PATTERNS * volts;
-	}
+	
+	// if (channelIx > TROWA_INDEX_UNDEFINED)
+	// {
+		// ValueMode chValueMode = channelValueModes[channelIx]; // Use the value mode for this channel
+		// if (chValueMode == ValueMode::VALUE_MIDINOTE)//  (selectedOutputValueMode == ValueMode::VALUE_MIDINOTE)
+		// {
+			// add = volts * 2.0;
+		// }
+		// else if (chValueMode == ValueMode::VALUE_PATTERN)
+		// {
+			// add = (MULTISEQ_STEP_KNOB_MAX - MULTISEQ_STEP_KNOB_MIN) / TROWA_SEQ_NUM_PATTERNS * volts;
+		// }		
+	// }
+	
 	if (patternIx == TROWA_INDEX_UNDEFINED)
 	{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED				
@@ -290,18 +316,29 @@ void multiSeq::shiftValues(/*in*/ int patternIx, /*in*/ int channelIx, /*in*/ fl
 		DEBUG("shiftValues(This Pattern, %f) - Add %f", volts, add);
 #endif		
 		// This pattern:
-		for (int channelIx = 0; channelIx < TROWA_SEQ_NUM_CHNLS; channelIx++)
+		for (int c = 0; c < TROWA_SEQ_NUM_CHNLS; c++)
 		{
+			ValueMode chValueMode = channelValueModes[c]; // Use the value mode for this channel
+			if (chValueMode == ValueMode::VALUE_MIDINOTE)//  (selectedOutputValueMode == ValueMode::VALUE_MIDINOTE)
+			{
+				add = volts * 2.0;
+			}
+			else if (chValueMode == ValueMode::VALUE_PATTERN)
+			{
+				add = (MULTISEQ_STEP_KNOB_MAX - MULTISEQ_STEP_KNOB_MIN) / TROWA_SEQ_NUM_PATTERNS * volts;
+			}
+			else
+			{
+				add = volts;
+			}
+			
 			for (int s = 0; s < maxSteps; s++)
 			{
-				float tmp = clamp(triggerState[patternIx][channelIx][s] + add, /*min*/ MULTISEQ_STEP_KNOB_MIN,  /*max*/ MULTISEQ_STEP_KNOB_MAX);
-				triggerState[patternIx][channelIx][s] = tmp;
-				if (patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx)
+				float tmp = clamp(triggerState[patternIx][c][s] + add, /*min*/ MULTISEQ_STEP_KNOB_MIN,  /*max*/ MULTISEQ_STEP_KNOB_MAX);
+				triggerState[patternIx][c][s] = tmp;
+				if (patternIx == currentPatternEditingIx && c == currentChannelEditingIx)
 				{
 					this->params[CHANNEL_PARAM + s].setValue(tmp);
-					// int r = s / numCols;
-					// int c = s % numCols;					
-					//knobStepMatrix[r][c]->setKnobValue(tmp);
 				}
 			}
 		}
@@ -313,6 +350,19 @@ void multiSeq::shiftValues(/*in*/ int patternIx, /*in*/ int channelIx, /*in*/ fl
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED		
 		DEBUG("shiftValues(%d, %d, %f) - Add %f", patternIx, channelIx, volts, add);
 #endif
+		ValueMode chValueMode = channelValueModes[channelIx]; // Use the value mode for this channel
+		if (chValueMode == ValueMode::VALUE_MIDINOTE)//  (selectedOutputValueMode == ValueMode::VALUE_MIDINOTE)
+		{
+			add = volts * 2.0;
+		}
+		else if (chValueMode == ValueMode::VALUE_PATTERN)
+		{
+			add = (MULTISEQ_STEP_KNOB_MAX - MULTISEQ_STEP_KNOB_MIN) / TROWA_SEQ_NUM_PATTERNS * volts;
+		}
+		else
+		{
+			add = volts;
+		}
 		for (int s = 0; s < maxSteps; s++)
 		{
 			float tmp = clamp(triggerState[patternIx][channelIx][s] + add, /*min*/ MULTISEQ_STEP_KNOB_MIN,  /*max*/ MULTISEQ_STEP_KNOB_MAX);
@@ -321,9 +371,6 @@ void multiSeq::shiftValues(/*in*/ int patternIx, /*in*/ int channelIx, /*in*/ fl
 			if (patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx)
 			{
 				this->params[CHANNEL_PARAM + s].setValue(tmp);
-				//int r = s / numCols;
-				//int c = s % numCols;				
-				//knobStepMatrix[r][c]->setKnobValue(tmp);
 			}
 		}
 		//if (patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx)
@@ -361,12 +408,14 @@ void multiSeq::process(const ProcessArgs &args)
 	bool reloadMatrix = false;
 	bool valueModeChanged =  false;
 	bool sendOSC = useOSC && oscInitialized;
-
+	
+	bool isFirstLoad = firstLoad;
 	TSSequencerModuleBase::getStepInputs(args, &pulse, &reloadMatrix, &valueModeChanged, nextStep, clockTime);
+	
 	int r = 0;
 	int c = 0;
 	ValueSequencerMode* currOutputValueMode = ValueModes[selectedOutputValueModeIx];// ValueModes[selectedOutputValueMode - ValueMode::VALUE_VOLT];
-	if (valueModeChanged)
+	if (valueModeChanged || isFirstLoad)
 	{
 		modeString = currOutputValueMode->displayName;
 		channelValueModes[currentChannelEditingIx] = selectedOutputValueMode;
@@ -381,21 +430,25 @@ void multiSeq::process(const ProcessArgs &args)
 	
 	//// Pattern Sequencing Lights ////
 	// INTERNAL PATTERN SEQUENCING ///////
-	if (allowPatternSequencing && patternSequencingOn)
+	if (allowPatternSequencing)
 	{
-		for (int s = 0; s < numPatternsInSequence; s++)
-		{			
-			if (s != patternPlayHeadIx)
-				lights[PATTERN_SEQ_LIGHT_START + s].value = 0.0f;
-			else
-			{
-				float v = lights[PATTERN_SEQ_LIGHT_START + s].value - lights[PATTERN_SEQ_LIGHT_START + s].value / lightLambda / args.sampleRate / 20.f;
-				lights[PATTERN_SEQ_LIGHT_START + s].value = (v < 0) ? 0 : v;				
-			}
-		}
-		for (int s = numPatternsInSequence; s < maxSteps; s++)
+		if (patternSequencingOn)
 		{
-			lights[PATTERN_SEQ_LIGHT_START + s].value = 0;		
+			// We are currently pattern sequencing  (song mode).
+			for (int s = 0; s < numPatternsInSequence; s++)
+			{			
+				if (s != patternPlayHeadIx)
+					lights[PATTERN_SEQ_LIGHT_START + s].value = 0.0f;
+				else
+				{
+					float v = lights[PATTERN_SEQ_LIGHT_START + s].value - lights[PATTERN_SEQ_LIGHT_START + s].value / lightLambda / args.sampleRate / 20.f;
+					lights[PATTERN_SEQ_LIGHT_START + s].value = (v < 0) ? 0 : v;				
+				}
+			}
+			for (int s = numPatternsInSequence; s < maxSteps; s++)
+			{
+				lights[PATTERN_SEQ_LIGHT_START + s].value = 0;
+			}			
 		}
 	} // end internal pattern sequencing
 		
@@ -425,10 +478,8 @@ void multiSeq::process(const ProcessArgs &args)
 		{
 			r = s / this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
 			c = s % this->numCols; // TROWA_SEQ_STEP_NUM_COLS;
-			//padLightPtrs[r][c]->setColor(voiceColors[currentChannelEditingIx]);
-			gateLights[r][c] = 1.0 - stepLights[r][c];
+			gateLights[r][c] = 1.0 - stepLights[r][c];			
 			this->params[CHANNEL_PARAM + s].setValue(this->triggerState[currentPatternEditingIx][currentChannelEditingIx][s]);
-			//knobStepMatrix[r][c]->setKnobValue(this->triggerState[currentPatternEditingIx][currentChannelEditingIx][s]);			
 			lights[PAD_LIGHTS + s].value = gateLights[r][c];
 			oscMutex.lock();
 			if (sendOSC && oscInitialized)
@@ -513,7 +564,7 @@ void multiSeq::process(const ProcessArgs &args)
 			r = s / this->numCols;
 			c = s % this->numCols;			
 			stepLights[r][c] -= stepLights[r][c] / lightLambda / args.sampleRate;
-			gateLights[r][c] = stepLights[r][c];			
+			gateLights[r][c] = stepLights[r][c];
 			lights[PAD_LIGHTS + s].value = gateLights[r][c];	
 
 			oscMutex.lock();
@@ -613,6 +664,12 @@ void multiSeq::configValueModeParam()
 	return;
 }
 
+//=======================================================================================================================================
+//
+// multiSeqWidget
+//
+//=======================================================================================================================================
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // multiSeqWidget()
 // Widget for the trowaSoft 16-step voltage/knobby sequencer.
@@ -656,7 +713,7 @@ multiSeqWidget::multiSeqWidget(multiSeq* seqModule, int nSteps, int nRows, int n
 		currValueModePtr = seqModule->ValueModes[seqModule->selectedOutputValueModeIx];
 		seqModule->modeString = currValueModePtr->displayName;
 		lightColor = seqModule->voiceColors[seqModule->currentChannelEditingIx];
-		lastMode = seqModule->selectedOutputValueMode;
+		//lastMode = seqModule->selectedOutputValueMode;
 		oscId = seqModule->oscId;
 		basePatternParamId = seqModule->PATTERN_SEQ_PARAM_START;
 		basePatternLightId = seqModule->PATTERN_SEQ_LIGHT_START;		
@@ -752,12 +809,17 @@ multiSeqWidget::multiSeqWidget(multiSeq* seqModule, int nSteps, int nRows, int n
 			//params.push_back(ctrlPtr);
 			patternSeqPtrs[r][c] = ctrlPtr;
 			
+			
+			// Make lights now : TS_PATTERN_SEQ_STATUS_COLOR
+			// Was: TS_PATTERN_SEQ_STEP_COLOR
 			lightPtr = dynamic_cast<TS_LightMeter*>(TS_createColorValueLight<TS_LightMeter>(/*pos */ Vec(x+dx, y+dx), /*seqModule*/ seqModule, 
-				/*lightId*/ basePatternLightId + r*numCols + c, /*size*/ lSize, /*color*/ TS_PATTERN_SEQ_STEP_COLOR));
+				/*lightId*/ basePatternLightId + r*numCols + c, /*size*/ lSize, /*color*/ TS_PATTERN_SEQ_STATUS_COLOR));
 			lightPtr->valueMode = SimplePatternValueMode;
 			lightPtr->paramWidget = ctrlPtr;
 			lightPtr->id = id;
 			lightPtr->innerGlowAlphaAdj = 0.5f;
+			lightPtr->setValueColor(TS_PATTERN_SEQ_STEP_COLOR);// = ctrlPtr;
+			
 			patternSeqLightPtrs[r][c] = lightPtr;
 			patternContainer->addChild(lightPtr);
 			
@@ -780,6 +842,7 @@ void multiSeqWidget::step()
 	
 	if (this->module == NULL)
 		return;
+	
 	multiSeq* seqModule =  dynamic_cast<multiSeq*>(this->module);
 	ValueSequencerMode* currValueMode = seqModule->ValueModes[seqModule->selectedOutputValueModeIx];	
 	// Switch the defaults on the knobs based on the output mode (if changed):
@@ -821,8 +884,6 @@ void multiSeqWidget::step()
 		display->currentView = TSSeqDisplay::SeqViewType::NormalView;
 	}	
 	lastMode = seqModule->selectedOutputValueMode;
-	
- 
 	
 	
 	if (lastShowPatternConfig != seqModule->showPatternSequencingConfig)
@@ -900,11 +961,11 @@ struct multiSeq_ShiftVoltageSubMenu : Menu {
 
 	void createChildren()
 	{
-		multiSeq_ShiftVoltageSubMenuItem* menuItem = new multiSeq_ShiftVoltageSubMenuItem("Current Edit Channel", multiSeq_ShiftVoltageSubMenuItem::ShiftType::CurrentChannelOnly, this->amount, this->sequencerModule);
+		multiSeq_ShiftVoltageSubMenuItem* menuItem = new multiSeq_ShiftVoltageSubMenuItem(STR_CURR_EDIT_CHANNEL, multiSeq_ShiftVoltageSubMenuItem::ShiftType::CurrentChannelOnly, this->amount, this->sequencerModule);
 		addChild(menuItem); //this->pushChild(menuItem);
-		menuItem = new multiSeq_ShiftVoltageSubMenuItem("Current Edit Pattern", multiSeq_ShiftVoltageSubMenuItem::ShiftType::ThisPattern, this->amount, this->sequencerModule);
+		menuItem = new multiSeq_ShiftVoltageSubMenuItem(STR_CURR_EDIT_PATTERN, multiSeq_ShiftVoltageSubMenuItem::ShiftType::ThisPattern, this->amount, this->sequencerModule);
 		addChild(menuItem);// this->pushChild(menuItem);
-		menuItem = new multiSeq_ShiftVoltageSubMenuItem("ALL Patterns", multiSeq_ShiftVoltageSubMenuItem::ShiftType::AllPatterns, this->amount, this->sequencerModule);
+		menuItem = new multiSeq_ShiftVoltageSubMenuItem(STR_ALL_PATTERNS, multiSeq_ShiftVoltageSubMenuItem::ShiftType::AllPatterns, this->amount, this->sequencerModule);
 		addChild(menuItem);// this->pushChild(menuItem);
 		return;
 	}

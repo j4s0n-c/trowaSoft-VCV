@@ -150,78 +150,86 @@ void multiOscillatorWidget::step()
 // A single oscillator info.
 // @args : (IN) Draw args and NVGcontext to draw on
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSSingleOscillatorDisplay::draw(/*in*/ const DrawArgs &args) {
-	if (showBackground)
+void TSSingleOscillatorDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer) {
+	if (layer == 1)
 	{
-		// Background Colors:
-		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
-		NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
-		// Screen:
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(args.vg, backgroundColor);
-		nvgFill(args.vg);
-		nvgStrokeWidth(args.vg, 1.0);
-		nvgStrokeColor(args.vg, borderColor);
-		nvgStroke(args.vg);
-	}
-
-	if (!showDisplay)
-		return;
-
-	NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-	nvgFillColor(args.vg, textColor);
-	nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
-	float largeFontSize = fontSize * 1.15f;
-	float largeSpacing = 1.5;
-	float spacing = 2.5;
-
-	const int padding = 5;
-	float dx = (box.size.x - padding * 2) / numTextBoxes;
-	float x = padding + dx / 2.f;
-	float y = padding * 2;
-	//float y2 = box.size.y - fontSize - 4;
-	float y2 = box.size.y - fontSize - 8;
-	for (int i = 0; i < numTextBoxes; i++)
-	{
-		nvgFillColor(args.vg, textColor); // Value is white
-		std::string label = std::string(labels[i]);
-		if (!this->textBoxes[i]->visible) // If the text box is visible, then don't draw the values.
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+		
+		if (showBackground)
 		{
-			// Large Font:
-			nvgFontSize(args.vg, largeFontSize);
-			nvgFontFaceId(args.vg, font->handle);
-			nvgTextLetterSpacing(args.vg, largeSpacing);
-			// Show value
-			float val = (this->textBoxes[i]->text.length() > 0) ? std::stof(this->textBoxes[i]->text, NULL) : 0.0f;
-			if (val >= 1000 && label.compare("FREQ (Hz)") == 0)
+			// Background Colors:
+			NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
+			NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
+			// Screen:
+			nvgBeginPath(args.vg);
+			nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+			nvgFillColor(args.vg, backgroundColor);
+			nvgFill(args.vg);
+			nvgStrokeWidth(args.vg, 1.0);
+			nvgStrokeColor(args.vg, borderColor);
+			nvgStroke(args.vg);
+		}
+
+		if (!showDisplay)
+			return;
+
+		NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
+		nvgFillColor(args.vg, textColor);
+		nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+		float largeFontSize = fontSize * 1.15f;
+		float largeSpacing = 1.5;
+		float spacing = 2.5;
+
+		const int padding = 5;
+		float dx = (box.size.x - padding * 2) / numTextBoxes;
+		float x = padding + dx / 2.f;
+		float y = padding * 2;
+		//float y2 = box.size.y - fontSize - 4;
+		float y2 = box.size.y - fontSize - 8;
+		for (int i = 0; i < numTextBoxes; i++)
+		{
+			nvgFillColor(args.vg, textColor); // Value is white
+			std::string label = std::string(labels[i]);
+			if (!this->textBoxes[i]->visible) // If the text box is visible, then don't draw the values.
 			{
-				if (val >= 1000)
+				// Large Font:
+				nvgFontSize(args.vg, largeFontSize);
+				nvgFontFaceId(args.vg, font->handle);
+				nvgTextLetterSpacing(args.vg, largeSpacing);
+				// Show value
+				float val = (this->textBoxes[i]->text.length() > 0) ? std::stof(this->textBoxes[i]->text, NULL) : 0.0f;
+				if (val >= 1000 && label.compare("FREQ (Hz)") == 0)
 				{
-					val /= 1000;
-					label = std::string("FREQ (kHz)");
+					if (val >= 1000)
+					{
+						val /= 1000;
+						label = std::string("FREQ (kHz)");
+					}
 				}
+				sprintf(messageStr, this->textBoxes[i]->formatString, val);
+				nvgText(args.vg, x, y, messageStr, NULL);
 			}
-			sprintf(messageStr, this->textBoxes[i]->formatString, val);
-			nvgText(args.vg, x, y, messageStr, NULL);
-		}
 
-		// Label Font:
-		nvgFillColor(args.vg, parentWidget->oscillatorColor);
-		nvgFontSize(args.vg, fontSize); // Small font
-		nvgFontFaceId(args.vg, labelFont->handle);
-		nvgTextLetterSpacing(args.vg, spacing);
-		nvgText(args.vg, x, y2, label.c_str(), NULL);
-		if (i == phaseShiftIx)
-		{
-			// Make a damn degree symbol (our font doesn't have one apparently)
-			float txtBounds[4];
-			float nextX = nvgTextBounds(args.vg, 0, 0, "PHASE (", NULL, txtBounds);
-			nvgFontSize(args.vg, fontSize * 0.6f);
-			nvgText(args.vg, x + nextX / 2.f - 1.25f, y2, "o", NULL); // make a tiny o
-		}
-		x += dx;
-	} // end loop
+			// Label Font:
+			nvgFillColor(args.vg, parentWidget->oscillatorColor);
+			nvgFontSize(args.vg, fontSize); // Small font
+			nvgFontFaceId(args.vg, labelFont->handle);
+			nvgTextLetterSpacing(args.vg, spacing);
+			nvgText(args.vg, x, y2, label.c_str(), NULL);
+			if (i == phaseShiftIx)
+			{
+				// Make a damn degree symbol (our font doesn't have one apparently)
+				float txtBounds[4];
+				float nextX = nvgTextBounds(args.vg, 0, 0, "PHASE (", NULL, txtBounds);
+				nvgFontSize(args.vg, fontSize * 0.6f);
+				nvgText(args.vg, x + nextX / 2.f - 1.25f, y2, "o", NULL); // make a tiny o
+			}
+			x += dx;
+		} // end loop
+
+	} // end if layer == 1
+	this->Widget::drawLayer(args, layer);
 	return;
 } // end draw()
 
@@ -486,132 +494,139 @@ void TSOscillatorChannelDisplayWidget::onButton(const event::Button &e)  {
 // A single oscillator info.
 // @args : (IN) Draw args and NVGcontext to draw on
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSOscillatorChannelDisplayWidget::draw(/*in*/ const DrawArgs &args)
+void TSOscillatorChannelDisplayWidget::drawLayer(/*in*/ const DrawArgs &args, int layer)
 {
-	if (showBackground)
+	if (layer == 1)
 	{
-		// Background Colors:
-		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
-		NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
-		// Screen:
-		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
-		nvgFillColor(args.vg, backgroundColor);
-		nvgFill(args.vg);
-		nvgStrokeWidth(args.vg, 1.0);
-		nvgStrokeColor(args.vg, borderColor);
-		nvgStroke(args.vg);
-	}
-	if (!showDisplay)
-		return;
-
-	NVGcolor textColor = parentWidget->channelColor;// nvgRGB(0xee, 0xee, 0xee);
-	NVGcolor numColor = nvgRGB(0xee, 0xee, 0xee);
-	
-	nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
-	float largeFontSize = fontSize * 1.15f;
-	float largeSpacing = 1.5;
-	float spacing = 2.5;
-
-	const int padding = 5;
-	float dx = (box.size.x - padding * 2) / numFields;
-	float x = padding + dx / 2.f;
-	float y = padding * 2;
-	float y2 = box.size.y - fontSize - 8;
-
-	try 
-	{
-		for (int i = 0; i < numFields; i++)
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+		
+		if (showBackground)
 		{
-			std::string label = std::string(labels[i]);
+			// Background Colors:
+			NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
+			NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
+			// Screen:
+			nvgBeginPath(args.vg);
+			nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+			nvgFillColor(args.vg, backgroundColor);
+			nvgFill(args.vg);
+			nvgStrokeWidth(args.vg, 1.0);
+			nvgStrokeColor(args.vg, borderColor);
+			nvgStroke(args.vg);
+		}
+		if (!showDisplay)
+			return;
 
-			//---- VALUE -----
-			// Large Font:
-			nvgFillColor(args.vg, numColor);
-			nvgFontSize(args.vg, largeFontSize);
-			nvgFontFaceId(args.vg, font->handle);
-			nvgTextLetterSpacing(args.vg, largeSpacing);
-			if (hasTextBox[i] && (i != 1)) 
+		NVGcolor textColor = parentWidget->channelColor;// nvgRGB(0xee, 0xee, 0xee);
+		NVGcolor numColor = nvgRGB(0xee, 0xee, 0xee);
+		
+		nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_TOP);
+		float largeFontSize = fontSize * 1.15f;
+		float largeSpacing = 1.5;
+		float spacing = 2.5;
+
+		const int padding = 5;
+		float dx = (box.size.x - padding * 2) / numFields;
+		float x = padding + dx / 2.f;
+		float y = padding * 2;
+		float y2 = box.size.y - fontSize - 8;
+
+		try 
+		{
+			for (int i = 0; i < numFields; i++)
 			{
-				if (!this->textBoxes[i]->visible) // If the text box is visible, then don't draw the values.
+				std::string label = std::string(labels[i]);
+
+				//---- VALUE -----
+				// Large Font:
+				nvgFillColor(args.vg, numColor);
+				nvgFontSize(args.vg, largeFontSize);
+				nvgFontFaceId(args.vg, font->handle);
+				nvgTextLetterSpacing(args.vg, largeSpacing);
+				if (hasTextBox[i] && (i != 1)) 
 				{
-					// Show value
-					float val = (this->textBoxes[i]->text.length() > 0) ? std::stof(this->textBoxes[i]->text, NULL) : 0.0f;
-					sprintf(messageStr, this->textBoxes[i]->formatString, val);
-					nvgText(args.vg, x, y, messageStr, NULL);					
-				}
-			}
-			else
-			{
-				WaveFormType wType = (parentWidget->oscillatorOutput == NULL) ? WaveFormType::WAVEFORM_SIN : parentWidget->oscillatorOutput->waveFormType;
-				switch (i)
-				{
-				case 0:
-					// Waveform
-					nvgText(args.vg, x, y, multiOscillator::WaveFormAbbr[wType], NULL);
-					break;
-				case 1:
-					// AUX
-					switch (wType)
+					if (!this->textBoxes[i]->visible) // If the text box is visible, then don't draw the values.
 					{
-					case WaveFormType::WAVEFORM_SQR:
-						label = std::string("P WIDTH");
-						sprintf(messageStr, "%5.2f", parentWidget->oscillatorOutput->auxParam_norm*100);
-						nvgText(args.vg, x, y, messageStr, NULL);
+						// Show value
+						float val = (this->textBoxes[i]->text.length() > 0) ? std::stof(this->textBoxes[i]->text, NULL) : 0.0f;
+						sprintf(messageStr, this->textBoxes[i]->formatString, val);
+						nvgText(args.vg, x, y, messageStr, NULL);					
+					}
+				}
+				else
+				{
+					WaveFormType wType = (parentWidget->oscillatorOutput == NULL) ? WaveFormType::WAVEFORM_SIN : parentWidget->oscillatorOutput->waveFormType;
+					switch (i)
+					{
+					case 0:
+						// Waveform
+						nvgText(args.vg, x, y, multiOscillator::WaveFormAbbr[wType], NULL);
 						break;
-					case WaveFormType::WAVEFORM_SAW:
-						label = std::string("SLOPE");
-						if (parentWidget->oscillatorOutput->getRampSlope())
-							nvgText(args.vg, x, y, "POS(+)", NULL);
-						else
-							nvgText(args.vg, x, y, "NEG(-)", NULL);
-						break;
-					case WaveFormType::WAVEFORM_SIN:
-					case WaveFormType::WAVEFORM_TRI:
-						nvgText(args.vg, x, y, "N/A", NULL);
-						break;
-					default:
+					case 1:
+						// AUX
+						switch (wType)
+						{
+						case WaveFormType::WAVEFORM_SQR:
+							label = std::string("P WIDTH");
+							sprintf(messageStr, "%5.2f", parentWidget->oscillatorOutput->auxParam_norm*100);
+							nvgText(args.vg, x, y, messageStr, NULL);
+							break;
+						case WaveFormType::WAVEFORM_SAW:
+							label = std::string("SLOPE");
+							if (parentWidget->oscillatorOutput->getRampSlope())
+								nvgText(args.vg, x, y, "POS(+)", NULL);
+							else
+								nvgText(args.vg, x, y, "NEG(-)", NULL);
+							break;
+						case WaveFormType::WAVEFORM_SIN:
+						case WaveFormType::WAVEFORM_TRI:
+							nvgText(args.vg, x, y, "N/A", NULL);
+							break;
+						default:
+							break;
+						}
 						break;
 					}
-					break;
 				}
-			}
 
-			//---- Label ----
-			if (i == amodIx)
-			{
-				if (parentWidget->oscillatorOutput->amRingModulation)
-					label += " (RNG)";
-				else
-					label += " (DIG)";
-			}
-			// Label Font:
-			nvgFillColor(args.vg, textColor);
-			nvgFontSize(args.vg, fontSize); // Small font
-			nvgFontFaceId(args.vg, labelFont->handle);
-			nvgTextLetterSpacing(args.vg, spacing);
-			nvgText(args.vg, x, y2, label.c_str(), NULL);
-			switch (i)
-			{
-			case phaseShiftIx:
-			{
-				// Make a damn degree symbol (our font doesn't have one apparently)
-				float txtBounds[4];
-				float nextX = nvgTextBounds(args.vg, 0, 0, "PHASE (", NULL, txtBounds);
-				nvgFontSize(args.vg, fontSize * 0.6f);
-				nvgText(args.vg, x + nextX / 2.f - 1.25f, y2, "o", NULL); // make a tiny o
-			}
-				break;
-			default:
-				break;
-			} // end switch
-			x += dx;
-		} // end loop
-	}
-	catch (std::exception &ex)
-	{
-		WARN("Error in channel display: %s.", ex.what());
-	}
+				//---- Label ----
+				if (i == amodIx)
+				{
+					if (parentWidget->oscillatorOutput->amRingModulation)
+						label += " (RNG)";
+					else
+						label += " (DIG)";
+				}
+				// Label Font:
+				nvgFillColor(args.vg, textColor);
+				nvgFontSize(args.vg, fontSize); // Small font
+				nvgFontFaceId(args.vg, labelFont->handle);
+				nvgTextLetterSpacing(args.vg, spacing);
+				nvgText(args.vg, x, y2, label.c_str(), NULL);
+				switch (i)
+				{
+				case phaseShiftIx:
+				{
+					// Make a damn degree symbol (our font doesn't have one apparently)
+					float txtBounds[4];
+					float nextX = nvgTextBounds(args.vg, 0, 0, "PHASE (", NULL, txtBounds);
+					nvgFontSize(args.vg, fontSize * 0.6f);
+					nvgText(args.vg, x + nextX / 2.f - 1.25f, y2, "o", NULL); // make a tiny o
+				}
+					break;
+				default:
+					break;
+				} // end switch
+				x += dx;
+			} // end loop
+		}
+		catch (std::exception &ex)
+		{
+			WARN("Error in channel display: %s.", ex.what());
+		}		
+	} // end if layer == 1
+	this->Widget::drawLayer(args, layer);
 	return;
 } // end TSOscillatorChannelDisplayWidget::draw()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

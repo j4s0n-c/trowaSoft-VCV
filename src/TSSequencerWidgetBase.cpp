@@ -98,13 +98,13 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 
 	// Input Controls ==================================================	
 	// Run (Toggle)
-	NVGcolor lightColor = nvgRGBAf(0.7, 0.7, 0.7, 0.8); //TSColors::COLOR_WHITE
+	//NVGcolor lightColor = nvgRGBAf(0.7, 0.7, 0.7, 0.8); //TSColors::COLOR_WHITE
 	Vec btnSize = Vec(50,22);
 	addParam(createParam<TS_PadBtn>(Vec(15, 320), thisModule, TSSequencerModuleBase::ParamIds::RUN_PARAM));//, 0.0, 1.0, 0.0));
 	TS_LightString* item = dynamic_cast<TS_LightString*>(TS_createColorValueLight<TS_LightString>(/*pos */ Vec(15, 320), 
 		/*thisModule*/ thisModule,
 		/*lightId*/ TSSequencerModuleBase::LightIds::RUNNING_LIGHT,
-		/* size */ btnSize, /* color */ lightColor));
+		/* size */ btnSize, /* color */ TSSequencerModuleBase::RUNNING_COLOR));
 	item->lightString = "RUN";
 	addChild(item);
 	
@@ -113,7 +113,7 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	item = dynamic_cast<TS_LightString*>(TS_createColorValueLight<TS_LightString>(/*pos */ Vec(15, 292), 
 		/*thisModule*/ thisModule,
 		/*lightId*/ TSSequencerModuleBase::LightIds::RESET_LIGHT,	
-		/* size */ btnSize, /* color */ lightColor));
+		/* size */ btnSize, /* color */ TSSequencerModuleBase::RESET_COLOR));
 	item->lightString = "RESET";
 	addChild(item);
 
@@ -122,7 +122,7 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	item = dynamic_cast<TS_LightString*>(TS_createColorValueLight<TS_LightString>(/*pos */ Vec(15, 115), 
 		/*thisModule*/ thisModule,
 		/*lightId*/ TSSequencerModuleBase::LightIds::PASTE_LIGHT,
-		/* size */ btnSize, /* color */ lightColor));
+		/* size */ btnSize, /* color */ TSSequencerModuleBase::COPY_PATTERN_COLOR));
 	item->lightString = "PASTE";
 	// if (!isPreview)
 		// thisModule->pasteLight = item;
@@ -231,7 +231,8 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(knobStart + (knobSpacing * 4) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::COPY_PATTERN_PARAM));//, 0, 1, 0));
 	btn->setSize(ledSize);
 	addParam(btn);
-	lightPtr = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 4) + dx + xLightOffset, knobRow + yLightOffset), module, TSSequencerModuleBase::LightIds::COPY_PATTERN_LIGHT, ledSize, TSColors::COLOR_WHITE));
+	lightPtr = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 4) + dx + xLightOffset, knobRow + yLightOffset), 
+		module, TSSequencerModuleBase::LightIds::COPY_PATTERN_LIGHT, ledSize, TSSequencerModuleBase::COPY_PATTERN_COLOR));
 	copyPatternLight = lightPtr;
 	addChild(lightPtr);
 
@@ -588,11 +589,11 @@ struct seqRandomSubMenu : Menu {
 
 	void createChildren()
 	{
-		addChild(new seqRandomSubMenuItem("Current Edit Channel", seqRandomSubMenuItem::ShiftType::CurrentChannelOnly, this->useStucturedRandom, this->sequencerModule));
-		addChild(new seqRandomSubMenuItem("Current Edit Pattern", seqRandomSubMenuItem::ShiftType::ThisPattern, this->useStucturedRandom, this->sequencerModule));
-		addChild(new seqRandomSubMenuItem("ALL Patterns", seqRandomSubMenuItem::ShiftType::AllPatterns, this->useStucturedRandom, this->sequencerModule));
+		addChild(new seqRandomSubMenuItem(STR_CURR_EDIT_CHANNEL, seqRandomSubMenuItem::ShiftType::CurrentChannelOnly, this->useStucturedRandom, this->sequencerModule));
+		addChild(new seqRandomSubMenuItem(STR_CURR_EDIT_PATTERN, seqRandomSubMenuItem::ShiftType::ThisPattern, this->useStucturedRandom, this->sequencerModule));
+		addChild(new seqRandomSubMenuItem(STR_ALL_PATTERNS, seqRandomSubMenuItem::ShiftType::AllPatterns, this->useStucturedRandom, this->sequencerModule));
 		if (sequencerModule->allowPatternSequencing)
-			addChild(new seqRandomSubMenuItem("Song Mode", seqRandomSubMenuItem::ShiftType::SongMode, this->useStucturedRandom, this->sequencerModule));		
+			addChild(new seqRandomSubMenuItem(STR_SONG_MODE, seqRandomSubMenuItem::ShiftType::SongMode, this->useStucturedRandom, this->sequencerModule));		
 		return;
 	}
 };
@@ -637,13 +638,16 @@ struct seqInitializeMenuItem : MenuItem {
 		SongMode
 	};
 	InitType Target = InitType::CurrentChannelOnly;
+	// If we should reset the channel mode (TRIG, RTRIG, GATE, VOLT, NOTE, PATT) also, or just the values.
+	bool resetChannelModeAlso = true;
 
-	seqInitializeMenuItem(std::string text, InitType target, TSSequencerModuleBase* seqModule)
+	seqInitializeMenuItem(std::string text, InitType target, TSSequencerModuleBase* seqModule, bool resetChannelMode = true)
 	{
 		this->box.size.x = 200;
 		this->text = text;
 		this->Target = target;
 		this->sequencerModule = seqModule;
+		this->resetChannelModeAlso = resetChannelMode;
 	}
 	~seqInitializeMenuItem()
 	{
@@ -655,10 +659,10 @@ struct seqInitializeMenuItem : MenuItem {
 		switch (this->Target)
 		{
 			case InitType::ThisPattern:
-				sequencerModule->reset(sequencerModule->currentPatternEditingIx, TROWA_INDEX_UNDEFINED);			
+				sequencerModule->reset(sequencerModule->currentPatternEditingIx, TROWA_INDEX_UNDEFINED, resetChannelModeAlso);			
 				break;
 			case InitType::CurrentChannelOnly:
-				sequencerModule->reset(sequencerModule->currentPatternEditingIx, sequencerModule->currentChannelEditingIx);			
+				sequencerModule->reset(sequencerModule->currentPatternEditingIx, sequencerModule->currentChannelEditingIx, resetChannelModeAlso);			
 				break;
 			case InitType::SongMode:
 				// PATTERN SEQUENCE 			
@@ -666,7 +670,7 @@ struct seqInitializeMenuItem : MenuItem {
 				break;
 			default:
 				// All steps
-				sequencerModule->reset(TROWA_INDEX_UNDEFINED, TROWA_INDEX_UNDEFINED);				
+				sequencerModule->reset(TROWA_INDEX_UNDEFINED, TROWA_INDEX_UNDEFINED, resetChannelModeAlso);				
 				break;
 		}
 		return;
@@ -688,15 +692,23 @@ void TSSequencerWidgetBase::appendContextMenu(ui::Menu *menu)
 	
 	//-------- Initialize ----//
 	modeLabel = new MenuLabel();
-	modeLabel->text = "Initialize Options";
+	modeLabel->text = "Initialize (Reset Channel Mode)";
 	menu->addChild(modeLabel);
-	menu->addChild(new seqInitializeMenuItem("Current Edit Channel", seqInitializeMenuItem::InitType::CurrentChannelOnly, sequencerModule));
-	menu->addChild(new seqInitializeMenuItem("Current Edit Pattern", seqInitializeMenuItem::InitType::ThisPattern, sequencerModule));
-	menu->addChild(new seqInitializeMenuItem("ALL Patterns", seqInitializeMenuItem::InitType::AllPatterns, sequencerModule));	
+	menu->addChild(new seqInitializeMenuItem(STR_CURR_EDIT_CHANNEL, seqInitializeMenuItem::InitType::CurrentChannelOnly, sequencerModule, /*resetChannelMode*/ true));
+	menu->addChild(new seqInitializeMenuItem(STR_CURR_EDIT_PATTERN, seqInitializeMenuItem::InitType::ThisPattern, sequencerModule, /*resetChannelMode*/ true));
+	menu->addChild(new seqInitializeMenuItem(STR_ALL_PATTERNS, seqInitializeMenuItem::InitType::AllPatterns, sequencerModule, /*resetChannelMode*/ true));	
 	if (sequencerModule->allowPatternSequencing)
 	{
-		menu->addChild(new seqInitializeMenuItem("Song Mode", seqInitializeMenuItem::InitType::SongMode, sequencerModule));		
-	}
+		menu->addChild(new seqInitializeMenuItem(STR_SONG_MODE, seqInitializeMenuItem::InitType::SongMode, sequencerModule));		
+	}	
+	modeLabel = new MenuLabel();
+	modeLabel->text = "Initialize (Keep Channel Mode)";
+	menu->addChild(modeLabel);	
+	menu->addChild(new seqInitializeMenuItem(STR_CURR_EDIT_CHANNEL, seqInitializeMenuItem::InitType::CurrentChannelOnly, sequencerModule, /*resetChannelMode*/ false));
+	menu->addChild(new seqInitializeMenuItem(STR_CURR_EDIT_PATTERN, seqInitializeMenuItem::InitType::ThisPattern, sequencerModule, /*resetChannelMode*/ false));
+	menu->addChild(new seqInitializeMenuItem(STR_ALL_PATTERNS, seqInitializeMenuItem::InitType::AllPatterns, sequencerModule, /*resetChannelMode*/ false));	
+
+	
 	
 	//-------- Spacer -------- //
 	modeLabel = new MenuLabel();
@@ -728,6 +740,8 @@ void TSSequencerWidgetBase::appendContextMenu(ui::Menu *menu)
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSeqLabelArea::draw(const DrawArgs &args) 
 {
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+	
 	// Default Font:
 	nvgFontSize(args.vg, fontSize);
 	nvgFontFaceId(args.vg, font->handle);
@@ -836,8 +850,6 @@ TSSeqPatternSeqConfigWidget::TSSeqPatternSeqConfigWidget(TSSequencerModuleBase* 
 {
 	this->box.size = Vec(400, 50);	
 	seqModule = module;
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-	labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 	fontSize = 12;
 	memset(messageStr, '\0', TROWA_DISP_MSG_SIZE);	
 	
@@ -852,124 +864,136 @@ TSSeqPatternSeqConfigWidget::TSSeqPatternSeqConfigWidget(TSSequencerModuleBase* 
 	ckEnabled->color = TS_PATTERN_SEQ_STATUS_COLOR;
 	addChild(ckEnabled);
 		
-	TS_KnobColored* knobPtr = dynamic_cast<TS_KnobColored*>(createParam<TS_KnobColored>(Vec(200, 15), seqModule, TSSequencerModuleBase::ParamIds::PATTERN_SEQ_LENGTH_PARAM));
-	knobPtr->init(TS_KnobColored::SizeType::Small, TS_KnobColored::KnobColor::MedGray);
-	knobPtr->getParamQuantity()->randomizeEnabled = false; //knobPtr->allowRandomize = false;
-	knobPtr->snap = true;		
-	addChild(knobPtr);	
-	//parentWidget->addParam(knobPtr);
+	// TS_KnobColored* knobPtr = dynamic_cast<TS_KnobColored*>(createParam<TS_KnobColored>(Vec(200, 15), seqModule, TSSequencerModuleBase::ParamIds::PATTERN_SEQ_LENGTH_PARAM));
+	// knobPtr->init(TS_KnobColored::SizeType::Small, TS_KnobColored::KnobColor::MedGray);
+	// knobPtr->getParamQuantity()->randomizeEnabled = false; //knobPtr->allowRandomize = false;
+	// knobPtr->snap = true;		
+	// addChild(knobPtr);	
+	
+	TS_ScreenSlider* slider = dynamic_cast<TS_ScreenSlider*>(createParam<TS_ScreenSlider>(Vec(200, 5), seqModule, TSSequencerModuleBase::ParamIds::PATTERN_SEQ_LENGTH_PARAM));
+	slider->snap = true;
+	slider->setSliderDirection(TS_ScreenSlider::SliderDirection::Vertical);
+	slider->getParamQuantity()->randomizeEnabled = false;	
+	slider->getParamQuantity()->snapEnabled = true; // Make sure this is snapping
+	slider->box.size = Vec(20, 40);
+	slider->fillToValueColorPos = TS_PATTERN_SEQ_STATUS_COLOR;
+	addChild(slider);	
 	return;
 }
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-// draw()
+// drawLayer() - v2
 // @args.vg : (IN) NVGcontext to draw on
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSSeqPatternSeqConfigWidget::draw(const DrawArgs &args)
+void TSSeqPatternSeqConfigWidget::drawLayer(const DrawArgs& args, int layer)
 {
-	if (!visible || seqModule == NULL)
-		return;
-	
-	OpaqueWidget::draw(args);
-	
-	// Show the current pattern value
-	int currentPatternIndex = seqModule->currentPatternDataBeingEditedIx; //0-63
-	int paramId = seqModule->currentPatternDataBeingEditedParamId;
-	int currentPatternVal = (paramId > -1) ? seqModule->params[paramId].getValue() + 1 : -1; // 1-64	
-	int currentPatternLength = seqModule->numPatternsInSequence;
-	
-
-	NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
-
-	int y1 = 42;
-	int y2 = 27;
-	int dx = 0;
-	float x = 0;
-	int spacing = 61;
-	
-	///---------------///
-	/// * Edit Line * ///
-	///---------------///	
-	float xl_0 = 36.0f; //41.0f;
-	float xl_1 = xl_0 + spacing * 1.5f + 10.0f;
-	const float yline = 5.0f;
-	NVGcolor groupColor = nvgRGB(0xDD, 0xDD, 0xDD);
-	nvgBeginPath(args.vg);
-	nvgMoveTo(args.vg, xl_0, yline);
-	nvgLineTo(args.vg, xl_1, yline); 
-	nvgStrokeWidth(args.vg, 1.0);
-	nvgStrokeColor(args.vg, groupColor);
-	nvgStroke(args.vg);	
-
-	nvgBeginPath(args.vg);
-	nvgFillColor(args.vg, backgroundColor);
-	x = (xl_0 + xl_1) / 2.0f - 11;
-	nvgRect(args.vg, x, yline - 3, 22, 6);
-	nvgFill(args.vg);
-	
-	nvgFillColor(args.vg, groupColor);		
-	nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
-	nvgFontSize(args.vg, fontSize - 5); // Small font
-	nvgFontFaceId(args.vg, labelFont->handle);	
-	nvgText(args.vg, (xl_0 + xl_1) / 2.0f, 8, "EDIT", NULL);	
-
-	
-	///-------------///
-	/// * DISPLAY * ///
-	///-------------///		
-	nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
-	// Default Font:
-	nvgFontSize(args.vg, fontSize);
-	nvgFontFaceId(args.vg, font->handle);
-	nvgTextLetterSpacing(args.vg, 2.5);	
-	
-	// Current Edit Pattern Index (Sequence #/Step #)
-	nvgFillColor(args.vg, textColor);
-	x = 56;// 26;
-	nvgFontSize(args.vg, fontSize); // Small font
-	nvgFontFaceId(args.vg, labelFont->handle);
-	nvgText(args.vg, x, y1, "SEQ", NULL);
-	nvgFontSize(args.vg, fontSize * 1.5);	// Large font
-	nvgFontFaceId(args.vg, font->handle);
-	if (currentPatternIndex > -1)
+	if (layer == 1)
 	{
-		sprintf(messageStr, "%02d", (currentPatternIndex + 1));		
-		nvgText(args.vg, x + dx, y2, messageStr, NULL);		
-	}
-	else
-	{
-		nvgText(args.vg, x + dx, y2, "--", NULL);		
-	}
+		if (visible && seqModule != NULL)
+		{
+			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+			labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 
-	// Current PATTERN Value (control being dragged)
-	nvgFillColor(args.vg, textColor); // Maybe highlight this and the pad being edited?
-	x += spacing;
-	nvgFontSize(args.vg, fontSize); // Small font
-	nvgFontFaceId(args.vg, labelFont->handle);
-	nvgText(args.vg, x, y1, "PATT", NULL);
-	nvgFontSize(args.vg, fontSize * 1.5);	// Large font
-	nvgFontFaceId(args.vg, font->handle);
-	if (currentPatternVal > -1)
-	{
-		sprintf(messageStr, "%02d", currentPatternVal);	
-		nvgText(args.vg, x + dx, y2, messageStr, NULL);		
-	}
-	else
-	{
-		nvgText(args.vg, x + dx, y2, "--", NULL);				
-	}
+			// Show the current pattern value
+			int currentPatternIndex = seqModule->currentPatternDataBeingEditedIx; //0-63
+			int paramId = seqModule->currentPatternDataBeingEditedParamId;
+			int currentPatternVal = (paramId > -1) ? seqModule->params[paramId].getValue() + 1 : -1; // 1-64	
+			int currentPatternLength = seqModule->numPatternsInSequence;
+			
 
-	// Pattern Length
-	nvgFillColor(args.vg, textColor); // Maybe highlight this and the pad being edited?
-	x += spacing;
-	nvgFontSize(args.vg, fontSize); // Small font
-	nvgFontFaceId(args.vg, labelFont->handle);
-	nvgText(args.vg, x, y1, "PLEN", NULL);
-	nvgFontSize(args.vg, fontSize * 1.5);	// Large font
-	nvgFontFaceId(args.vg, font->handle);
-	sprintf(messageStr, "%02d", currentPatternLength);	
-	nvgText(args.vg, x + dx, y2, messageStr, NULL);
-	
+			NVGcolor textColor = nvgRGB(0xee, 0xee, 0xee);
+
+			int y1 = 42;
+			int y2 = 27;
+			int dx = 0;
+			float x = 0;
+			int spacing = 61;
+			
+			///---------------///
+			/// * Edit Line * ///
+			///---------------///	
+			float xl_0 = 36.0f; //41.0f;
+			float xl_1 = xl_0 + spacing * 1.5f + 10.0f;
+			const float yline = 5.0f;
+			NVGcolor groupColor = nvgRGB(0xDD, 0xDD, 0xDD);
+			nvgBeginPath(args.vg);
+			nvgMoveTo(args.vg, xl_0, yline);
+			nvgLineTo(args.vg, xl_1, yline); 
+			nvgStrokeWidth(args.vg, 1.0);
+			nvgStrokeColor(args.vg, groupColor);
+			nvgStroke(args.vg);	
+
+			nvgBeginPath(args.vg);
+			nvgFillColor(args.vg, backgroundColor);
+			x = (xl_0 + xl_1) / 2.0f - 11;
+			nvgRect(args.vg, x, yline - 3, 22, 6);
+			nvgFill(args.vg);
+			
+			nvgFillColor(args.vg, groupColor);		
+			nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
+			nvgFontSize(args.vg, fontSize - 5); // Small font
+			nvgFontFaceId(args.vg, labelFont->handle);	
+			nvgText(args.vg, (xl_0 + xl_1) / 2.0f, 8, "EDIT", NULL);	
+
+			
+			///-------------///
+			/// * DISPLAY * ///
+			///-------------///		
+			nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
+			// Default Font:
+			nvgFontSize(args.vg, fontSize);
+			nvgFontFaceId(args.vg, font->handle);
+			nvgTextLetterSpacing(args.vg, 2.5);	
+			
+			// Current Edit Pattern Index (Sequence #/Step #)
+			nvgFillColor(args.vg, textColor);
+			x = 56;// 26;
+			nvgFontSize(args.vg, fontSize); // Small font
+			nvgFontFaceId(args.vg, labelFont->handle);
+			nvgText(args.vg, x, y1, "SEQ", NULL);
+			nvgFontSize(args.vg, fontSize * 1.5);	// Large font
+			nvgFontFaceId(args.vg, font->handle);
+			if (currentPatternIndex > -1)
+			{
+				sprintf(messageStr, "%02d", (currentPatternIndex + 1));		
+				nvgText(args.vg, x + dx, y2, messageStr, NULL);		
+			}
+			else
+			{
+				nvgText(args.vg, x + dx, y2, "--", NULL);		
+			}
+
+			// Current PATTERN Value (control being dragged)
+			nvgFillColor(args.vg, textColor); // Maybe highlight this and the pad being edited?
+			x += spacing;
+			nvgFontSize(args.vg, fontSize); // Small font
+			nvgFontFaceId(args.vg, labelFont->handle);
+			nvgText(args.vg, x, y1, "PATT", NULL);
+			nvgFontSize(args.vg, fontSize * 1.5);	// Large font
+			nvgFontFaceId(args.vg, font->handle);
+			if (currentPatternVal > -1)
+			{
+				sprintf(messageStr, "%02d", currentPatternVal);	
+				nvgText(args.vg, x + dx, y2, messageStr, NULL);		
+			}
+			else
+			{
+				nvgText(args.vg, x + dx, y2, "--", NULL);				
+			}
+
+			// Pattern/Sequence Length
+			nvgFillColor(args.vg, textColor); // Maybe highlight this and the pad being edited?
+			x += spacing;
+			nvgFontSize(args.vg, fontSize); // Small font
+			nvgFontFaceId(args.vg, labelFont->handle);
+			nvgText(args.vg, x, y1, "PLEN", NULL); // Don't label is SLEN since S could be "step"...
+			nvgFontSize(args.vg, fontSize * 1.5);	// Large font
+			nvgFontFaceId(args.vg, font->handle);
+			sprintf(messageStr, "%02d", currentPatternLength);
+			nvgText(args.vg, x + dx, y2, messageStr, NULL);
+		}		
+	}	
+	OpaqueWidget::drawLayer(args, layer);	
 	return;
 } // Pattern Sequence Config Widget draw()
 
@@ -983,6 +1007,43 @@ void TSSeqPatternSeqConfigWidget::draw(const DrawArgs &args)
 //===============================================================================
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// Draw the light layer (v2). For light emission when dark.
+// @layer : Layer #.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+void TSSeqDisplay::drawLayer(const DrawArgs& args, int layer)
+{
+	if (layer == 1)
+	{
+		// Screen:
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, 5.0);
+		nvgFillColor(args.vg, backgroundColor); 
+		nvgFill(args.vg);
+		nvgStrokeWidth(args.vg, 1.0);
+		nvgStrokeColor(args.vg, borderColor);
+		nvgStroke(args.vg);
+		
+		if (showDisplay)
+		{
+			switch (currentView)
+			{
+				case SeqViewType::NormalView:			
+					drawNormalView(args);
+					lastStepEditShownParamId = -1;
+					lastStepEditShownValue = -20.0f;
+					break;
+				case SeqViewType::EditStepView:
+					drawEditStepView(args, module->currentStepBeingEditedIx + 1);
+					break;
+			}
+		}
+	}
+	// Draw children (if any)
+	TransparentWidget::drawLayer(args, layer);	
+	return;
+}
+
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // Draw the normal default overview.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 void TSSeqDisplay::drawNormalView(const DrawArgs &args)
@@ -993,6 +1054,9 @@ void TSSeqDisplay::drawNormalView(const DrawArgs &args)
 	int currentChannel = 1;
 	int currentNSteps = 16;
 	float currentBPM = 120;
+	
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+	labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));	
 	
 	TSSequencerModuleBase::ControlSource currPlayPatternCtrlSrc = TSSequencerModuleBase::ControlSource::UserParameterSrc;
 
@@ -1126,10 +1190,12 @@ void TSSeqDisplay::drawNormalView(const DrawArgs &args)
 	nvgFontSize(args.vg, fontSize);	// Small font
 	nvgFontFaceId(args.vg, font->handle);	
 	// Mode is now associated to the Channel, so match the channel color:
-	nvgFillColor(args.vg, currColor); // Match the Gate/Trigger color	
-	if (!isPreview && module->modeString != NULL)
+	nvgFillColor(args.vg, currColor); // Match the Gate/Trigger color		
+	if (!isPreview) //&& module->modeString != NULL)
 	{
-		nvgText(args.vg, x + dx, y2, module->modeString, NULL);
+		const char* modeStr = module->modeStrings[module->selectedOutputValueMode];		
+		//nvgText(args.vg, x + dx, y2, module->modeString, NULL);
+		nvgText(args.vg, x + dx, y2, modeStr, NULL);		
 	}
 	else 
 	{
@@ -1223,6 +1289,9 @@ void TSSeqDisplay::drawNormalView(const DrawArgs &args)
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 void TSSeqDisplay::drawEditStepView(const DrawArgs &args, int currEditStep)
 {
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
+	labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));	
+
 	bool isPreview = module == NULL; // May get a NULL module for preview		
 	int currEditPattern = 1;
 	int currentChannel = 1;

@@ -11,7 +11,8 @@ using namespace rack;
 /// 2. Song Mode: Auto go to the next Pattern --> The playhead from Channel i will stay the in the step??? This is funky...
 /// --> Redo into Channel structure with Length, StepValues, OutputType, PlayHead.
 /// --> 64 Patterns * 16 Channels...
- 
+
+
 
 #include <thread> // std::thread
 #include <mutex>
@@ -86,8 +87,17 @@ using namespace rack;
 // https://github.com/j4s0n-c/trowaSoft-VCV/issues/51
 //////////////////////////////////////////////////////////////////////////
 #define TROWA_SEQ_USE_INTERNAL_DIVISOR		1
-#define DEUBG_TROWA_SEQ_SAMPLE_DIVISOR		1
+#define DEUBG_TROWA_SEQ_SAMPLE_DIVISOR		0
 
+
+//////////////////////////////////////////////////////////////////////////
+// Menu strings
+//////////////////////////////////////////////////////////////////////////
+// j4s0n wants 'ALL Patterns' to be 'ALL Patterns & Channels'
+#define STR_ALL_PATTERNS		"ALL Patterns & Channels"
+#define STR_CURR_EDIT_CHANNEL	"Current Edit Channel"
+#define STR_CURR_EDIT_PATTERN	"Current Edit Pattern"
+#define STR_SONG_MODE			"Song Mode"
 
 // Random Structure
 // From feature request: https ://github.com/j4s0n-c/trowaSoft-VCV/issues/10
@@ -109,6 +119,12 @@ struct TSSequencerModuleBase : Module
 	
 	bool debugFirstRealStep = false;
 	bool debugFirstExecutedStep = false;
+	
+#if DEBUG_PATT_SEQ
+	float debugLastPatternInputVoltage = -1000.0f;
+	float debugLastPatternIxFloat = -1000.0f;
+	int debugLastPatternIx = -1;
+#endif
 	
 
 	enum ParamIds {
@@ -381,6 +397,12 @@ struct TSSequencerModuleBase : Module
 	dsp::SchmittTrigger copyPatternTrigger;
 	dsp::SchmittTrigger copyGateTrigger;
 	dsp::SchmittTrigger pasteTrigger;
+	// Color for Copy Pattern
+	static const NVGcolor COPY_PATTERN_COLOR; 
+	// Color for Running Light 
+	static const NVGcolor RUNNING_COLOR;
+	// Color for Reset Light 
+	static const NVGcolor RESET_COLOR;
 
 	// BPM Calculation //////////////
 	// Index into the array BPMOptions
@@ -484,12 +506,14 @@ struct TSSequencerModuleBase : Module
 	//-----------------------------///////	
 	// INTERNAL PATTERN SEQUENCING ///////
 	//-----------------------------///////
-	// If this module has internal pattern sequencing (no to most, only tsSeq should have it for now).
+	// If this module has internal pattern sequencing (no to most, only multiSeq should have it for now).
 	bool allowPatternSequencing = false;	
 	// Which pattern to play (for pattern sequencing).
 	int patternPlayHeadIx = -1;
 	// Flag if pattern sequencing is on.
 	bool patternSequencingOn = false;
+	// Last step's pattern sequencing on/off value.
+	bool lastPatternSequencingOn = false;
 	// The patterns to play.
 	short* patternData = NULL;
 	// Show the pattern seqeuncing configuration.
@@ -575,20 +599,31 @@ struct TSSequencerModuleBase : Module
 	// Sets the command address strings too.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void setOSCNamespace(const char* oscNs);
+	
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getValueSeqChannelModes()
+	// Gets the array of ValueSequencerModes if any.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
+	virtual ValueSequencerMode** getValueSeqChannelModes() 
+	{
+		return NULL;
+	}
 
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// reset(void)
 	// Reset ALL step values to default.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void onReset() override;
+	void onReset() override;	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// reset()
 	// Only the given pattern and channel.
 	// @patternIx: (IN) Pattern. TROWA_INDEX_UNDEFINED is all.
 	// @channelIx: (IN) Channel. TROWA_INDEX_UNDEFINED is all.
+	// @resetChannelMode: (IN)(Opt'l) Reset the channel mode also (to default like TRIG or VOLT). 
+	//                    Default is true.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
-	virtual void reset(int patternIx, int channelIx);
+	virtual void reset(int patternIx, int channelIx, bool resetChannelMode = true);
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// resetPatternSequence()
 	// Reset the pattern sequence / songmode steps only.
@@ -596,11 +631,11 @@ struct TSSequencerModuleBase : Module
 	virtual void resetPatternSequence();
 	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// randomize(void)
-	// Only randomize the current gate/trigger steps.
+	// randomize()
+	// Only randomize the current gate/trigger steps by default.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void onRandomize() override
-	{
+	virtual void onRandomize(const RandomizeEvent& e) override
+	{		
 		randomize(currentPatternEditingIx, currentChannelEditingIx, false);
 		return;
 	}
@@ -682,7 +717,7 @@ struct TSSequencerModuleBase : Module
 	// dataToJson(void)
 	// Save our junk to json.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	json_t *dataToJson() override;
+	virtual json_t *dataToJson() override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// dataFromJson(void)
 	// Read in our junk from json.
@@ -691,5 +726,23 @@ struct TSSequencerModuleBase : Module
 }; // end struct TSSequencerModuleBase
 
 
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// ParamQuantity for our value modes.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+struct TS_ValueSequencerParamQuantity : TS_ParamQuantity 
+{
+	// Most of this functionality was already done in ValueSequencerMode back in v0.5 or whatever, so use it.
+	ValueSequencerMode* valueMode;	
+	char buffer[50];
+	TS_ValueSequencerParamQuantity() : TS_ParamQuantity()
+	{
+		return;
+	}
+	void setValueMode(ValueSequencerMode* vMode);
+	// Returns a string representation of the display value 
+	std::string getDisplayValueString() override;
+	// Given the string make it the float voltage.
+	void setDisplayValueString(std::string s) override;
+};
 
 #endif

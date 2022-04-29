@@ -43,7 +43,7 @@ trigSeq::trigSeq(int numSteps, int numRows, int numCols) : TSSequencerModuleBase
 // trigSeq::randomize()
 // Only randomize the current gate/trigger steps.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void trigSeq::onRandomize()
+void trigSeq::onRandomize(const RandomizeEvent& e)
 {
 	for (int s = 0; s < maxSteps; s++) 
 	{
