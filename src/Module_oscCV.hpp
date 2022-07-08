@@ -351,7 +351,6 @@ struct oscCV : Module {
 	int getSendFrequencyIx() {
 		int ix = -1;
 		int i = 0;
-		DEBUG("Get Send Ix for %d Hz", sendFrequency_Hz);		
 		while (i < TROWA_OSCCV_NUM_SEND_HZ_OPTS) {
 			if (sendFrequency_Hz == TROWA_OSCCV_Send_Freq_Opts_Hz[i])
 			{
@@ -362,7 +361,6 @@ struct oscCV : Module {
 		}
 		if (ix < 0)
 			ix = 0; // Just pick first option
-		DEBUG("Get Send Ix = %d", ix);				
 		return ix;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -377,7 +375,6 @@ struct oscCV : Module {
 			ix = 0;
 		else if (ix > TROWA_OSCCV_NUM_SEND_HZ_OPTS - 1)
 			ix = TROWA_OSCCV_NUM_SEND_HZ_OPTS - 1;
-		DEBUG("Current Send Frequency is %d. Setting to %d.", sendFrequency_Hz, TROWA_OSCCV_Send_Freq_Opts_Hz[ix]);
 		sendFrequency_Hz = TROWA_OSCCV_Send_Freq_Opts_Hz[ix];
 		return;
 	}
