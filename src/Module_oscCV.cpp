@@ -307,7 +307,8 @@ json_t *oscCV::dataToJson() {
 	json_object_set_new(oscJ, "RxPort", json_integer(this->currentOSCSettings.oscRxPort));
 	json_object_set_new(oscJ, "Namespace", json_string(this->oscNamespace.c_str()));
 	json_object_set_new(oscJ, "AutoReconnectAtLoad", json_boolean(oscReconnectAtLoad)); // [v11, v0.6.3]
-	json_object_set_new(oscJ, "Initialized", json_boolean(oscInitialized)); // [v11, v0.6.3] We know the settings are good at least at the time of save
+	json_object_set_new(oscJ, "Initialized", json_boolean(oscInitialized)); // [v11, v0.6.3] We know the settings are good at least at the time of save		
+	json_object_set_new(oscJ, "SendFrequency", json_integer(sendFrequency_Hz)); // [v19: 2.0.5] Users can change the Send Frequency now		
 	json_object_set_new(rootJ, "osc", oscJ);
 
 	// Channels
@@ -357,6 +358,10 @@ void oscCV::dataFromJson(json_t *rootJ) {
 			currJ = json_object_get(oscJ, "Initialized");
 			autoReconnect = currJ && json_boolean_value(currJ);
 		}
+		// [v19: 2.0.5] Users can change the Send Frequency now	
+		currJ = json_object_get(oscJ, "SendFrequency");
+		if (currJ)
+			this->sendFrequency_Hz = (int)(json_integer_value(currJ));
 	} // end if OSC node
 
 	// Channels

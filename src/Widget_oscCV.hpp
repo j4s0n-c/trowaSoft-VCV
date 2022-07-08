@@ -125,6 +125,8 @@ struct oscCVWidget : TSSModuleWidgetBase {
 		}
 		return color;		
 	}
+	// Append custom context menu options (for the send frequency).
+	void appendContextMenu(ui::Menu *menu) override;
 };
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

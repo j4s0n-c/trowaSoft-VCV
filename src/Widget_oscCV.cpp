@@ -5,6 +5,9 @@ using namespace rack;
 #include "trowaSoftUtilities.hpp"
 #include "Module_oscCV.hpp"
 #include <stdlib.h>
+#include "TSOSCCV_Common.hpp"
+#include <vector>
+#include <string>
 
 #define OSCCV_CHOOSE_UNUSED_PORTS		0
 
@@ -861,29 +864,57 @@ void oscCVWidget::clearChannelPathConfig()
 	return;
 } // end clearChannelPathConfig()
 
+// This is not used right now:
+// struct oscCVMenuItemDebug : MenuItem
+// {
+	// oscCV* oscModule = NULL;
+	// bool debugOn = true;
+	// oscCVMenuItemDebug(std::string text, bool debug, oscCV* oscModule)
+	// {
+		// this->box.size.x = 200;
+		// this->text = text;
+		// this->debugOn = debug;
+		// this->oscModule = oscModule;
+	// }
 
-struct oscCVMenuItemDebug : MenuItem
-{
-	oscCV* oscModule = NULL;
-	bool debugOn = true;
-	oscCVMenuItemDebug(std::string text, bool debug, oscCV* oscModule)
-	{
-		this->box.size.x = 200;
-		this->text = text;
-		this->debugOn = debug;
-		this->oscModule = oscModule;
-	}
+	// void onAction(const event::Action &e) override 
+	// {
+		// oscModule->debugOSCConsoleOn = this->debugOn;
+		// if (this->debugOn)
+			// oscModule->oscShowConfigurationScreen = false; // Turn off showing the configuration screen
+	// }
+	// void step() override {
+		// rightText = (oscModule->debugOSCConsoleOn == this->debugOn) ? "✔" : "";
+	// }
+// };
 
-	void onAction(const event::Action &e) override 
-	{
-		oscModule->debugOSCConsoleOn = this->debugOn;
-		if (this->debugOn)
-			oscModule->oscShowConfigurationScreen = false; // Turn off showing the configuration screen
-	}
-	void step() override {
-		rightText = (oscModule->debugOSCConsoleOn == this->debugOn) ? "✔" : "";
-	}
-};
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// Create context menu with choice of osc output/send rate (Hz).
+// (QUICK and dirty: Options list instead of making a text box).
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+void oscCVWidget::appendContextMenu(ui::Menu *menu)
+{	
+	oscCV* thisModule = dynamic_cast<oscCV*>(module);
+	assert(thisModule);
+	
+	menu->addChild(new MenuSeparator);
+	
+	std::vector<std::string> optLabels;
+	for (int i = 0; i < TROWA_OSCCV_NUM_SEND_HZ_OPTS; i++) {
+		optLabels.push_back(std::to_string(TROWA_OSCCV_Send_Freq_Opts_Hz[i]));
+	}	
+	menu->addChild(createIndexSubmenuItem("Send Frequency (Hz)",
+		optLabels,
+		[=]() {
+			return thisModule->getSendFrequencyIx();
+		},
+		[=](int ix) {
+			thisModule->setSendFrequencyIx(ix);
+		}
+	));	
+
+	return;
+}
 
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

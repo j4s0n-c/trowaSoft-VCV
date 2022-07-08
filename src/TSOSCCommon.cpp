@@ -6,7 +6,6 @@
 std::string OSCClientStr[NUM_OSC_CLIENTS] = { "Generic", "touchOSC" };// , "Lemur" };
 std::string OSCClientAbbr[NUM_OSC_CLIENTS] = { "Gen", "tOSC" };// , "Lemr" };
 
-
 namespace touchOSC
 {
 	// touchOSC color strings for our channels.

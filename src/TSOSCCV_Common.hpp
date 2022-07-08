@@ -28,8 +28,6 @@ using namespace rack;
 
 #define TROWA_OSCCV_VECTOR_MAX_SIZE			engine::PORT_MAX_CHANNELS // Now with polyphonic cables, there can be 16 channels sent in one CV input/output
 
-
-
 //=== DEBUG MacOS ====
 // for cvOSCcv
 #define DEBUG_MAC_OS_POINTER					 0
@@ -37,7 +35,9 @@ using namespace rack;
 #define USE_MODULE_STATIC_RX					1 // Debug MAC OS issues. Start keeping a static buffer of msg objects for each module.
 #define OSC_RX_MSG_BUFFER_SIZE				   40 // Debug MAC OS issues. Start keeping a static buffer of msg objects for each module.
 
-
+// Available options for send frequency (Hz)
+#define TROWA_OSCCV_NUM_SEND_HZ_OPTS		    6  // Number of send options in our simple array. Add quick & dirty simple run-time config of sending frequency.
+extern const int TROWA_OSCCV_Send_Freq_Opts_Hz[TROWA_OSCCV_NUM_SEND_HZ_OPTS];
 
 // A channel for OSC.
 struct TSOSCCVChannel {

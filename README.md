@@ -5,7 +5,7 @@ trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.x,
 The current pack includes [trigSeq & trigSeq64](#trigseq--trigseq64), [voltSeq](#voltseq), [multiWave](#multiwave), [multiScope](#multiscope), [cvOSCcv](#cvosccv), and [cvOSC & OSCcv](#cvosccv-expansion-modules).
 
 For more information about these modules, please visit:
-[http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx](http://www.geekasaurusrex.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx).
+[https://geekasaurusrex.azurewebsites.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx](https://geekasaurusrex.azurewebsites.net/page/trowaSoft-Sequencer-Modules-for-VCV-Rack.aspx).
 
 For more information about Rack, please visit:
 [https://vcvrack.com/](https://vcvrack.com/).
@@ -20,6 +20,7 @@ Recent builds should also be available in the [VCV plugin manager](https://libra
 **2022-01-01**: The latest version is [v2.0.4](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v2.0.4) (for Rack v2.x).
 
 No more versions for older Rack versions will be developed, but they are still available here:
+
 **VCV Rack v1.x.x**:
 2020-09-13: The latest version is [v1.0.3](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v1.0.3) (for Rack v1.x).
 
@@ -29,20 +30,19 @@ No more versions for older Rack versions will be developed, but they are still a
 **VCV Rack v0.5.x**:
 2018-02-17: The last version is [v0.5.5.2](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v0.5.5.2). 
 
-
 To build for your platform, please visit the [VCV rack documentation](https://vcvrack.com/manual/Building#Building-Rack-plugins).
 
 ## Modules
 
 + Sequencers
-    + **[trigSeq & trigSeq64]**(#trigseq--trigseq64) - Simple On/Off step sequencers.
-	+ **[voltSeq]**(#voltseq) - Variable voltage step sequencer.
-	+ **[multiSeq]**(#multiseq) (new as of v2.04) - trigSeq and voltSeq smooshed into one module.
-+ **[multiWave]**(#multiwave) - Module with three (3) oscillator clocks.
-+ **[multiScope]**(#multiscope) - Scope that allows three (3) waveforms to be drawn on the same canvas.
+    + **[trigSeq & trigSeq64](#trigseq--trigseq64)** - Simple On/Off step sequencers.
+	+ **[voltSeq](#voltseq)** - Variable voltage step sequencer.
+	+ **[multiSeq](#multiseq)** (new as of v2.04) - trigSeq and voltSeq smooshed into one module.
++ **[multiWave](#multiwave)** - Module with three (3) oscillator clocks.
++ **[multiScope](#multiscope)** - Scope that allows three (3) waveforms to be drawn on the same canvas.
 + Open Sound Control CV Interface
-	+ **[cvOSCcv]**(#cvosccv) - Simple module for sending CV to OSC and receiving OSC to CVs.
-	+ **[cvOSC & OSCcv]**(#cvosccv-expansion-modules) - Expansion modules for cvOSCcv.
+	+ **[cvOSCcv](#cvosccv)** - Simple module for sending CV to OSC and receiving OSC to CVs.
+	+ **[cvOSC & OSCcv](#cvosccv-expansion-modules)** - Expansion modules for cvOSCcv.
 
 ## Sequencers
 Currently there are four (4) sequencer modules.
@@ -187,7 +187,7 @@ and is new in v0.6.3.
 + **CV Inputs** - CV => OSC (8 Channels), each channel:
     + **TRG** - (mono) If active, then OSC messages will output the **VAL** CV input when triggered.
     + **VAL** - (poly as of v1.0.2) The value(s) that will output over OSC.
-      If there is no trigger present, the module will output whenever **VAL** changes at least 0.05 up to 100 Hz.
+      If there is no trigger present, the module will output whenever **VAL** changes at least 0.05 up to the **Send Frequency (Hz)** (default is 100 Hz).
 + **CV Outputs** - OSC => CV (8 channels), each channel:
     + **TRG** - (mono) (0-10V) Triggers whenever an OSC message is received.
 	+ **VAL** - (poly as of v1.0.2) (Gate) Outputs the last OSC value(s) received. Note that polyphonic cables are limited to 16 channels.
@@ -198,11 +198,12 @@ and is new in v0.6.3.
 	+ **Out Port** - Port for sending messages. 
 	+ **In Port** - Port for receiving messages. ~~Currently, trowaSoft modules can NOT share the same ports.~~
       (as of v1.0.2) **cvOSCcv** modules may **share the same ports** to either speak to the same endpoint or talk to each other.
-	+ **Namespace** - The OSC namespace. Default is `trowacv`.
+	+ **Namespace** - The OSC namespace. Default is empty (none).
 	+ **Auto Con** - Automatically reconnect on load from save. The connection will be restore if the connection was active (in the save file) and this is checked.
     + Per Channel:  
         + **Address** - Endpoint address. Default is `/ch/{channel #}`.
 		+ **ADV** - (as of v0.6.2) Advanced settings for simple value conversions. Specify simple OSC data types (float, int, bool) and the CV and OSC ranges.
+    + **Send Frequency (Hz)** - (as of v2.0.5)(Context Menu) Choose the default send frequency (if no trigger is present) in the context menu. The default is 100 Hz.
 
 	NOTE: To save Channel Address changes after a connection is active, simply hide the configuration screen again.
 

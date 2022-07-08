@@ -1,5 +1,8 @@
-
 #include "TSOSCCV_Common.hpp"
+
+// Available options for send frequency (Hz).
+// Add in some frequencies to match up with FPS.
+const int TROWA_OSCCV_Send_Freq_Opts_Hz[TROWA_OSCCV_NUM_SEND_HZ_OPTS] = { 100, 120, 240, 300, 500, 1000 };
 
 //--------------------------------------------------------
 // addValToBuffer()

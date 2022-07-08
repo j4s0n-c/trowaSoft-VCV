@@ -341,6 +341,47 @@ struct oscCV : Module {
 	// @index: 0 is this master module (invalid). Negative to the left. Positive to the right.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
 	oscCVExpander* getExpansionModule(int index);
+	
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getSendFrequencyIx()
+	// Gets the index into the global TROWA_OSCCV_Send_Freq_Opts_Hz array that matches the 
+	// send frequency.
+	// (QUICK and dirty: Options list instead of making a text box).
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-			
+	int getSendFrequencyIx() {
+		int ix = -1;
+		int i = 0;
+		DEBUG("Get Send Ix for %d Hz", sendFrequency_Hz);		
+		while (i < TROWA_OSCCV_NUM_SEND_HZ_OPTS) {
+			if (sendFrequency_Hz == TROWA_OSCCV_Send_Freq_Opts_Hz[i])
+			{
+				ix = i;
+				i = TROWA_OSCCV_NUM_SEND_HZ_OPTS;
+			}
+			i++;
+		}
+		if (ix < 0)
+			ix = 0; // Just pick first option
+		DEBUG("Get Send Ix = %d", ix);				
+		return ix;
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// setSendFrequencyIx()
+	// @ix: (IN) Index into the TROWA_OSCCV_Send_Freq_Opts_Hz array of the frequency to use. 
+	// Sets the send frequency based off the given index into the global TROWA_OSCCV_Send_Freq_Opts_Hz 
+	// array. 
+	// (QUICK and dirty: Options list instead of making a text box).
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-			
+	void setSendFrequencyIx(int ix) {
+		if (ix < 0)
+			ix = 0;
+		else if (ix > TROWA_OSCCV_NUM_SEND_HZ_OPTS - 1)
+			ix = TROWA_OSCCV_NUM_SEND_HZ_OPTS - 1;
+		DEBUG("Current Send Frequency is %d. Setting to %d.", sendFrequency_Hz, TROWA_OSCCV_Send_Freq_Opts_Hz[ix]);
+		sendFrequency_Hz = TROWA_OSCCV_Send_Freq_Opts_Hz[ix];
+		return;
+	}
+	
 #if USE_MODULE_STATIC_RX	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// getRxMsgObj()
