@@ -407,6 +407,8 @@ void oscCVWidget::step()
 			{
 				thisModule->oscNewSettings.oscRxPort = this->oscConfigurationScreen->getRxPort();				
 			}
+			// Go ahead and save auto-reconnect on load on hide screen (Issue https://github.com/j4s0n-c/trowaSoft-VCV/issues/55)
+			thisModule->oscReconnectAtLoad = this->oscConfigurationScreen->ckAutoReconnect->checked;
 		} // end else (hide config)
 		thisModule->lights[oscCV::LightIds::OSC_CONFIGURE_LIGHT].value = (thisModule->oscShowConfigurationScreen) ? 1.0 : 0.0;
 		this->oscConfigurationScreen->setVisible(thisModule->oscShowConfigurationScreen);
