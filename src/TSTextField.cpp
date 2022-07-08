@@ -5,6 +5,9 @@
 //#include "window.hpp"
 // for key codes
 #include <GLFW/glfw3.h>
+// From issue: // https://github.com/j4s0n-c/trowaSoft-VCV/issues/62
+// Somehow this compiled on Mac & Windows without this include.
+#include <iterator> 
 using namespace rack;
 
 #include "trowaSoftComponents.hpp"
