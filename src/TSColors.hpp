@@ -21,6 +21,7 @@ static const NVGcolor COLOR_CYAN = componentlibrary::SCHEME_CYAN;
 static const NVGcolor COLOR_BLUE = componentlibrary::SCHEME_BLUE;
 static const NVGcolor COLOR_PURPLE = componentlibrary::SCHEME_PURPLE;
 static const NVGcolor COLOR_LIGHT_GRAY = componentlibrary::SCHEME_LIGHT_GRAY;
+static const NVGcolor COLOR_MEDIUM_GRAY = nvgRGB(0x96, 0x96, 0x96);
 static const NVGcolor COLOR_DARK_GRAY = componentlibrary::SCHEME_DARK_GRAY;
 static const NVGcolor COLOR_BEIGE = nvgRGB(255, 250, 200);
 static const NVGcolor COLOR_BROWN = nvgRGB(170, 110, 40);
