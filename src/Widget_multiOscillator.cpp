@@ -153,8 +153,8 @@ void multiOscillatorWidget::step()
 void TSSingleOscillatorDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer) {
 	if (layer == 1)
 	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT)); // Rack v2 load font each time
-		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
+		std::shared_ptr<Font> font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT)); // Rack v2 load font each time
+		std::shared_ptr<Font> labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
 		
 		if (showBackground)
 		{
@@ -498,9 +498,9 @@ void TSOscillatorChannelDisplayWidget::drawLayer(/*in*/ const DrawArgs &args, in
 {
 	if (layer == 1)
 	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT)); // Rack v2 load font each time
-		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));// Rack v2 load font each time
-		
+		std::shared_ptr<Font> font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT)); // Rack v2 load font each time
+		std::shared_ptr<Font> labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));// Rack v2 load font each time
+
 		if (showBackground)
 		{
 			// Background Colors:

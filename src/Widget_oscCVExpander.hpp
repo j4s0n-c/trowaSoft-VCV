@@ -111,8 +111,8 @@ struct oscCVExpanderSideIndicator : TransparentWidget {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct TSOscCVExpanderTopDisplay : TransparentWidget {
 	oscCVExpanderWidget* parentWidget;
-	std::shared_ptr<Font> font;
-	std::shared_ptr<Font> labelFont;
+	//std::shared_ptr<Font> font;       // Rack v2 Conversion - Don't even store this font ptr
+	//std::shared_ptr<Font> labelFont;   // Rack v2 Conversion - Don't even store this font ptr
 	int fontSize;
 	bool showDisplay = true;
 	std::string displayName;
@@ -171,7 +171,7 @@ struct TSOscCVExpanderTopDisplay : TransparentWidget {
 // Labels for oscCV widget.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct TSOscCVExpanderLabels : TransparentWidget {
-	std::shared_ptr<Font> font;
+	//std::shared_ptr<Font> font; // Rack v2 Conversion - Don't even store this font ptr
 	int fontSize;
 	TSOSCCVExpanderDirection expanderType;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

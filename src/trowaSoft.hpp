@@ -8,7 +8,7 @@ using namespace rack;
 extern Plugin *pluginInstance;
 
 // An internal version number (integer) value. Simple int value for quick/dirty easy comparison.
-#define TROWA_INTERNAL_VERSION_INT		19  //19: 2.0.5 
+#define TROWA_INTERNAL_VERSION_INT		20  //20: 2.0.6 
 
 //After Rack v1.0 https://github.com/VCVRack/Rack/issues/266
 //In the vMAJOR.MINOR.REVISION scheme, vMAJOR is the compatibility verison with Rack and MINOR.REVISION is the revision of your plugin. 
@@ -26,6 +26,7 @@ extern Plugin *pluginInstance;
 //16: 1.0.2
 //17: 1.0.3
 //18: 1.0.4 -- Sequencer change (now 2.0.4)
-//19: 2.0.5 
+//19: 2.0.5
+//20: 2.0.6 -- Fix bug where fonts not always loaded before drawing.
 
 #endif

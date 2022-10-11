@@ -89,9 +89,9 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 {
 	multiOscillator *module;
 	TSSingleOscillatorWidget* parentWidget;
-	std::shared_ptr<Font> font;
-	std::shared_ptr<Font> labelFont;
-	bool showBackground = false;	
+	//std::shared_ptr<Font> font;       // Rack v2 Conversion - Don't even store this font ptr
+	//std::shared_ptr<Font> labelFont;   // Rack v2 Conversion - Don't even store this font ptr
+	bool showBackground = false;
 	int fontSize;
 	char messageStr[TROWA_DISP_MSG_SIZE]; // tmp buffer for our strings.
 	bool showDisplay = true;
@@ -239,8 +239,8 @@ struct TSOscillatorChannelDisplayWidget : TransparentWidget
 	// Parent module widget
 	//multiOscillatorWidget* parentModuleWidget;
 	TSOscillatorChannelWidget* parentWidget;
-	std::shared_ptr<Font> font;
-	std::shared_ptr<Font> labelFont;
+	//std::shared_ptr<Font> font;       // Rack v2 Conversion - Don't even store this font ptr
+	//std::shared_ptr<Font> labelFont;   // Rack v2 Conversion - Don't even store this font ptr
 	bool showBackground = false;
 	int fontSize;
 	char messageStr[TROWA_DISP_MSG_SIZE]; // tmp buffer for our strings.

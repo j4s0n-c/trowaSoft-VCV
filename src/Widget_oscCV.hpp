@@ -133,7 +133,8 @@ struct oscCVWidget : TSSModuleWidgetBase {
 // Labels for oscCV widget.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct TSOscCVLabels : TransparentWidget {
-	std::shared_ptr<Font> font;
+	//std::shared_ptr<Font> font; // Rack v2 Conversion - Don't even store this font ptr
+	std::string fontPath;
 	int fontSize;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// TSOscCVLabels(void)
@@ -141,6 +142,7 @@ struct TSOscCVLabels : TransparentWidget {
 	TSOscCVLabels()
 	{		
 		fontSize = 12;
+		fontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT);
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -160,7 +162,7 @@ struct TSOscCVDataTypeSelectBtn : ChoiceButton {
 	int* itemVals;
 	std::string* itemStrs;
 	bool visible = false;
-	std::shared_ptr<Font> font;
+	//std::shared_ptr<Font> font;  // Rack v2 Conversion - Don't even store this font ptr
 	Vec textOffset;
 	NVGcolor color;
 	// Font size
@@ -171,8 +173,10 @@ struct TSOscCVDataTypeSelectBtn : ChoiceButton {
 	NVGcolor backgroundColor;
 	int showNumChars = 15;
 	TSOscCVChannelConfigScreen* parentScreen = NULL;
+	std::string fontPath; // Rack v2 store font path
 
 	TSOscCVDataTypeSelectBtn(int numVals, int* itemVals, std::string* itemStrs, int selVal) {
+		fontPath = asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT);  // Rack v2 store font path
 		fontSize = 14.0f;
 		backgroundColor = FORMS_DEFAULT_BG_COLOR;
 		color = FORMS_DEFAULT_TEXT_COLOR;
@@ -240,8 +244,10 @@ struct TSOscCVDataTypeItem : MenuItem {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct TSOscCVChannelConfigScreen : OpaqueWidget {
 	oscCVWidget* parentWidget;
-	std::shared_ptr<Font> font;
-	std::shared_ptr<Font> labelFont;
+	//std::shared_ptr<Font> font;  // Rack v2 Conversion - Don't even store this font ptr
+	//std::shared_ptr<Font> labelFont;  // Rack v2 Conversion - Don't even store this font ptr
+	std::string fontPath;
+	std::string labelFontPath;
 	int fontSize;
 	bool visible = false;
 	// If this is an input or output channel.
@@ -403,8 +409,10 @@ struct TSOscCVChannelConfigScreen : OpaqueWidget {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct TSOscCVTopDisplay : TransparentWidget {
 	oscCVWidget* parentWidget;
-	std::shared_ptr<Font> font;
-	std::shared_ptr<Font> labelFont;
+	//std::shared_ptr<Font> font;  // Rack v2 Conversion - Don't even store this font ptr
+	//std::shared_ptr<Font> labelFont;  // Rack v2 Conversion - Don't even store this font ptr
+	std::string fontPath;
+	std::string labelFontPath;
 	int fontSize;
 	char messageStr[TROWA_DISP_MSG_SIZE]; // tmp buffer for our strings.
 	bool showDisplay = true;
@@ -433,6 +441,9 @@ struct TSOscCVTopDisplay : TransparentWidget {
 		memset(messageStr, '\0', sizeof(char)*TROWA_DISP_MSG_SIZE);
 		memset(scrollingMsg, '\0', sizeof(char)*TROWA_SCROLLING_MSG_TOTAL_SIZE);
 		showDisplay = true;
+
+		fontPath = asset::plugin(pluginInstance, TROWA_DIGITAL_FONT);  // Rack v2 store font path
+		labelFontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT); // Rack v2 store font path
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -454,8 +465,10 @@ struct TSOscCVTopDisplay : TransparentWidget {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct TSOscCVMiddleDisplay : TransparentWidget {
 	oscCVWidget* parentWidget;
-	std::shared_ptr<Font> font;
-	std::shared_ptr<Font> labelFont;
+	//std::shared_ptr<Font> font;   // Rack v2 Conversion - Don't even store this font ptr
+	//std::shared_ptr<Font> labelFont;  // Rack v2 Conversion - Don't even store this font ptr
+	std::string fontPath; // Rack v2 store font path
+	std::string labelFontPath; // Rack v2 store font path
 	int fontSize;
 	char messageStr[TROWA_DISP_MSG_SIZE]; // tmp buffer for our strings.
 	//bool showDisplay = true;
@@ -487,6 +500,8 @@ struct TSOscCVMiddleDisplay : TransparentWidget {
 		fontSize = 12;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
+		fontPath = asset::plugin(pluginInstance, TROWA_DIGITAL_FONT);  // Rack v2 store font path
+		labelFontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT); // Rack v2 store font path
 		return;
 	}
 	~TSOscCVMiddleDisplay() {
