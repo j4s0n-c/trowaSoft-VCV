@@ -257,8 +257,6 @@ struct TSOscillatorChannelDisplayWidget : TransparentWidget
 	// TSOscillatorChannelDisplayWidget(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSOscillatorChannelDisplayWidget() {
-		// font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-		// labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -300,7 +298,7 @@ struct TSOscillatorChannelWidget : Widget// VirtualWidget
 	// Parent oscillator widget.
 	TSSingleOscillatorWidget* parentWidget;
 	// Label font
-	std::shared_ptr<Font> labelFont;
+	//std::shared_ptr<Font> labelFont;
 	// Font size
 	int fontSize = 10;
 	// The channel number.

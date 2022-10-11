@@ -153,8 +153,8 @@ void multiOscillatorWidget::step()
 void TSSingleOscillatorDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer) {
 	if (layer == 1)
 	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT)); // Rack v2 load font each time
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
 		
 		if (showBackground)
 		{
@@ -498,8 +498,8 @@ void TSOscillatorChannelDisplayWidget::drawLayer(/*in*/ const DrawArgs &args, in
 {
 	if (layer == 1)
 	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT)); // Rack v2 load font each time
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));// Rack v2 load font each time
 		
 		if (showBackground)
 		{
@@ -640,8 +640,7 @@ void TSOscillatorChannelDisplayWidget::drawLayer(/*in*/ const DrawArgs &args, in
 TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* parentModuleWidget, TSSingleOscillatorWidget* parentOscWidget,
 	Vec location,
 	int chNumber, NVGcolor chColor, int bInputId, int bParamId, int bOutputId, int bLightId, TS_OscillatorOutput* oscOutput)
-{
-	labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+{	
 	box.size = Vec(OSC_WIDGET_WIDTH, 50);
 	box.pos = location;
 	this->parentWidget = parentOscWidget;

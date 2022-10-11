@@ -33,7 +33,7 @@ TSTextField::TSTextField(TextType textType, int maxLength) : TSTextField(textTyp
 
 // Taken from Rack's LEDTextField
 int TSTextField::getTextPosition(Vec mousePos) {
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT)); // Rack v2 load font each time
 	bndSetFont(font->handle);
 	int textPos = bndIconLabelTextPosition(APP->window->vg, textOffset.x, textOffset.y,
 		box.size.x - 2 * textOffset.x, box.size.y - 2 * textOffset.y,
@@ -53,11 +53,11 @@ void TSTextField::drawLayer(const DrawArgs &args, int layer)
 {
 	if (this->visible)
 	{
+		// v2: Load font reference every draw call			
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT)); // Rack v2 load font each time
+
 		if (layer == 1)
-		{
-			// v2: Load font reference every draw call			
-			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
-	
+		{	
 			// Draw taken from Rack's LEDTextField and modified for scrolling (my quick & dirty ghetto text scrolling---ONLY truly effective for calculating the width with MONOSPACE font
 			// since I don't want to do a bunch of calcs... [lazy]).
 			nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);

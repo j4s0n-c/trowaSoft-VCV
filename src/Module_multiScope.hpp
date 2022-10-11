@@ -333,8 +333,8 @@ struct TSScopeDisplay : TransparentWidget {
 			{
 				bool isPreview = module == NULL; // May have NULL module? Make sure we don't just eat it.
 
-				font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-				labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+				font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));  	// Rack v2 load font each time
+				labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
 
 				nvgSave(args.vg);
 				Rect b = Rect(Vec(0, 0), box.size);
@@ -611,7 +611,6 @@ struct TSScopeLabelArea : TransparentWidget {
 	char messageStr[TROWA_DISP_MSG_SIZE];
 
 	TSScopeLabelArea() {
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -684,6 +683,7 @@ struct TSScopeLabelArea : TransparentWidget {
 	// draw()
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void draw(const DrawArgs &args) override {
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
 
 		// Default Font:
 		nvgFontSize(args.vg, fontSize);
@@ -815,7 +815,6 @@ struct TSScopeSideBarLabelArea : TransparentWidget {
 	std::shared_ptr<Font> font;
 	int fontSize;
 	TSScopeSideBarLabelArea() {
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 	}
 	TSScopeSideBarLabelArea(Vec bsize) : TSScopeSideBarLabelArea() {
@@ -826,6 +825,7 @@ struct TSScopeSideBarLabelArea : TransparentWidget {
 	// draw()
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void draw(const DrawArgs &args) override {
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
 		nvgSave(args.vg);
 		//nvgTranslate(args.vg, -box.size.y / 2.0, -box.size.x / 2.0);
 		nvgRotate(args.vg, NVG_PI*0.5);

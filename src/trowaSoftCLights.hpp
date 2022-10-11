@@ -213,7 +213,6 @@ struct TS_LightArc : ColorValueLight {
 	
 	TS_LightArc()
 	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		bgColor = nvgRGBAf(0.0, 0, 0, /*alpha */ 1.0);
 		borderColor = nvgRGBAf(0.1, 0.1, 0.1, /*alpha */ 1.0);
@@ -227,6 +226,8 @@ struct TS_LightArc : ColorValueLight {
 	//------------------------------------------------		
 	void drawValueArc(const DrawArgs &args, bool drawLight)
 	{
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
+
 		float oradius = box.size.x / 2.0; // 25
 		//float radius = oradius - arcThickness; // 23
 		
@@ -467,8 +468,7 @@ struct TS_LightString : ColorValueLight
 	NVGcolor textColor = TSColors::COLOR_WHITE;
 	float alphaAdjustment = -1;
 	TS_LightString()
-	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+	{		
 		fontSize = 14;
 		bgColor = nvgRGBAf(0.1, 0.1, 0.1, /*alpha */ 1);
 		borderColor = nvgRGBAf(0.3, 0.3, 0.3, /*alpha */ 1);
@@ -480,6 +480,8 @@ struct TS_LightString : ColorValueLight
 	
 	void drawLight(const DrawArgs &args) override
 	{
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
+		
 		// Give some transparency to the color a little ...
 		NVGcolor c = color;
 		color.a *= 0.85;

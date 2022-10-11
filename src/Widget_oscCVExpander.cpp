@@ -347,8 +347,8 @@ void TSOscCVExpanderTopDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer
 {
 	if (layer == 1)
 	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT)); // Rack v2 load font each time
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
 		
 		// Background Colors:
 		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);

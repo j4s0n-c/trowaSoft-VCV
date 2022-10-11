@@ -27,3 +27,4 @@ res/ComponentLibrary/TS_RoundBlackKnob_20_oops.svg
 *.orig
 *.db-shm
 .vs/trowaSoft-VCV/v17/.suo
+*.db-wal

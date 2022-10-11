@@ -78,7 +78,6 @@ struct TS_Label : Label {
 	TS_Label(const char* fontPath)
 	{
 		this->fontPath = fontPath;
-		font = APP->window->loadFont(asset::plugin(pluginInstance, fontPath)); // Load it into cache on instantiation? [v2] We have load our object everytime we draw though.
 		return;
 	}
 	TS_Label() : TS_Label(TROWA_LABEL_FONT)
@@ -110,6 +109,8 @@ struct TS_Label : Label {
 	{
 		if (visible)
 		{
+			font = APP->window->loadFont(asset::plugin(pluginInstance, fontPath)); // Rack v2 load font each time
+
 			//nvgGlobalCompositeOperation(args.vg, NVG_SOURCE_OVER);//Restore to default.
 			if (drawBackground)
 			{
@@ -122,7 +123,6 @@ struct TS_Label : Label {
 				nvgStroke(args.vg);
 			}
 			
-			font = APP->window->loadFont(asset::plugin(pluginInstance, fontPath));
 			nvgFontFaceId(args.vg, font->handle);
 			nvgFontSize(args.vg, fontSize);
 			nvgTextLetterSpacing(args.vg, textLetterSpacing);
@@ -429,7 +429,6 @@ struct TS_PadBtn : SvgSwitch { // MomentarySwitch
 	
 	TS_PadBtn(Vec size, Module* module, int paramId, std::string text) : TS_PadBtn()
 	{
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;		
 		box.size = size;
 		sw->box.size = size;
@@ -452,6 +451,7 @@ struct TS_PadBtn : SvgSwitch { // MomentarySwitch
 		if (!visible)
 			return;
 		
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
 		
 		SvgSwitch::draw(args);
 		
@@ -642,7 +642,6 @@ struct TS_ScreenBtn : Switch {
 	TS_ScreenBtn(Vec size, Module* module, int paramId, std::string text) : Switch()
 	{
 		box.size = size;
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		btnText = text;
 		this->module = module;
@@ -656,7 +655,6 @@ struct TS_ScreenBtn : Switch {
 	TS_ScreenBtn(Vec size, Module* module, int paramId, std::string text, float minVal, float maxVal, float defVal)
 	{
 		box.size = size;
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		btnText = text;
 		this->module = module;		
@@ -670,7 +668,6 @@ struct TS_ScreenBtn : Switch {
 	TS_ScreenBtn(Vec size, Module* module, int paramId, std::string text, float minVal, float maxVal, float defVal, bool isMomentary)
 	{
 		box.size = size;
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 10;
 		btnText = text;
 		momentary = isMomentary;
@@ -751,6 +748,8 @@ struct TS_ScreenBtn : Switch {
 	{
 		if (visible)
 		{			
+			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
+	
 			// Background
 			nvgBeginPath(args.vg);
 			if (cornerRadius > 0)
@@ -800,14 +799,14 @@ struct TS_ScreenBtn : Switch {
 		return;
 	}
 
-	// virtual void draw(const DrawArgs &args) override
-	// {
-		// if (!visible)
-			// return;
-		
-
-		// return;
-	// }
+	 virtual void draw(const DrawArgs &args) override
+	 {
+		 if (!visible)
+			 return;
+		 font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
+		 this->Switch::draw(args);
+		 return;
+	 }
 };
 //--------------------------------------------------------------
 // TS_ScreenCheckBox : Screen checkbox button
@@ -871,6 +870,7 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 	{
 		if (visible)
 		{
+			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
 			if (layer == 1)
 			{
 				// Background

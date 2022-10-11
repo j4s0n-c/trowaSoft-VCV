@@ -923,7 +923,7 @@ void oscCVWidget::appendContextMenu(ui::Menu *menu)
 // Draw labels on our widget.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSOscCVLabels::draw(/*in*/ const DrawArgs &args) {	
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
 	
 	// Default Font:
 	nvgFontSize(args.vg, fontSize);
@@ -1062,8 +1062,8 @@ void TSOscCVTopDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer)
 	{
 		if (layer == 1)
 		{
-			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-			labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));  // Rack v2 load font each time
+			labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
 
 			// Background Colors:
 			NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
@@ -1151,8 +1151,8 @@ void TSOscCVMiddleDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer) {
 	if (layer == 1)
 	{
 		bool isPreview = parentWidget->module == NULL; // May get a NULL module for preview
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT)); // Rack v2 load font each time
+		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
 
 		// Background Colors:
 		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
@@ -1398,7 +1398,7 @@ void TSOscCVDataTypeSelectBtn::drawLayer(const DrawArgs &args, int layer) {
 	if (visible) {
 		if (layer == 1)
 		{
-			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
+			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT)); // Rack v2 load font each time
 			nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);
 
 			// Background
@@ -1571,8 +1571,8 @@ void TSOscCVChannelConfigScreen::drawLayer(/*in*/ const DrawArgs &args, int laye
 	{		
 		if (layer == 1)
 		{
-			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-			labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
+			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT)); // Rack v2 load font each time
+			labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
 			
 			// Default Font:
 			nvgFontSize(args.vg, fontSize);

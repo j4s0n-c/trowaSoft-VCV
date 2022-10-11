@@ -429,8 +429,6 @@ struct TSOscCVTopDisplay : TransparentWidget {
 	TSOscCVTopDisplay(oscCVWidget* widget)
 	{
 		parentWidget = widget;
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT));
-		labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
 		fontSize = 12;
 		memset(messageStr, '\0', sizeof(char)*TROWA_DISP_MSG_SIZE);
 		memset(scrollingMsg, '\0', sizeof(char)*TROWA_SCROLLING_MSG_TOTAL_SIZE);

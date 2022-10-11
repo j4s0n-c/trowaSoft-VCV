@@ -54,7 +54,7 @@ void TSOSCClientSelectBtn::step() {
 void TSOSCClientSelectBtn::drawControl(const DrawArgs &args)
 {
 	// v2: Load font reference every draw call
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT));
+	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT)); // Rack v2 load font each time
 	
 	nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);
 
@@ -267,11 +267,10 @@ void TSOSCConfigWidget::onShiftTabField(int id)
 void TSOSCConfigWidget::drawLayer(const DrawArgs &args, int layer) {
 	if (this->visible)
 	{
+		// v2: Load font reference every draw call	
+		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time		
 		if (layer == 1)
 		{
-			// v2: Load font reference every draw call	
-			font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
-
 			nvgFontSize(args.vg, fontSize);
 			nvgFontFaceId(args.vg, font->handle);
 
