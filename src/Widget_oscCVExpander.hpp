@@ -9,6 +9,8 @@
 #include <rack.hpp>
 using namespace rack;
 
+/// TODO: [Rack VST] Subsequent loads of VST Window the fonts disappear even though we are loading them before using them in draw... ????
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // oscCVExpanderWidget
 // Open Sound Control <==> Control Voltage EXPANDER Widget
@@ -113,6 +115,8 @@ struct TSOscCVExpanderTopDisplay : TransparentWidget {
 	oscCVExpanderWidget* parentWidget;
 	//std::shared_ptr<Font> font;       // Rack v2 Conversion - Don't even store this font ptr
 	//std::shared_ptr<Font> labelFont;   // Rack v2 Conversion - Don't even store this font ptr
+	std::string fontPath; // Rack v2 store font path
+	std::string labelFontPath; // Rack v2 store font path
 	int fontSize;
 	bool showDisplay = true;
 	std::string displayName;
@@ -139,6 +143,8 @@ struct TSOscCVExpanderTopDisplay : TransparentWidget {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSOscCVExpanderTopDisplay(oscCVExpanderWidget* widget)
 	{
+		fontPath = asset::plugin(pluginInstance, TROWA_DIGITAL_FONT);  // Rack v2 store font path
+		labelFontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT); // Rack v2 store font path
 		parentWidget = widget;
 		fontSize = 10;
 		showDisplay = true;
@@ -173,12 +179,14 @@ struct TSOscCVExpanderTopDisplay : TransparentWidget {
 struct TSOscCVExpanderLabels : TransparentWidget {
 	//std::shared_ptr<Font> font; // Rack v2 Conversion - Don't even store this font ptr
 	int fontSize;
+	std::string fontPath; // Rack v2 store font path
 	TSOSCCVExpanderDirection expanderType;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// TSOscCVExpanderLabels(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSOscCVExpanderLabels()
 	{
+		fontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT); // Rack v2 store font path
 		fontSize = 12;
 		return;
 	}

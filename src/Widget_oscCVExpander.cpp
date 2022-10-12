@@ -347,8 +347,14 @@ void TSOscCVExpanderTopDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer
 {
 	if (layer == 1)
 	{
-		std::shared_ptr<Font> font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT)); // Rack v2 load font each time
-		std::shared_ptr<Font> labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
+		std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time
+		std::shared_ptr<Font> labelFont = APP->window->loadFont(labelFontPath); // Rack v2 load font each time
+
+		if (font == nullptr)
+			return;
+		if (labelFont == nullptr)
+			return;
+
 		
 		// Background Colors:
 		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
@@ -413,8 +419,9 @@ void TSOscCVExpanderTopDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer
 // Draw labels on our widget.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSOscCVExpanderLabels::draw(/*in*/ const DrawArgs &args) {
-	std::shared_ptr<Font> font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));
-	
+	std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time
+	if (font == nullptr)
+		return;
 	// Default Font:
 	nvgFontSize(args.vg, fontSize);
 	nvgFontFaceId(args.vg, font->handle);

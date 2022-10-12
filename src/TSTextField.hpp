@@ -108,7 +108,9 @@ struct TSTextField : TextField {
 	// The background color.
 	NVGcolor backgroundColor;
 	// Font
-	std::shared_ptr<Font> font;
+	//std::shared_ptr<Font> font; // Rack v2 load font each time
+	std::string fontPath;
+	
 	// Text offset
 	Vec textOffset;
 	// Text color

@@ -740,8 +740,10 @@ void TSSequencerWidgetBase::appendContextMenu(ui::Menu *menu)
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSeqLabelArea::draw(const DrawArgs &args) 
 {
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
-	
+	std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time
+	if (font == nullptr)
+		return;
+
 	// Default Font:
 	nvgFontSize(args.vg, fontSize);
 	nvgFontFaceId(args.vg, font->handle);
@@ -850,6 +852,8 @@ TSSeqPatternSeqConfigWidget::TSSeqPatternSeqConfigWidget(TSSequencerModuleBase* 
 {
 	this->box.size = Vec(400, 50);	
 	seqModule = module;
+	fontPath = asset::plugin(pluginInstance, TROWA_DIGITAL_FONT);  // Rack v2 store font path
+	labelFontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT); // Rack v2 store font path
 	fontSize = 12;
 	memset(messageStr, '\0', TROWA_DISP_MSG_SIZE);	
 	
@@ -887,12 +891,17 @@ TSSeqPatternSeqConfigWidget::TSSeqPatternSeqConfigWidget(TSSequencerModuleBase* 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSeqPatternSeqConfigWidget::drawLayer(const DrawArgs& args, int layer)
 {
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT)); // Rack v2 load font each time
-	labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));	// Rack v2 load font each time
 	if (layer == 1)
 	{
 		if (visible && seqModule != NULL)
 		{
+			std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time
+			std::shared_ptr<Font> labelFont = APP->window->loadFont(labelFontPath);	// Rack v2 load font each time
+			if (font == nullptr)
+				return;
+			if (labelFont == nullptr)
+				return;
+
 			// Show the current pattern value
 			int currentPatternIndex = seqModule->currentPatternDataBeingEditedIx; //0-63
 			int paramId = seqModule->currentPatternDataBeingEditedParamId;
@@ -1054,9 +1063,13 @@ void TSSeqDisplay::drawNormalView(const DrawArgs &args)
 	int currentNSteps = 16;
 	float currentBPM = 120;
 	
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT)); // Rack v2 load font each time
-	labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));	// Rack v2 load font each time
-	
+	std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time
+	std::shared_ptr<Font> labelFont = APP->window->loadFont(labelFontPath);	 // Rack v2 load font each time
+	if (font == nullptr)
+		return;
+	if (labelFont == nullptr)
+		return;
+
 	TSSequencerModuleBase::ControlSource currPlayPatternCtrlSrc = TSSequencerModuleBase::ControlSource::UserParameterSrc;
 
 	NVGcolor currColor = TSColors::COLOR_TS_RED;
@@ -1288,8 +1301,12 @@ void TSSeqDisplay::drawNormalView(const DrawArgs &args)
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 void TSSeqDisplay::drawEditStepView(const DrawArgs &args, int currEditStep)
 {
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_DIGITAL_FONT)); // Rack v2 load font each time
-	labelFont = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT));	 // Rack v2 load font each time
+	std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time
+	std::shared_ptr<Font> labelFont = APP->window->loadFont(labelFontPath);	 // Rack v2 load font each time
+	if (font == nullptr)
+		return;
+	if (labelFont == nullptr)
+		return;
 
 	bool isPreview = module == NULL; // May get a NULL module for preview		
 	int currEditPattern = 1;

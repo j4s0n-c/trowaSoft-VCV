@@ -22,7 +22,8 @@ struct TSOSCClientSelectBtn : ChoiceButton {
 	// The selected value.
 	OSCClient selectedOSCClient;
 	bool visible = false;
-	std::shared_ptr<Font> font;
+	//std::shared_ptr<Font> font;
+	std::string fontPath; // Rack v2 store font path
 	Vec textOffset;
 	NVGcolor color;
 	// Font size
@@ -85,7 +86,8 @@ struct TSOSCConfigWidget : OpaqueWidget
 	// The current status (on the bottom).
 	std::string statusMsg2;
 	bool visible;
-	std::shared_ptr<Font> font;
+	//std::shared_ptr<Font> font;
+	std::string fontPath; // Rack v2 store font path
 	float fontSize = 12;
 	NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
 	NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);

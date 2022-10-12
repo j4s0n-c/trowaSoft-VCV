@@ -90,7 +90,8 @@ struct TSSequencerWidgetBase : TSSModuleWidgetBase {
 //===============================================================================
 struct TSSeqLabelArea : TransparentWidget {
 	TSSequencerModuleBase *module;
-	std::shared_ptr<Font> font;
+	//std::shared_ptr<Font> font;
+	std::string fontPath; // Rack v2 store font path
 	int fontSize;
 	bool drawGridLines = false;
 	bool allowPatternSequencing = false;
@@ -100,7 +101,7 @@ struct TSSeqLabelArea : TransparentWidget {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSSeqLabelArea() 
 	{
-		
+		fontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT);  // Rack v2 store font path
 		fontSize = 13;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -123,8 +124,10 @@ struct TSSeqLabelArea : TransparentWidget {
 //===============================================================================
 struct TSSeqPatternSeqConfigWidget : OpaqueWidget
 {
-	std::shared_ptr<Font> font;
-	std::shared_ptr<Font> labelFont;
+	//std::shared_ptr<Font> font;
+	//std::shared_ptr<Font> labelFont;
+	std::string fontPath; // Rack v2 store font path
+	std::string labelFontPath; // Rack v2 store font path
 	int fontSize;
 	char messageStr[TROWA_DISP_MSG_SIZE]; // tmp buffer for our strings.
 	NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
@@ -217,8 +220,11 @@ struct TSSeqDisplay : TransparentWidget {
 	NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
 	NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);	
 	TSSequencerModuleBase *module;
-	std::shared_ptr<Font> font;
-	std::shared_ptr<Font> labelFont;
+	//std::shared_ptr<Font> font;
+	//std::shared_ptr<Font> labelFont;
+	std::string fontPath; // Rack v2 store font path
+	std::string labelFontPath; // Rack v2 store font path
+
 	int fontSize;
 	char messageStr[TROWA_DISP_MSG_SIZE]; // tmp buffer for our strings.
 	bool showDisplay = true;
@@ -242,6 +248,8 @@ struct TSSeqDisplay : TransparentWidget {
 	// TSSeqDisplay(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSSeqDisplay() {
+		fontPath = asset::plugin(pluginInstance, TROWA_DIGITAL_FONT);  // Rack v2 store font path
+		labelFontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT); // Rack v2 store font path
 		fontSize = 12;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';

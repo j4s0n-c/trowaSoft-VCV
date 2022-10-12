@@ -21,6 +21,7 @@ void TSOSCClientItem::onAction(const event::Action &e) {
 }
 
 TSOSCClientSelectBtn::TSOSCClientSelectBtn() {
+	fontPath = asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT); // Rack v2 store font path
 	fontSize = 14.0f;
 	backgroundColor = FORMS_DEFAULT_BG_COLOR;
 	color = FORMS_DEFAULT_TEXT_COLOR;
@@ -54,7 +55,7 @@ void TSOSCClientSelectBtn::step() {
 void TSOSCClientSelectBtn::drawControl(const DrawArgs &args)
 {
 	// v2: Load font reference every draw call
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT)); // Rack v2 load font each time
+	std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time
 	
 	nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);
 
@@ -121,7 +122,7 @@ TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReco
 TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReconnectId, std::string ipAddress, uint16_t txPort, uint16_t rxPort, 
 	bool showClient, OSCClient selectedClient, bool showNamespace, std::string oscNamespace)
 {
-	
+	fontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT); // Rack v2 store font path
 	this->module = mod;
 	
 	this->showClientSelect = showClient;
@@ -268,7 +269,7 @@ void TSOSCConfigWidget::drawLayer(const DrawArgs &args, int layer) {
 	if (this->visible)
 	{
 		// v2: Load font reference every draw call	
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time		
+		std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time	
 		if (layer == 1)
 		{
 			nvgFontSize(args.vg, fontSize);

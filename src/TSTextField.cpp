@@ -13,9 +13,10 @@ using namespace rack;
 #include "trowaSoftComponents.hpp"
 
 TSTextField::TSTextField(TextType textType) : TextField() {
+	fontPath = asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT); // Rack v2 store font path
+	fontSize = 14.0f;
 	multiline = false; // Default to no multiline.
 	setTextType(textType);
-	fontSize = 14.0f;
 	backgroundColor = FORMS_DEFAULT_BG_COLOR;
 	color = FORMS_DEFAULT_TEXT_COLOR;
 	textOffset = Vec(0, 0);
@@ -33,7 +34,7 @@ TSTextField::TSTextField(TextType textType, int maxLength) : TSTextField(textTyp
 
 // Taken from Rack's LEDTextField
 int TSTextField::getTextPosition(Vec mousePos) {
-	font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT)); // Rack v2 load font each time
+	std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time
 	bndSetFont(font->handle);
 	int textPos = bndIconLabelTextPosition(APP->window->vg, textOffset.x, textOffset.y,
 		box.size.x - 2 * textOffset.x, box.size.y - 2 * textOffset.y,
@@ -54,7 +55,7 @@ void TSTextField::drawLayer(const DrawArgs &args, int layer)
 	if (this->visible)
 	{
 		// v2: Load font reference every draw call			
-		font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT)); // Rack v2 load font each time
+		std::shared_ptr<Font> font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_MONOSPACE_FONT)); // Rack v2 load font each time
 
 		if (layer == 1)
 		{	

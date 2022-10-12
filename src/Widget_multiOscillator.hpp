@@ -91,6 +91,8 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 	TSSingleOscillatorWidget* parentWidget;
 	//std::shared_ptr<Font> font;       // Rack v2 Conversion - Don't even store this font ptr
 	//std::shared_ptr<Font> labelFont;   // Rack v2 Conversion - Don't even store this font ptr
+	std::string fontPath; // Rack v2 store font path
+	std::string labelFontPath; // Rack v2 store font path
 	bool showBackground = false;
 	int fontSize;
 	char messageStr[TROWA_DISP_MSG_SIZE]; // tmp buffer for our strings.
@@ -103,6 +105,8 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 	// TSSingleOscillatorTopDisplay(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSSingleOscillatorDisplay() {
+		fontPath = asset::plugin(pluginInstance, TROWA_DIGITAL_FONT);  // Rack v2 store font path
+		labelFontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT); // Rack v2 store font path
 		fontSize = 10;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -132,7 +136,7 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 	void onButton(const event::Button &e) override {
 		if (module == NULL)
 			return;
-		DEBUG("TSSingleOscillatorDisplay::onMouseDown() = CLICK!");					
+		//DEBUG("TSSingleOscillatorDisplay::onMouseDown() = CLICK!");					
 		
 		if (showDisplay) {
 			if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT) {
@@ -153,13 +157,13 @@ struct TSSingleOscillatorDisplay : TransparentWidget
 				}
 				if (txtBoxIx > -1 && !textBoxes[txtBoxIx]->visible)
 				{
-DEBUG("TSSingleOscillatorDisplay::onMouseDown() = Showing Txt Id %d, visible = %d", txtBoxIx, textBoxes[txtBoxIx]->visible);					
+//DEBUG("TSSingleOscillatorDisplay::onMouseDown() = Showing Txt Id %d, visible = %d", txtBoxIx, textBoxes[txtBoxIx]->visible);					
 					// Show the text box:
 					textBoxes[txtBoxIx]->visible = true;
 					//e.target = textBoxes[txtBoxIx];
 					//e.consumed = true;
 					e.consume(textBoxes[txtBoxIx]);
-DEBUG("TSSingleOscillatorDisplay::onMouseDown() = Txt Id %d -- REQUEST FOCUS", txtBoxIx);					
+//DEBUG("TSSingleOscillatorDisplay::onMouseDown() = Txt Id %d -- REQUEST FOCUS", txtBoxIx);					
 					textBoxes[txtBoxIx]->requestFocus();
 				}		
 			} // end if left click (previously e.button == 0)
@@ -241,6 +245,8 @@ struct TSOscillatorChannelDisplayWidget : TransparentWidget
 	TSOscillatorChannelWidget* parentWidget;
 	//std::shared_ptr<Font> font;       // Rack v2 Conversion - Don't even store this font ptr
 	//std::shared_ptr<Font> labelFont;   // Rack v2 Conversion - Don't even store this font ptr
+	std::string fontPath; // Rack v2 store font path
+	std::string labelFontPath; // Rack v2 store font path
 	bool showBackground = false;
 	int fontSize;
 	char messageStr[TROWA_DISP_MSG_SIZE]; // tmp buffer for our strings.
@@ -257,6 +263,8 @@ struct TSOscillatorChannelDisplayWidget : TransparentWidget
 	// TSOscillatorChannelDisplayWidget(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	TSOscillatorChannelDisplayWidget() {
+		fontPath = asset::plugin(pluginInstance, TROWA_DIGITAL_FONT);  // Rack v2 store font path
+		labelFontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT); // Rack v2 store font path
 		fontSize = 10;
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
@@ -300,7 +308,8 @@ struct TSOscillatorChannelWidget : Widget// VirtualWidget
 	// Label font
 	//std::shared_ptr<Font> labelFont;
 	// Font size
-	int fontSize = 10;
+	//int fontSize = 10;
+
 	// The channel number.
 	int channelNumber = 1;
 	// The channel color.

@@ -923,8 +923,9 @@ void oscCVWidget::appendContextMenu(ui::Menu *menu)
 // Draw labels on our widget.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSOscCVLabels::draw(/*in*/ const DrawArgs &args) {	
-	//std::shared_ptr<Font> font = APP->window->loadFont(asset::plugin(pluginInstance, TROWA_LABEL_FONT)); // Rack v2 load font each time
 	std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time
+	if (font == nullptr)
+		return;
 
 	// Default Font:
 	nvgFontSize(args.vg, fontSize);
@@ -1059,13 +1060,23 @@ void TSOscCVTopDisplay::step() {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSOscCVTopDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer)
 {
-	std::shared_ptr<Font> font = APP->window->loadFont(fontPath);  // Rack v2 load font each time
-	std::shared_ptr<Font> labelFont = APP->window->loadFont(labelFontPath); // Rack v2 load font each time
-	// Fonts don't show up when you close the VST and re-open???????? Even though they are loaded everytime....
 	if (visible)
 	{
 		if (layer == 1)
 		{
+			// Fonts don't show up when you close the VST and re-open???????? Even though they are loaded everytime....
+			std::shared_ptr<Font> font = APP->window->loadFont(fontPath);  // Rack v2 load font each time
+			std::shared_ptr<Font> labelFont = APP->window->loadFont(labelFontPath); // Rack v2 load font each time
+
+			if (font == nullptr)
+			{
+				return;
+			}
+			if (labelFont == nullptr)
+			{
+				return;
+			}
+
 			// Background Colors:
 			NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
 			NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
@@ -1154,6 +1165,10 @@ void TSOscCVMiddleDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer) {
 		bool isPreview = parentWidget->module == NULL; // May get a NULL module for preview
 		std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time
 		std::shared_ptr<Font> labelFont = APP->window->loadFont(labelFontPath); // Rack v2 load font each time
+		if (font == nullptr)
+			return;
+		if (labelFont == nullptr)
+			return;
 
 		// Background Colors:
 		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
@@ -1400,6 +1415,9 @@ void TSOscCVDataTypeSelectBtn::drawLayer(const DrawArgs &args, int layer) {
 		if (layer == 1)
 		{
 			std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time
+			if (font == nullptr)
+				return;
+
 			nvgScissor(args.vg, 0, 0, box.size.x, box.size.y);
 
 			// Background
@@ -1577,7 +1595,11 @@ void TSOscCVChannelConfigScreen::drawLayer(/*in*/ const DrawArgs &args, int laye
 		{
 			std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time
 			std::shared_ptr<Font> labelFont = APP->window->loadFont(labelFontPath); // Rack v2 load font each time
-			
+			if (font == nullptr)
+				return;
+			if (labelFont == nullptr)
+				return;
+
 			// Default Font:
 			nvgFontSize(args.vg, fontSize);
 			nvgFontFaceId(args.vg, font->handle);

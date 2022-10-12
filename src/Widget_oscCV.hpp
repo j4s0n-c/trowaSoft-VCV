@@ -134,7 +134,7 @@ struct oscCVWidget : TSSModuleWidgetBase {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 struct TSOscCVLabels : TransparentWidget {
 	//std::shared_ptr<Font> font; // Rack v2 Conversion - Don't even store this font ptr
-	std::string fontPath;
+	std::string fontPath;// Rack v2 store font path
 	int fontSize;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// TSOscCVLabels(void)
@@ -142,7 +142,7 @@ struct TSOscCVLabels : TransparentWidget {
 	TSOscCVLabels()
 	{		
 		fontSize = 12;
-		fontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT);
+		fontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT); // Rack v2 store font path
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
