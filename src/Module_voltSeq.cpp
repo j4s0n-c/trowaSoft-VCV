@@ -291,7 +291,7 @@ void voltSeq::process(const ProcessArgs &args)
 	float clockTime = 0.0f;
 	bool nextStep = isNewStep(args.sampleRate, &clockTime);	
 #if TROWA_SEQ_USE_INTERNAL_DIVISOR	
-	if (nextStep)
+	if (nextStep || resetTriggered || this->ctlMsgQueue.size() > 0)  // Eval if new step, reset triggered or OSC message
 	{
 		idleCounter = 0;
 	}

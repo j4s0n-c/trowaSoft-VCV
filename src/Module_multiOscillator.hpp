@@ -9,7 +9,7 @@ using namespace rack;
 #include "trowaSoft.hpp"
 //#include "dsp/digital.hpp"
 
-#define DEBUG_MOSC 1
+#define DEBUG_MOSC 0
 
 
 // Model for trowa multiOscillator
@@ -42,7 +42,7 @@ extern Model* modelMultiOscillator;
 #define MOSC_OFFSET_MIN_V				  -10.0f // [V]
 #define MOSC_AMPLITUDE_MIN_V			   -10.0f // Min Amplittude [V]
 
-#define MOSC_FREQ_MAX_HZ				 20000.0f // Max Frequency [Hz]
+#define MOSC_FREQ_MAX_HZ			    20000.0f // Max Frequency [Hz] (20000.0f)
 #define MOSC_PHASE_SHIFT_MAX_DEG		  360.0f // [degrees].
 #define MOSC_OFFSET_MAX_V		           10.0f // [V]
 #define MOSC_AMPLITUDE_MAX_V		        10.0f // Max Amplitude [V]

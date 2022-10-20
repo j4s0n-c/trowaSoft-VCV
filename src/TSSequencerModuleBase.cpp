@@ -891,7 +891,7 @@ void TSSequencerModuleBase::onSampleRateChange()
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // isNewStep()
-// We advance to new step or not.
+// We advance to new step or not.  Also evaluates the RESET input and button.
 // @sampleRate : (IN) Current sample rate.
 // @clockTime : (OUT) The calculated internal clock time.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
@@ -956,6 +956,9 @@ bool TSSequencerModuleBase::isNewStep(float sampleRate, float* clockTime)
 			}
 		}
 	} // end if running
+
+	// Check Reset from INPUT and/or Button:
+	resetTriggered = resetTrigger.process(params[RESET_PARAM].getValue() + inputs[RESET_INPUT].getVoltage());
 	return nextStep;
 }
 
@@ -1697,7 +1700,8 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 	// Reset
 	// [03/30/2018] So, now j4s0n wants RESET to wait until the next step is played... 
 	// So it's delayed reset. https://github.com/j4s0n-c/trowaSoft-VCV/issues/11
-	if (resetTrigger.process(params[RESET_PARAM].getValue() + inputs[RESET_INPUT].getVoltage()) || resetMsg)
+	//if (resetTrigger.process(params[RESET_PARAM].getValue() + inputs[RESET_INPUT].getVoltage()) || resetMsg)
+	if (resetTriggered || resetMsg)
 	{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 		DEBUG("Reset");

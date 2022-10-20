@@ -1389,7 +1389,8 @@ void TSSeqDisplay::drawEditStepView(const DrawArgs &args, int currEditStep)
 	nvgFontFaceId(args.vg, font->handle);		
 	if (sequencerValueModePtr != NULL)
 	{
-		sequencerValueModePtr->GetDisplayString(currEditStepVal, messageStr);
+		// Fix showing wrong note in note mode.
+		sequencerValueModePtr->GetDisplayString(sequencerValueModePtr->GetOutputValue(currEditStepVal), messageStr);
 	}
 	else
 	{

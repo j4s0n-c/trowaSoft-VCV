@@ -199,6 +199,8 @@ struct TSSequencerModuleBase : Module
 	// [03/30/2015] A  reset has been queued for the next step. (https://github.com/j4s0n-c/trowaSoft-VCV/issues/11)
 	// So now reset is not immediate, but will wait for the next step.
 	bool resetQueued = false;
+	// Stores value of our RESET input and button (if it was triggered).
+	bool resetTriggered = false;
 	// If this module is running.
 	bool running = true;
 	dsp::SchmittTrigger clockTrigger; 		// for external clock
@@ -682,7 +684,7 @@ struct TSSequencerModuleBase : Module
 	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// isNewStep()
-	// We advance to new step or not.
+	// We advance to new step or not. Also evaluates the RESET input and button.
 	// @sampleRate : (IN) Current sample rate.
 	// @clockTime : (OUT) The calculated internal clock time.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
