@@ -131,6 +131,28 @@ public:
 	std::string oscNamespace;
 	// Instantiate a listener.
 	TSOSCSequencerListener();
+	// Process a packet. Capture any exceptions and discard so we don't crash Rack.
+	virtual void ProcessPacket(const char* data, int size, const IpEndpointName& remoteEndpoint) override
+	{
+		// Catch any exceptions with this packet and discard (do not DIE).
+		try
+		{
+			this->OscPacketListener::ProcessPacket(data, size, remoteEndpoint);
+		}
+		catch (osc::MalformedBundleException& bEx) {
+			WARN("Sequencer OSC Rx Malformed Bundle: %s.", bEx.what());
+		}
+		catch (osc::MalformedMessageException& mEx) {
+			WARN("Sequencer OSC Rx Malformed Message: %s.", mEx.what());
+		}
+		catch (osc::MalformedPacketException& pEx) {
+			WARN("Sequencer OSC Rx Malformed Packet: %s.", pEx.what());
+		}
+		catch (std::exception& ex) {
+			WARN("Sequencer OSC Rx Error: %s.", ex.what());
+		}
+		return;
+	}
 protected:
 	//--------------------------------------------------------------------------------------------------------------------------------------------
 	// ProcessMessage()

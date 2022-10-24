@@ -71,9 +71,33 @@ public:
 		}
 		return;
 	}
+	// Process a packet. Capture any exceptions and discard so we don't crash Rack.
+	virtual void ProcessPacket(const char* data, int size,
+		const IpEndpointName& remoteEndpoint) override
+	{
+		// Catch any exceptions with this packet and discard (do not DIE).
+		try
+		{
+			this->OscPacketListener::ProcessPacket(data, size, remoteEndpoint);
+		}
+		catch (osc::MalformedBundleException& bEx) {
+			WARN("OSC Rx (Port %hu) Malformed Bundle: %s.", port, bEx.what());
+		}
+		catch (osc::MalformedMessageException& mEx) {
+			WARN("OSC Rx (Port %hu) Malformed Message: %s.", port, mEx.what());
+		}
+		catch (osc::MalformedPacketException& pEx) {
+			WARN("OSC Rx (Port %hu) Malformed Packet: %s.", port, pEx.what());
+		}
+		catch (std::exception& ex) {
+			WARN("OSC Rx (Port %hu) Error: %s.", port, ex.what());
+		}
+		return;
+	}
 protected:
 	// Mutex for adjust modules
 	std::mutex mutModule;
+
 	// Get the message as a debug message.
 	virtual std::string getDebugMessage(const osc::ReceivedMessage& rxMsg)
 	{
@@ -186,6 +210,7 @@ public:
 		if (item->router == NULL)
 		{
 			item->router = new R();// TSOSCBaseMsgRouter<T>();
+			item->router->port = rxPort;
 			item->port = rxPort;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
 			DEBUG("TSOSCRxConnector::startListener(port %d) - Create router/listener object.", rxPort);
