@@ -356,315 +356,320 @@ void oscCVWidget::step()
 {
 	if (this->module == NULL)
 		return;
-
-	oscCV* thisModule = dynamic_cast<oscCV*>(module);
-	
-	bool loadModuleToConfig = false;
-	if (showConfigScreen != thisModule->oscShowConfigurationScreen)
+	try
 	{
-		// State change
-		if (thisModule->oscShowConfigurationScreen)
+		oscCV* thisModule = dynamic_cast<oscCV*>(module);
+
+		bool loadModuleToConfig = false;
+		if (showConfigScreen != thisModule->oscShowConfigurationScreen)
 		{
-			// Show screens:
-			loadModuleToConfig = true;
+			// State change
+			if (thisModule->oscShowConfigurationScreen)
+			{
+				// Show screens:
+				loadModuleToConfig = true;
 #if OSCCV_CHOOSE_UNUSED_PORTS			
-			if (!thisModule->oscInitialized)
-			{
-				// Make sure the ports are available
-				int p = TSOSCConnector::PortInUse(thisModule->currentOSCSettings.oscTxPort);
-				if (p > 0 && p != thisModule->oscId)
-					thisModule->currentOSCSettings.oscTxPort = TSOSCConnector::GetAvailablePortTrans(thisModule->oscId, thisModule->currentOSCSettings.oscTxPort, /*sharingAllowed*/ true);
-				p = TSOSCConnector::PortInUse(thisModule->currentOSCSettings.oscRxPort);
-				if (p > 0 && p != thisModule->oscId)
-					thisModule->currentOSCSettings.oscRxPort = TSOSCConnector::GetAvailablePortRecv(thisModule->oscId, thisModule->currentOSCSettings.oscRxPort, /*sharingAllowed*/ true);
+				if (!thisModule->oscInitialized)
+				{
+					// Make sure the ports are available
+					int p = TSOSCConnector::PortInUse(thisModule->currentOSCSettings.oscTxPort);
+					if (p > 0 && p != thisModule->oscId)
+						thisModule->currentOSCSettings.oscTxPort = TSOSCConnector::GetAvailablePortTrans(thisModule->oscId, thisModule->currentOSCSettings.oscTxPort, /*sharingAllowed*/ true);
+					p = TSOSCConnector::PortInUse(thisModule->currentOSCSettings.oscRxPort);
+					if (p > 0 && p != thisModule->oscId)
+						thisModule->currentOSCSettings.oscRxPort = TSOSCConnector::GetAvailablePortRecv(thisModule->oscId, thisModule->currentOSCSettings.oscRxPort, /*sharingAllowed*/ true);
 
-			}
+				}
 #endif			
-			this->oscConfigurationScreen->setValues(thisModule->currentOSCSettings.oscTxIpAddress, thisModule->currentOSCSettings.oscTxPort, thisModule->currentOSCSettings.oscRxPort, thisModule->oscNamespace);
-			this->oscConfigurationScreen->ckAutoReconnect->checked = thisModule->oscReconnectAtLoad;
-			this->oscConfigurationScreen->btnActionEnable = !thisModule->oscInitialized;			
-		}
-		else 
-		{
-			// Hide configuration screens:
-			this->oscConfigurationScreen->setVisible(false);
-			readChannelPathConfig(showConfigIndex); // Read any changes that may have happened. (we don't have room for a save button)			
-			toggleChannelPathConfig(false);
-			oscChannelConfigScreen->setVisibility(false); // Hide
-			//--------------------------------------------------------------------
-			// [2019-09-02] Save the ip, ports, and namespace even if we haven't successfully connected, so that presets and copying will work 
-			// even if user doesn't actually connect at least once.
-			thisModule->setOscNamespace(this->oscConfigurationScreen->tbNamespace->text);			
-			// Save IP only if it is a valid IP
-			if (this->oscConfigurationScreen->isValidIpAddress())
-			{
-				thisModule->oscNewSettings.oscTxIpAddress = this->oscConfigurationScreen->tbIpAddress->text.c_str();
+				this->oscConfigurationScreen->setValues(thisModule->currentOSCSettings.oscTxIpAddress, thisModule->currentOSCSettings.oscTxPort, thisModule->currentOSCSettings.oscRxPort, thisModule->oscNamespace);
+				this->oscConfigurationScreen->ckAutoReconnect->checked = thisModule->oscReconnectAtLoad;
+				this->oscConfigurationScreen->btnActionEnable = !thisModule->oscInitialized;
 			}
-			// Save Tx Port only if it is a valid port
-			if (this->oscConfigurationScreen->isValidTxPort())
-			{
-				thisModule->oscNewSettings.oscTxPort = this->oscConfigurationScreen->getTxPort();
-			}
-			// Save Rx Port only if it is valid port
-			if (this->oscConfigurationScreen->isValidRxPort())
-			{
-				thisModule->oscNewSettings.oscRxPort = this->oscConfigurationScreen->getRxPort();				
-			}
-			// Go ahead and save auto-reconnect on load on hide screen (Issue https://github.com/j4s0n-c/trowaSoft-VCV/issues/55)
-			thisModule->oscReconnectAtLoad = this->oscConfigurationScreen->ckAutoReconnect->checked;
-		} // end else (hide config)
-		thisModule->lights[oscCV::LightIds::OSC_CONFIGURE_LIGHT].value = (thisModule->oscShowConfigurationScreen) ? 1.0 : 0.0;
-		this->oscConfigurationScreen->setVisible(thisModule->oscShowConfigurationScreen);
-		this->display->showDisplay = !thisModule->oscShowConfigurationScreen;
-		if (thisModule->oscShowConfigurationScreen) {
-			this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::None);
-		}
-		else {
-			this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::Default);
-		}		
-	}
-	else if (thisModule->oscShowConfigurationScreen)
-	{
-		// Configuration screen is showing, but we have changed which channels we are configuring.
-		if (thisModule->expCurrentEditExpanderIx != showConfigIndex)
-		{	
-			// Module being configured has changed.
-			loadModuleToConfig = true;
-			// Read any changes that may have happened. (we don't have room for a save button)
-			// For the old module:
-			readChannelPathConfig(showConfigIndex); 
-		}
-	}
-	
-	
-	if (loadModuleToConfig)// (thisModule->oscConfigTrigger.process(thisModule->params[oscCV::ParamIds::OSC_SHOW_CONF_PARAM].getValue()))
-	{
-		masterConfigLoaded = thisModule->expCurrentEditExpanderIx == 0 || thisModule->expCurrentEditExpander == NULL;
-		currentEditExpander = thisModule->expCurrentEditExpander; // Save reference
-		setChannelPathConfig(); // Set the channel text boxes
-		oscChannelConfigScreen->setVisibility(false); // Hide
-		if (masterConfigLoaded)
-		{
-			toggleChannelPathConfig(true);
-			thisModule->expCurrentEditExpanderIx = 0;
-			showConfigColor = TSColors::COLOR_WHITE;
-			configName = std::string("");
-			this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::None);			
-		}
-		else
-		{
-			// Show only input or output
-			showConfigColor = calcColor(thisModule->expCurrentEditExpanderIx);			
-			toggleChannelPathConfig(thisModule->expCurrentEditExpanderIx < 0, thisModule->expCurrentEditExpanderIx > 0);
-			configName = (thisModule->expCurrentEditExpanderIx < 0) ? "CV -> OSC" : "OSC -> CV";
-			this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::ConfigNameAndLabel);			
-			configNameLeft = thisModule->expCurrentEditExpanderIx > 0;
-		}
-		this->oscConfigurationScreen->errorMsg = "";
-		if (thisModule->oscError)
-		{
-			this->oscConfigurationScreen->errorMsg = "Error connecting to " + thisModule->currentOSCSettings.oscTxIpAddress;
-		}
-		this->oscConfigurationScreen->setVisible(true);
-		
-		// Buttons for Next/Previous - Change color if there is a next/previous
-		prevLight->setColor(calcColor(thisModule->expCurrentEditExpanderIx - 1));
-		nextLight->setColor(calcColor(thisModule->expCurrentEditExpanderIx + 1));
-		
-		// Rename the Advanced Configuration Buttons:
-		int numChannels = thisModule->numberChannels;
-		int baseChNum = abs( thisModule->expCurrentEditExpanderIx ) * numChannels;
-		char buffer[50];
-		for (int i = 0; i < numChannels; i++)
-		{			
-			int ch = baseChNum + i + 1;
-			sprintf(buffer, "Configure %s Channel %d", "Input", ch);
-			btnDrawInputAdvChConfig[i]->getParamQuantity()->name = std::string(buffer);
-			sprintf(buffer, "Configure %s Channel %d", "Output", ch);
-			btnDrawOutputAdvChConfig[i]->getParamQuantity()->name = std::string(buffer);			
-		}
-	}
-	
-	if (thisModule->oscShowConfigurationScreen)
-	{
-		//------------------------------------------
-		// Check for show channel config buttons
-		//------------------------------------------
-		TSOSCCVChannel* editChannelPtr = NULL;
-		bool isInput = false;
-		/// TODO: Accomodate if Expanders ever have more or less # channels than the main module.
-		for (int c = 0; c < thisModule->numberChannels; c++) {
-			// Input Channel:
-			int paramId = oscCV::ParamIds::CH_PARAM_START 
-				+ c*TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
-			if (thisModule->inputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].getValue())) {
-				//DEBUG("btnClick: Input Ch %d, paramId = %d", c, paramId);				
-				// Read any changes that may have happened. (we don't have room for a save button) on the previous screen
-				readChannelPathConfig(showConfigIndex); 			
-				if (masterConfigLoaded)			
-					editChannelPtr = &(thisModule->inputChannels[c]);
-				else if (thisModule->expCurrentEditExpander != NULL)
-				{
-					try
-					{
-						editChannelPtr = &(thisModule->expCurrentEditExpander->inputChannels[c]);
-					}
-					catch (const std::exception& expanderNull)
-					{
-						WARN("Error %s - Expander - ", expanderNull.what());
-					}
-				}
-				isInput = true;
-				break;
-			}
-			paramId = oscCV::ParamIds::CH_PARAM_START
-				+ (thisModule->numberChannels + c) * TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
-			// Output Channel:
-			if (thisModule->outputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].getValue())) {
-				//DEBUG("btnClick: Output Ch %d, paramId = %d", c, paramId);
-				// Read any changes that may have happened. (we don't have room for a save button) on the previous screen
-				readChannelPathConfig(showConfigIndex);				
-				if (masterConfigLoaded)
-					editChannelPtr = &(thisModule->outputChannels[c]);
-				else if (thisModule->expCurrentEditExpander != NULL)
-				{
-					try
-					{
-						editChannelPtr = &(thisModule->expCurrentEditExpander->outputChannels[c]);
-					}
-					catch (const std::exception& expanderNull)
-					{
-						WARN("Error %s - Expander - ", expanderNull.what());
-					}
-				}				
-				isInput = false;
-				break;
-			}
-		} // end for (loop through channels)
-			
-		if (editChannelPtr != NULL) 
-		{
-			this->toggleChannelPathConfig(false); // Hide the channel paths
-			this->oscChannelConfigScreen->showControl(editChannelPtr, isInput);
-			this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::ConfigName);
-			configNameLeft = false;
-		}
-		else if (this->oscChannelConfigScreen->visible)
-		{
-			// Check for enable/disable data massaging
-			// Check for Save or Cancel
-			bool screenDone = false;
-			if (oscChannelConfigScreen->saveTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_SAVE_PARAM].getValue())) {
-				// Validate form & save
-				screenDone = oscChannelConfigScreen->saveValues();
-			}
-			else if (oscChannelConfigScreen->cancelTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_CANCEL_PARAM].getValue())) {
-				// Just hide and go back to paths
-				screenDone = true;
-				oscChannelConfigScreen->setVisibility(false); // Hide
-				this->toggleChannelPathConfig(true); // Show paths again
-			}
-			if (screenDone) {
-				oscChannelConfigScreen->setVisibility(false); // Hide
-				this->toggleChannelPathConfig(thisModule->expCurrentEditExpanderIx <= 0, thisModule->expCurrentEditExpanderIx >= 0); // Show paths again
-				configNameLeft = thisModule->expCurrentEditExpanderIx > 0;
-				this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::ConfigNameAndLabel);				
-			}
-		}
-
-		//------------------------------------------
-		// Check for enable/disable OSC
-		//------------------------------------------
-		if (thisModule->oscConnectTrigger.process(thisModule->params[oscCV::ParamIds::OSC_SAVE_CONF_PARAM].getValue()))
-		{
-			if (oscConfigurationScreen->btnActionEnable)
-			{
-				// Enable OSC ------------------------------------------------------------------------
-				// User checked to connect
-				if (!this->oscConfigurationScreen->isValidIpAddress())
-				{
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-					DEBUG("IP Address is not valid.");
-#endif
-					this->oscConfigurationScreen->errorMsg = "Invalid IP Address.";
-					this->oscConfigurationScreen->tbIpAddress->requestFocus();
-				}
-				else if (!this->oscConfigurationScreen->isValidTxPort())
-				{
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-					DEBUG("Tx Port is not valid.");
-#endif
-					this->oscConfigurationScreen->errorMsg = "Invalid Output Port (0-" + std::to_string(0xFFFF) + ").";
-					this->oscConfigurationScreen->tbTxPort->requestFocus();
-
-				}
-				else if (!this->oscConfigurationScreen->isValidRxPort())
-				{
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-					DEBUG("Rx Port is not valid.");
-#endif
-					this->oscConfigurationScreen->errorMsg = "Invalid Input Port (0-" + std::to_string(0xFFFF) + ").";
-					this->oscConfigurationScreen->tbRxPort->requestFocus();
-				}
-				else
-				{
-					// Try to connect
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-					DEBUG("Save OSC Configuration clicked, save information for module.");
-#endif
-					readChannelPathConfig(thisModule->expCurrentEditExpanderIx);
-					this->oscConfigurationScreen->errorMsg = "";
-					thisModule->oscNewSettings.oscTxIpAddress = this->oscConfigurationScreen->tbIpAddress->text.c_str();
-					thisModule->oscNewSettings.oscTxPort = this->oscConfigurationScreen->getTxPort();
-					thisModule->oscNewSettings.oscRxPort = this->oscConfigurationScreen->getRxPort();
-					//thisModule->oscCurrentClient = this->oscConfigurationScreen->getSelectedClient();
-					//DEBUG("Setting namespace");
-					thisModule->setOscNamespace(this->oscConfigurationScreen->tbNamespace->text);
-					thisModule->oscCurrentAction = oscCV::OSCAction::Enable;
-					thisModule->oscReconnectAtLoad = this->oscConfigurationScreen->ckAutoReconnect->checked;
-				}
-			} // end if enable osc
 			else
 			{
-				// Disable OSC ------------------------------------------------------------------
-#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
-				DEBUG("Disable OSC clicked.");
-#endif
-				this->oscConfigurationScreen->errorMsg = "";
-				thisModule->oscCurrentAction = oscCV::OSCAction::Disable;
-			} // end else disable OSC
-		} // end if OSC Save btn pressed
-		else
+				// Hide configuration screens:
+				this->oscConfigurationScreen->setVisible(false);
+				readChannelPathConfig(showConfigIndex); // Read any changes that may have happened. (we don't have room for a save button)			
+				toggleChannelPathConfig(false);
+				oscChannelConfigScreen->setVisibility(false); // Hide
+				//--------------------------------------------------------------------
+				// [2019-09-02] Save the ip, ports, and namespace even if we haven't successfully connected, so that presets and copying will work 
+				// even if user doesn't actually connect at least once.
+				thisModule->setOscNamespace(this->oscConfigurationScreen->tbNamespace->text);
+				// Save IP only if it is a valid IP
+				if (this->oscConfigurationScreen->isValidIpAddress())
+				{
+					thisModule->oscNewSettings.oscTxIpAddress = this->oscConfigurationScreen->tbIpAddress->text.c_str();
+				}
+				// Save Tx Port only if it is a valid port
+				if (this->oscConfigurationScreen->isValidTxPort())
+				{
+					thisModule->oscNewSettings.oscTxPort = this->oscConfigurationScreen->getTxPort();
+				}
+				// Save Rx Port only if it is valid port
+				if (this->oscConfigurationScreen->isValidRxPort())
+				{
+					thisModule->oscNewSettings.oscRxPort = this->oscConfigurationScreen->getRxPort();
+				}
+				// Go ahead and save auto-reconnect on load on hide screen (Issue https://github.com/j4s0n-c/trowaSoft-VCV/issues/55)
+				thisModule->oscReconnectAtLoad = this->oscConfigurationScreen->ckAutoReconnect->checked;
+			} // end else (hide config)
+			thisModule->lights[oscCV::LightIds::OSC_CONFIGURE_LIGHT].value = (thisModule->oscShowConfigurationScreen) ? 1.0 : 0.0;
+			this->oscConfigurationScreen->setVisible(thisModule->oscShowConfigurationScreen);
+			this->display->showDisplay = !thisModule->oscShowConfigurationScreen;
+			if (thisModule->oscShowConfigurationScreen) {
+				this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::None);
+			}
+			else {
+				this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::Default);
+			}
+				}
+		else if (thisModule->oscShowConfigurationScreen)
 		{
-			if (thisModule->oscError)
+			// Configuration screen is showing, but we have changed which channels we are configuring.
+			if (thisModule->expCurrentEditExpanderIx != showConfigIndex)
 			{
-				if (this->oscConfigurationScreen->errorMsg.empty())
-					this->oscConfigurationScreen->errorMsg = "Error connecting to " + thisModule->currentOSCSettings.oscTxIpAddress + ".";
+				// Module being configured has changed.
+				loadModuleToConfig = true;
+				// Read any changes that may have happened. (we don't have room for a save button)
+				// For the old module:
+				readChannelPathConfig(showConfigIndex);
 			}
 		}
-		// Current status of OSC		
-		if (thisModule->oscInitialized)
+
+
+		if (loadModuleToConfig)// (thisModule->oscConfigTrigger.process(thisModule->params[oscCV::ParamIds::OSC_SHOW_CONF_PARAM].getValue()))
 		{
-			this->oscConfigurationScreen->statusMsg2 = thisModule->currentOSCSettings.oscTxIpAddress;
-			this->oscConfigurationScreen->btnActionEnable = false;
+			masterConfigLoaded = thisModule->expCurrentEditExpanderIx == 0 || thisModule->expCurrentEditExpander == NULL;
+			currentEditExpander = thisModule->expCurrentEditExpander; // Save reference
+			setChannelPathConfig(); // Set the channel text boxes
+			oscChannelConfigScreen->setVisibility(false); // Hide
+			if (masterConfigLoaded)
+			{
+				toggleChannelPathConfig(true);
+				thisModule->expCurrentEditExpanderIx = 0;
+				showConfigColor = TSColors::COLOR_WHITE;
+				configName = std::string("");
+				this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::None);
+			}
+			else
+			{
+				// Show only input or output
+				showConfigColor = calcColor(thisModule->expCurrentEditExpanderIx);
+				toggleChannelPathConfig(thisModule->expCurrentEditExpanderIx < 0, thisModule->expCurrentEditExpanderIx > 0);
+				configName = (thisModule->expCurrentEditExpanderIx < 0) ? "CV -> OSC" : "OSC -> CV";
+				this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::ConfigNameAndLabel);
+				configNameLeft = thisModule->expCurrentEditExpanderIx > 0;
+			}
+			this->oscConfigurationScreen->errorMsg = "";
+			if (thisModule->oscError)
+			{
+				this->oscConfigurationScreen->errorMsg = "Error connecting to " + thisModule->currentOSCSettings.oscTxIpAddress;
+			}
+			this->oscConfigurationScreen->setVisible(true);
+
+			// Buttons for Next/Previous - Change color if there is a next/previous
+			prevLight->setColor(calcColor(thisModule->expCurrentEditExpanderIx - 1));
+			nextLight->setColor(calcColor(thisModule->expCurrentEditExpanderIx + 1));
+
+			// Rename the Advanced Configuration Buttons:
+			int numChannels = thisModule->numberChannels;
+			int baseChNum = abs(thisModule->expCurrentEditExpanderIx) * numChannels;
+			char buffer[50];
+			for (int i = 0; i < numChannels; i++)
+			{
+				int ch = baseChNum + i + 1;
+				sprintf(buffer, "Configure %s Channel %d", "Input", ch);
+				btnDrawInputAdvChConfig[i]->getParamQuantity()->name = std::string(buffer);
+				sprintf(buffer, "Configure %s Channel %d", "Output", ch);
+				btnDrawOutputAdvChConfig[i]->getParamQuantity()->name = std::string(buffer);
+			}
 		}
-		else
+
+		if (thisModule->oscShowConfigurationScreen)
 		{
-			this->oscConfigurationScreen->successMsg = "";
-			this->oscConfigurationScreen->statusMsg2 = "OSC Not Connected";
-			this->oscConfigurationScreen->btnActionEnable = true;
+			//------------------------------------------
+			// Check for show channel config buttons
+			//------------------------------------------
+			TSOSCCVChannel* editChannelPtr = NULL;
+			bool isInput = false;
+			/// TODO: Accomodate if Expanders ever have more or less # channels than the main module.
+			for (int c = 0; c < thisModule->numberChannels; c++) {
+				// Input Channel:
+				int paramId = oscCV::ParamIds::CH_PARAM_START
+					+ c * TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
+				if (thisModule->inputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].getValue())) {
+					//DEBUG("btnClick: Input Ch %d, paramId = %d", c, paramId);				
+					// Read any changes that may have happened. (we don't have room for a save button) on the previous screen
+					readChannelPathConfig(showConfigIndex);
+					if (masterConfigLoaded)
+						editChannelPtr = &(thisModule->inputChannels[c]);
+					else if (thisModule->expCurrentEditExpander != NULL)
+					{
+						try
+						{
+							editChannelPtr = &(thisModule->expCurrentEditExpander->inputChannels[c]);
+						}
+						catch (const std::exception& expanderNull)
+						{
+							WARN("Error %s - Expander - ", expanderNull.what());
+						}
+					}
+					isInput = true;
+					break;
+				}
+				paramId = oscCV::ParamIds::CH_PARAM_START
+					+ (thisModule->numberChannels + c) * TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
+				// Output Channel:
+				if (thisModule->outputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].getValue())) {
+					//DEBUG("btnClick: Output Ch %d, paramId = %d", c, paramId);
+					// Read any changes that may have happened. (we don't have room for a save button) on the previous screen
+					readChannelPathConfig(showConfigIndex);
+					if (masterConfigLoaded)
+						editChannelPtr = &(thisModule->outputChannels[c]);
+					else if (thisModule->expCurrentEditExpander != NULL)
+					{
+						try
+						{
+							editChannelPtr = &(thisModule->expCurrentEditExpander->outputChannels[c]);
+						}
+						catch (const std::exception& expanderNull)
+						{
+							WARN("Error %s - Expander - ", expanderNull.what());
+						}
+					}
+					isInput = false;
+					break;
+				}
+			} // end for (loop through channels)
+
+			if (editChannelPtr != NULL)
+			{
+				this->toggleChannelPathConfig(false); // Hide the channel paths
+				this->oscChannelConfigScreen->showControl(editChannelPtr, isInput);
+				this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::ConfigName);
+				configNameLeft = false;
+			}
+			else if (this->oscChannelConfigScreen->visible)
+			{
+				// Check for enable/disable data massaging
+				// Check for Save or Cancel
+				bool screenDone = false;
+				if (oscChannelConfigScreen->saveTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_SAVE_PARAM].getValue())) {
+					// Validate form & save
+					screenDone = oscChannelConfigScreen->saveValues();
+				}
+				else if (oscChannelConfigScreen->cancelTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_CANCEL_PARAM].getValue())) {
+					// Just hide and go back to paths
+					screenDone = true;
+					oscChannelConfigScreen->setVisibility(false); // Hide
+					this->toggleChannelPathConfig(true); // Show paths again
+				}
+				if (screenDone) {
+					oscChannelConfigScreen->setVisibility(false); // Hide
+					this->toggleChannelPathConfig(thisModule->expCurrentEditExpanderIx <= 0, thisModule->expCurrentEditExpanderIx >= 0); // Show paths again
+					configNameLeft = thisModule->expCurrentEditExpanderIx > 0;
+					this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::ConfigNameAndLabel);
+				}
+			}
+
+			//------------------------------------------
+			// Check for enable/disable OSC
+			//------------------------------------------
+			if (thisModule->oscConnectTrigger.process(thisModule->params[oscCV::ParamIds::OSC_SAVE_CONF_PARAM].getValue()))
+			{
+				if (oscConfigurationScreen->btnActionEnable)
+				{
+					// Enable OSC ------------------------------------------------------------------------
+					// User checked to connect
+					if (!this->oscConfigurationScreen->isValidIpAddress())
+					{
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+						DEBUG("IP Address is not valid.");
+#endif
+						this->oscConfigurationScreen->errorMsg = "Invalid IP Address.";
+						this->oscConfigurationScreen->tbIpAddress->requestFocus();
+					}
+					else if (!this->oscConfigurationScreen->isValidTxPort())
+					{
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+						DEBUG("Tx Port is not valid.");
+#endif
+						this->oscConfigurationScreen->errorMsg = "Invalid Output Port (0-" + std::to_string(0xFFFF) + ").";
+						this->oscConfigurationScreen->tbTxPort->requestFocus();
+
+					}
+					else if (!this->oscConfigurationScreen->isValidRxPort())
+					{
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+						DEBUG("Rx Port is not valid.");
+#endif
+						this->oscConfigurationScreen->errorMsg = "Invalid Input Port (0-" + std::to_string(0xFFFF) + ").";
+						this->oscConfigurationScreen->tbRxPort->requestFocus();
+					}
+					else
+					{
+						// Try to connect
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+						DEBUG("Save OSC Configuration clicked, save information for module.");
+#endif
+						readChannelPathConfig(thisModule->expCurrentEditExpanderIx);
+						this->oscConfigurationScreen->errorMsg = "";
+						thisModule->oscNewSettings.oscTxIpAddress = this->oscConfigurationScreen->tbIpAddress->text.c_str();
+						thisModule->oscNewSettings.oscTxPort = this->oscConfigurationScreen->getTxPort();
+						thisModule->oscNewSettings.oscRxPort = this->oscConfigurationScreen->getRxPort();
+						//thisModule->oscCurrentClient = this->oscConfigurationScreen->getSelectedClient();
+						//DEBUG("Setting namespace");
+						thisModule->setOscNamespace(this->oscConfigurationScreen->tbNamespace->text);
+						thisModule->oscCurrentAction = oscCV::OSCAction::Enable;
+						thisModule->oscReconnectAtLoad = this->oscConfigurationScreen->ckAutoReconnect->checked;
+					}
+					} // end if enable osc
+				else
+				{
+					// Disable OSC ------------------------------------------------------------------
+#if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
+					DEBUG("Disable OSC clicked.");
+#endif
+					this->oscConfigurationScreen->errorMsg = "";
+					thisModule->oscCurrentAction = oscCV::OSCAction::Disable;
+				} // end else disable OSC
+			} // end if OSC Save btn pressed
+			else
+			{
+				if (thisModule->oscError)
+				{
+					if (this->oscConfigurationScreen->errorMsg.empty())
+						this->oscConfigurationScreen->errorMsg = "Error connecting to " + thisModule->currentOSCSettings.oscTxIpAddress + ".";
+				}
+			}
+			// Current status of OSC		
+			if (thisModule->oscInitialized)
+			{
+				this->oscConfigurationScreen->statusMsg2 = thisModule->currentOSCSettings.oscTxIpAddress;
+				this->oscConfigurationScreen->btnActionEnable = false;
+			}
+			else
+			{
+				this->oscConfigurationScreen->successMsg = "";
+				this->oscConfigurationScreen->statusMsg2 = "OSC Not Connected";
+				this->oscConfigurationScreen->btnActionEnable = true;
+			}
+				} // end if show OSC config screen
+
+		if (thisModule->debugOSCConsoleOn)
+		{
+
 		}
-	} // end if show OSC config screen
-	
-	if (thisModule->debugOSCConsoleOn)
-	{
-		
+
+		showConfigIndex = thisModule->expCurrentEditExpanderIx; // Save this for next time.
+		showConfigScreen = thisModule->oscShowConfigurationScreen;
+
+		ModuleWidget::step();
 	}
-		
-	showConfigIndex = thisModule->expCurrentEditExpanderIx; // Save this for next time.
-	showConfigScreen = thisModule->oscShowConfigurationScreen;	
-	
-	ModuleWidget::step();
+	catch (std::exception& ex) {
+		WARN("Error: %s", ex.what());
+	}
 	return;
 } // end oscCVWidget()
 
@@ -1794,26 +1799,33 @@ void TSOscCVChannelConfigScreen::showControl(TSOSCCVChannel* channel, bool isInp
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSOscCVChannelConfigScreen::step()
 {
-	if (this->visible && parentWidget != NULL) {
-		oscCV* thisModule = dynamic_cast<oscCV*>( parentWidget->module );
+	try
+	{
+		if (this->visible && parentWidget != NULL) {
+			oscCV* thisModule = dynamic_cast<oscCV*>(parentWidget->module);
 
-		if (thisModule) {
-			// Check for enable/disable data massaging
-			// Save the values directly:
-			translateValsEnabled = thisModule->params[oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM].getValue() > 0;
-			// if (translateTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM].getValue())) {
-				// //DEBUG("Translate button clicked");
-				// translateValsEnabled = !translateValsEnabled;
-			// }
-			// Check for enable/disable clipping in data massaging:
-			clipValsEnabled = thisModule->params[oscCV::ParamIds::OSC_CH_CLIP_CV_VOLT_PARM].getValue() > 0;
-			// if (clipChannelInputTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_CLIP_CV_VOLT_PARM].getValue())){
-				// clipValsEnabled = !clipValsEnabled;
-			// }
+			if (thisModule) {
+				// Check for enable/disable data massaging
+				// Save the values directly:
+				translateValsEnabled = thisModule->params[oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM].getValue() > 0;
+				// if (translateTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_TRANSLATE_VALS_PARAM].getValue())) {
+					// //DEBUG("Translate button clicked");
+					// translateValsEnabled = !translateValsEnabled;
+				// }
+				// Check for enable/disable clipping in data massaging:
+				clipValsEnabled = thisModule->params[oscCV::ParamIds::OSC_CH_CLIP_CV_VOLT_PARM].getValue() > 0;
+				// if (clipChannelInputTrigger.process(thisModule->params[oscCV::ParamIds::OSC_CH_CLIP_CV_VOLT_PARM].getValue())){
+					// clipValsEnabled = !clipValsEnabled;
+				// }
+			}
+			btnToggleTranslateVals->checked = translateValsEnabled;
+			btnToggleTranslateClipVals->checked = clipValsEnabled;
+			OpaqueWidget::step(); // Parent
 		}
-		btnToggleTranslateVals->checked = translateValsEnabled;
-		btnToggleTranslateClipVals->checked = clipValsEnabled;
-		OpaqueWidget::step(); // Parent
+	}
+	catch (std::exception& ex)
+	{
+		WARN("Error: %s", ex.what());
 	}
 	return;
 }

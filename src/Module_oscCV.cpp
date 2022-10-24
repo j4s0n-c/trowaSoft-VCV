@@ -133,14 +133,43 @@ oscCV::~oscCV()
 	rxMsgMutex.unlock();
 #endif 
 	
-	if (inputChannels != NULL)
-		delete[] inputChannels;
-	if (outputChannels != NULL)
-		delete[] outputChannels;
-	if (pulseGens != NULL)
-		delete[] pulseGens;
-	if (inputTriggers != NULL)
-		delete[] inputTriggers;
+	try
+	{
+		if (inputChannels != NULL)
+			delete[] inputChannels;
+	}
+	catch (std::exception& ex)
+	{
+		WARN("Error deleting inputChannels: %s", ex.what());
+	}
+	try
+	{
+		if (outputChannels != NULL)
+			delete[] outputChannels;
+	}
+	catch (std::exception& ex)
+	{
+		WARN("Error deleting outputChannels: %s", ex.what());
+	}
+
+	try
+	{
+		if (pulseGens != NULL)
+			delete[] pulseGens;
+	}
+	catch (std::exception& ex)
+	{
+		WARN("Error deleting pulseGens: %s", ex.what());
+	}
+	try
+	{
+		if (inputTriggers != NULL)
+			delete[] inputTriggers;
+	}
+	catch (std::exception& ex)
+	{
+		WARN("Error deleting inputTriggers: %s", ex.what());
+	}
 	return;
 } // end destructor
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

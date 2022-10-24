@@ -76,12 +76,20 @@ struct oscCVWidget : TSSModuleWidgetBase {
 
 	~oscCVWidget()
 	{
-		oscConfigurationScreen = NULL;
-		display = NULL;
-		middleDisplay = NULL;
-		oscChannelConfigScreen = NULL;
-		btnDrawInputAdvChConfig.clear();
-		btnDrawOutputAdvChConfig.clear();
+		try
+		{
+			oscConfigurationScreen->module = NULL;
+			oscConfigurationScreen = NULL;
+			display = NULL;
+			middleDisplay = NULL;
+			oscChannelConfigScreen = NULL;
+			btnDrawInputAdvChConfig.clear();
+			btnDrawOutputAdvChConfig.clear();
+		}
+		catch (std::exception& ex)
+		{
+			WARN("Error: %s", ex.what());
+		}
 		return;
 	}
 	// Step

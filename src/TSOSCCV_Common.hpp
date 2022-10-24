@@ -121,6 +121,12 @@ struct TSOSCCVChannel {
 		return;
 	}
 
+	~TSOSCCVChannel() {
+		vals.clear();
+		translatedVals.clear();
+		return;
+	}
+
 	virtual void initialize() {
 		this->convertVals = false;
 		this->val = 0.0;
