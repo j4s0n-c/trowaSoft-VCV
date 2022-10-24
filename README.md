@@ -1,8 +1,8 @@
 # trowaSoft-VCV
 ![trowaSoft Modules for VCV Rack](https://geekasaurusrex.azurewebsites.net/image.axd?picture=2018%2f6%2f0.6.3_screenshot.png "trowaSoft Modules for VCV Rack")
 
-trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.x, v0.6.x, v1.x. 
-The current pack includes [trigSeq & trigSeq64](#trigseq--trigseq64), [voltSeq](#voltseq), [multiWave](#multiwave), [multiScope](#multiscope), [cvOSCcv](#cvosccv), and [cvOSC & OSCcv](#cvosccv-expansion-modules).
+trowaSoft Modules plugin for [VCV Rack](https://github.com/VCVRack/Rack) v0.5.x, v0.6.x, v1.x, v2.x. 
+The current pack includes [trigSeq & trigSeq64](#trigseq--trigseq64), [voltSeq](#voltseq), [multiSeq](#multiseq), [multiWave](#multiwave), [multiScope](#multiscope), [cvOSCcv](#cvosccv), and [cvOSC & OSCcv](#cvosccv-expansion-modules).
 
 For more information about Rack, please visit:
 [https://vcvrack.com/](https://vcvrack.com/).
@@ -11,7 +11,7 @@ If you like the modules and wish to donate, you may do so [here](https://paypal.
 
 ## Binaries/Builds
 Any builds that are currently available are at [Github Releases page](https://github.com/j4s0n-c/trowaSoft-VCV/releases).
-Recent builds should also be available in the [VCV plugin manager](https://library.vcvrack.com/?query=&brand=trowaSoft).
+Recent builds for [trowaSoft modules](https://library.vcvrack.com/?query=&brand=trowaSoft) should also be available in the [VCV plugin manager](https://library.vcvrack.com/trowaSoft).
 
 **VCV Rack v2.x.x**:
 **2022-10-24**: The latest version is [v2.0.6](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v2.0.6) (for Rack v2.x).
