@@ -179,7 +179,7 @@ and is new in v0.6.3.
 ## cvOSCcv
 ![cvOSCcv default screen and configuration screen.](https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/cvOSCcv_screenshot_01.png?raw=true "cvOSCcv default screen and configuration screen")
   
-**cvOSCcv** is a simple, generic [Open Sound Control](http://opensoundcontrol.org/introduction-osc) (OSC) module for outputting Rack CVs to OSC and reading in simple OSC messages into Rack CVs. This module is new in version 0.6.0.
+**cvOSCcv** is a simple, generic [Open Sound Control](http://opensoundcontrol.org/) (OSC) module for outputting Rack CVs to OSC and reading in simple OSC messages into Rack CVs. This module is new in version 0.6.0.
 
 + **CV Inputs** - CV => OSC (8 Channels), each channel:
     + **TRG** - (mono) If active, then OSC messages will output the **VAL** CV input when triggered.
