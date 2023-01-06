@@ -2,13 +2,13 @@
   "slug": "trowaSoft",
   "name": "trowaSoft",
   "brand": "trowaSoft",
-  "version": "2.0.6",
+  "version": "2.0.6a",
   "license": "BSD-3-Clause",
   "author": "j4s0n-c",
   "authorEmail": "trowasoft.vcv@gmail.com",
   "authorUrl": "https://github.com/j4s0n-c/",
   "pluginUrl": "https://github.com/j4s0n-c/trowaSoft-VCV",
-  "manualUrl": "https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/README.md",
+  "manualUrl": "https://github.com/j4s0n-c/trowaSoft-VCV/blob/v2/README.md",
   "sourceUrl": "https://github.com/j4s0n-c/trowaSoft-VCV",
   "donateUrl": "https://paypal.me/j4s0n",
   "modules": [
@@ -72,27 +72,74 @@
       "tags": [
         "External",
         "Polyphonic"
-      ]
+      ],
+      "keywords":  "Open Sound Control"
     },
     {
       "slug": "cvOSCcv-InputExpander",
       "name": "cvOSC Input Expander",
-      "description": "Expansion module for cvOSCcv. Allows more input CV channels to be sent to OSC.",
+      "description": "Expansion module for cvOSCcv. Allows eight (8) more input CV channels to be sent to OSC.",
       "tags": [
         "External",
         "Polyphonic",
         "Expander"
-      ]
+      ],
+      "keywords": "Open Sound Control"
     },
     {
       "slug": "cvOSCcv-OutputExpander",
       "name": "OSCcv Output Expander",
-      "description": "Expansion module for cvOSCcv. Allows more output CV channels to be received from OSC.",
+      "description": "Expansion module for cvOSCcv. Allows eight (8) more output CV channels to be received from OSC.",
       "tags": [
         "External",
         "Polyphonic",
         "Expander"
-      ]
+      ],
+      "keywords": "Open Sound Control"
+    },
+    {
+      "slug": "cvOSCcv-InputExpander-16",
+      "name": "cvOSC16 Input Expander",
+      "description": "Expansion module for cvOSCcv. Allows 16 more input CV channels to be sent to OSC.",
+      "tags": [
+        "External",
+        "Polyphonic",
+        "Expander"
+      ],
+      "keywords": "Open Sound Control"
+    },
+    {
+      "slug": "cvOSCcv-OutputExpander-16",
+      "name": "OSCcv16 Output Expander",
+      "description": "Expansion module for cvOSCcv. Allows 16 more output CV channels to be received from OSC.",
+      "tags": [
+        "External",
+        "Polyphonic",
+        "Expander"
+      ],
+      "keywords": "Open Sound Control"
+    },
+    {
+      "slug": "cvOSCcv-InputExpander-32",
+      "name": "cvOSC32 Input Expander",
+      "description": "Expansion module for cvOSCcv. Allows 32 more input CV channels to be sent to OSC.",
+      "tags": [
+        "External",
+        "Polyphonic",
+        "Expander"
+      ],
+      "keywords": "Open Sound Control"
+    },
+    {
+      "slug": "cvOSCcv-OutputExpander-32",
+      "name": "OSCcv32 Output Expander",
+      "description": "Expansion module for cvOSCcv. Allows 32 more output CV channels to be received from OSC.",
+      "tags": [
+        "External",
+        "Polyphonic",
+        "Expander"
+      ],
+      "keywords": "Open Sound Control"
     },
     {
       "slug": "tsBlank",

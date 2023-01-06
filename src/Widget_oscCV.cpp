@@ -10,6 +10,7 @@ using namespace rack;
 #include <string>
 
 #define OSCCV_CHOOSE_UNUSED_PORTS		0
+#define OSCSV_DEBUG_EXPANDERS		 0
 
 // Channel colors
 const NVGcolor oscCVWidget::CHANNEL_COLORS[TROWA_OSCCV_NUM_COLORS] = {
@@ -45,6 +46,12 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 		addChild(panel);
 	}
 
+	// Cache widgets that don't change or don't change that often.
+	FramebufferWidget* fbw = new FramebufferWidget();
+	fbw->box.pos = Vec(0.f, 0.f);
+	fbw->box.size = box.size;
+	addChild(fbw);
+
 	////////////////////////////////////
 	// Top Screen
 	////////////////////////////////////
@@ -79,7 +86,8 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 		TSOscCVLabels* labelArea = new TSOscCVLabels();
 		labelArea->box.pos = Vec(TROWA_HORIZ_MARGIN, topScreenSize.y + 24);
 		labelArea->box.size = Vec(box.size.x - TROWA_HORIZ_MARGIN * 2, box.size.y - labelArea->box.pos.y - 15);
-		addChild(labelArea);
+		//addChild(labelArea);
+		fbw->addChild(labelArea);
 	}
 
 	int x, y, dx, dy;
@@ -301,6 +309,27 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 	}
 	addChild(tbExpanderID);	
 
+	// Expander Renumber button
+	float expX = tbExpanderID->box.pos.x;
+	btnExpRenumber = new TS_ScreenBtn(Vec(60, btnSize.y), oscModule, oscCV::ParamIds::OSC_EXPANDER_RENUMBER_PARAM,
+		std::string("RENUMBER"), /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f, true);
+	btnExpRenumber->box.pos = Vec(expX, tbExpanderID->box.pos.y + tbExpanderID->box.size.y + 10.f);
+	if (colorizeChannels) {
+		btnExpRenumber->backgroundColor = CHANNEL_COLORS[0];
+		btnExpRenumber->borderColor = CHANNEL_COLORS[0];
+		btnExpRenumber->color = TSColors::COLOR_BLACK;
+	}
+	btnExpRenumber->borderWidth = 1;
+	btnExpRenumber->setVisible(false);
+	addParam(btnExpRenumber);
+
+	// Expander Page Number
+	dialExpEditPageNumber = new TSPageNumberControl(Vec(tbExpanderID->box.size.x, btnSize.y), oscModule, oscCV::ParamIds::OSC_EXPANDER_PAGE_PARAM);
+	dialExpEditPageNumber->box.pos = Vec(expX, btnExpRenumber->box.pos.y + btnExpRenumber->box.size.y + 10.f);
+	dialExpEditPageNumber->setVisible(false);
+	addParam(dialExpEditPageNumber);
+
+
 	// Set Tab Order:
 	for (int c = 0; c < numberChannels; c++)
 	{
@@ -361,13 +390,24 @@ void oscCVWidget::step()
 		oscCV* thisModule = dynamic_cast<oscCV*>(module);
 
 		bool loadModuleToConfig = false;
+		//bool reloadPageOnly = false;
 		if (showConfigScreen != thisModule->oscShowConfigurationScreen)
 		{
+			//
+			// State Change (show/hide screen)
+			//
+
+			// Set our expander edit page to page 0.
+			thisModule->setExpansionEditPageCol(0);
+
 			// State change
 			if (thisModule->oscShowConfigurationScreen)
 			{
 				// Show screens:
 				loadModuleToConfig = true;
+				// NEW show config (set our config column to 0)
+				this->showConfigColumnIndex = 0;
+
 #if OSCCV_CHOOSE_UNUSED_PORTS			
 				if (!thisModule->oscInitialized)
 				{
@@ -389,7 +429,7 @@ void oscCVWidget::step()
 			{
 				// Hide configuration screens:
 				this->oscConfigurationScreen->setVisible(false);
-				readChannelPathConfig(showConfigIndex); // Read any changes that may have happened. (we don't have room for a save button)			
+				readChannelPathConfig(showConfigIndex, this->showConfigColumnIndex); // Read any changes that may have happened. (we don't have room for a save button)			
 				toggleChannelPathConfig(false);
 				oscChannelConfigScreen->setVisibility(false); // Hide
 				//--------------------------------------------------------------------
@@ -423,17 +463,69 @@ void oscCVWidget::step()
 			else {
 				this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::Default);
 			}
-				}
+		}
 		else if (thisModule->oscShowConfigurationScreen)
 		{
-			// Configuration screen is showing, but we have changed which channels we are configuring.
+			//
+			// Config still showing
+			//
+			if (thisModule->expToRenumber != NULL)
+			{
+				try
+				{
+#if OSCSV_DEBUG_EXPANDERS
+					DEBUG("Renumbering expansion module...");
+#endif
+					//thisModule->expToRenumber->onReset();
+					// Just renumber the channels so I can keep my advanced settings...
+					thisModule->expToRenumber->renumberChannels();
+
+					// Reload the text boxes:
+					loadModuleToConfig = true;
+				}
+				catch (const std::exception& expansionEx)
+				{
+					WARN("Could not renumber the expander.\n%s", expansionEx.what());
+				}
+				thisModule->expToRenumber = NULL; // Reset
+			}
 			if (thisModule->expCurrentEditExpanderIx != showConfigIndex)
 			{
+#if OSCSV_DEBUG_EXPANDERS
+				DEBUG("Expander Index Changed - Old (%d), New (%d) - ColumnIx = %d", showConfigIndex, thisModule->expCurrentEditExpanderIx, this->showConfigColumnIndex);
+#endif
+				// Configuration screen is showing, but we have changed which channels we are configuring.
 				// Module being configured has changed.
 				loadModuleToConfig = true;
 				// Read any changes that may have happened. (we don't have room for a save button)
-				// For the old module:
-				readChannelPathConfig(showConfigIndex);
+				// For the old module (and old column):
+				readChannelPathConfig(showConfigIndex, this->showConfigColumnIndex);
+
+#if OSCSV_DEBUG_EXPANDERS
+				DEBUG("Expander Index Changed - (New %d) Setting ColumnIx = 0", thisModule->expCurrentEditExpanderIx);
+#endif
+				// Now set to page 0
+				thisModule->setExpansionEditPageCol(0);
+				this->showConfigColumnIndex = 0;
+			}
+			else if (thisModule->expCurrentEditExpanderIx != 0 && 
+				this->showConfigColumnIndex != thisModule->expCurrentEditPageCol)
+			{
+				// EXPANDER
+				// Page has changed (same expander)
+				// Configuration screen is showing, but we have changed which channels we are configuring.
+				// Module being configured has NOT changed, but the page has.
+				loadModuleToConfig = true;
+				//reloadPageOnly = true;
+#if OSCSV_DEBUG_EXPANDERS
+				DEBUG("Expander ColumnIx Changed - Expander %d, Old ColumnIx = %d, New ColumnIx = %d", showConfigIndex, showConfigColumnIndex, thisModule->expCurrentEditPageCol);
+#endif
+
+				// Read any changes that may have happened. (we don't have room for a save button)
+				// For the old module (and old column):
+				readChannelPathConfig(showConfigIndex, this->showConfigColumnIndex);
+
+				this->showConfigColumnIndex = thisModule->expCurrentEditPageCol;
 			}
 		}
 
@@ -442,6 +534,20 @@ void oscCVWidget::step()
 		{
 			masterConfigLoaded = thisModule->expCurrentEditExpanderIx == 0 || thisModule->expCurrentEditExpander == NULL;
 			currentEditExpander = thisModule->expCurrentEditExpander; // Save reference
+
+#if OSCSV_DEBUG_EXPANDERS
+			DEBUG("Expander ColumnIx Changed - Expander %d, Old ColumnIx = %d, New ColumnIx = %d", showConfigIndex, showConfigColumnIndex, thisModule->expCurrentEditPageCol);
+			if (masterConfigLoaded)
+			{
+				DEBUG("*LOADING*: MASTER");
+			}
+			else
+			{
+				DEBUG("*LOADING*: Expander (%s) %d - COLUMN %d", thisModule->expCurrentEditExpanderIx < 0 ? "Input" : "Output",
+					abs(thisModule->expCurrentEditExpanderIx), thisModule->expCurrentEditPageCol);
+			}
+#endif
+
 			setChannelPathConfig(); // Set the channel text boxes
 			oscChannelConfigScreen->setVisibility(false); // Hide
 			if (masterConfigLoaded)
@@ -473,17 +579,7 @@ void oscCVWidget::step()
 			nextLight->setColor(calcColor(thisModule->expCurrentEditExpanderIx + 1));
 
 			// Rename the Advanced Configuration Buttons:
-			int numChannels = thisModule->numberChannels;
-			int baseChNum = abs(thisModule->expCurrentEditExpanderIx) * numChannels;
-			char buffer[50];
-			for (int i = 0; i < numChannels; i++)
-			{
-				int ch = baseChNum + i + 1;
-				sprintf(buffer, "Configure %s Channel %d", "Input", ch);
-				btnDrawInputAdvChConfig[i]->getParamQuantity()->name = std::string(buffer);
-				sprintf(buffer, "Configure %s Channel %d", "Output", ch);
-				btnDrawOutputAdvChConfig[i]->getParamQuantity()->name = std::string(buffer);
-			}
+			renameAdvConfigBtns();
 		}
 
 		if (thisModule->oscShowConfigurationScreen)
@@ -499,20 +595,26 @@ void oscCVWidget::step()
 				int paramId = oscCV::ParamIds::CH_PARAM_START
 					+ c * TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
 				if (thisModule->inputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].getValue())) {
-					//DEBUG("btnClick: Input Ch %d, paramId = %d", c, paramId);				
+#if OSCSV_DEBUG_EXPANDERS
+					DEBUG("[ADV] btnClick: Input Ch %d, paramId = %d. Config Ix %d, Column Ix %d.", c, paramId, showConfigIndex, showConfigColumnIndex);
+#endif
 					// Read any changes that may have happened. (we don't have room for a save button) on the previous screen
-					readChannelPathConfig(showConfigIndex);
+					readChannelPathConfig(showConfigIndex, this->showConfigColumnIndex);
 					if (masterConfigLoaded)
 						editChannelPtr = &(thisModule->inputChannels[c]);
 					else if (thisModule->expCurrentEditExpander != NULL)
 					{
+						int chIx = showConfigColumnIndex * thisModule->numberChannels + c;
 						try
 						{
-							editChannelPtr = &(thisModule->expCurrentEditExpander->inputChannels[c]);
+#if OSCSV_DEBUG_EXPANDERS
+							DEBUG("[ADV] btnClick: Input Expander %d, Column Ix %d, Channel %d (Expander's Ch %d).", showConfigIndex, showConfigColumnIndex, c, chIx);
+#endif
+							editChannelPtr = &(thisModule->expCurrentEditExpander->inputChannels[chIx]);
 						}
 						catch (const std::exception& expanderNull)
 						{
-							WARN("Error %s - Expander - ", expanderNull.what());
+							WARN("Error - Input Expander %d (Expander Ch %d) - %s", showConfigIndex, chIx, expanderNull.what());
 						}
 					}
 					isInput = true;
@@ -522,20 +624,26 @@ void oscCVWidget::step()
 					+ (thisModule->numberChannels + c) * TSOSCCVChannel::BaseParamIds::CH_NUM_PARAMS + TSOSCCVChannel::BaseParamIds::CH_SHOW_CONFIG;
 				// Output Channel:
 				if (thisModule->outputChannels[c].showChannelConfigTrigger.process(thisModule->params[paramId].getValue())) {
-					//DEBUG("btnClick: Output Ch %d, paramId = %d", c, paramId);
+#if OSCSV_DEBUG_EXPANDERS
+					DEBUG("[ADV] btnClick: Output Ch %d, paramId = %d. Config Ix %d, Column Ix %d.", c, paramId, showConfigIndex, showConfigColumnIndex);
+#endif
 					// Read any changes that may have happened. (we don't have room for a save button) on the previous screen
-					readChannelPathConfig(showConfigIndex);
+					readChannelPathConfig(showConfigIndex, this->showConfigColumnIndex);
 					if (masterConfigLoaded)
 						editChannelPtr = &(thisModule->outputChannels[c]);
 					else if (thisModule->expCurrentEditExpander != NULL)
 					{
+						int chIx = showConfigColumnIndex * thisModule->numberChannels + c;
 						try
 						{
-							editChannelPtr = &(thisModule->expCurrentEditExpander->outputChannels[c]);
+#if OSCSV_DEBUG_EXPANDERS
+							DEBUG("[ADV] btnClick: Output Expander %d, Column Ix %d, Channel %d (Expander's Ch %d).", showConfigIndex, showConfigColumnIndex, c, chIx);
+#endif
+							editChannelPtr = &(thisModule->expCurrentEditExpander->outputChannels[chIx]);
 						}
 						catch (const std::exception& expanderNull)
 						{
-							WARN("Error %s - Expander - ", expanderNull.what());
+							WARN("Error - Output Expander %d (Expander Ch %d) - %s", showConfigIndex, chIx, expanderNull.what());
 						}
 					}
 					isInput = false;
@@ -613,7 +721,7 @@ void oscCVWidget::step()
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 						DEBUG("Save OSC Configuration clicked, save information for module.");
 #endif
-						readChannelPathConfig(thisModule->expCurrentEditExpanderIx);
+						readChannelPathConfig(thisModule->expCurrentEditExpanderIx, this->showConfigColumnIndex);
 						this->oscConfigurationScreen->errorMsg = "";
 						thisModule->oscNewSettings.oscTxIpAddress = this->oscConfigurationScreen->tbIpAddress->text.c_str();
 						thisModule->oscNewSettings.oscTxPort = this->oscConfigurationScreen->getTxPort();
@@ -655,7 +763,7 @@ void oscCVWidget::step()
 				this->oscConfigurationScreen->statusMsg2 = "OSC Not Connected";
 				this->oscConfigurationScreen->btnActionEnable = true;
 			}
-				} // end if show OSC config screen
+		} // end if show OSC config screen
 
 		if (thisModule->debugOSCConsoleOn)
 		{
@@ -671,7 +779,42 @@ void oscCVWidget::step()
 		WARN("Error: %s", ex.what());
 	}
 	return;
-} // end oscCVWidget()
+} // end oscCVWidget::step()
+
+// Rename the advanced configuration buttons
+void oscCVWidget::renameAdvConfigBtns()
+{
+	// Rename the Advanced Configuration Buttons:
+	oscCV* thisModule = dynamic_cast<oscCV*>(module);
+	int numChannels = thisModule->numberChannels;
+	//int baseChNum = abs(thisModule->expCurrentEditExpanderIx) * numChannels;
+	int baseChNum = 0;
+	if (thisModule->expCurrentEditExpanderIx != 0 && currentEditExpander != NULL)
+	{
+		Module* master;
+		try
+		{
+			int lvlFromMaster = currentEditExpander->findMaster(0, baseChNum, master);
+			if (lvlFromMaster < 1)
+			{
+				// This guy's not our buddy anymore, just set base channel to the default for now until we do something to expel him from the config view
+				baseChNum = TROWA_OSCCV_DEFAULT_NUM_CHANNELS;
+			}
+		}
+		catch (std::exception& ex) {
+			WARN("Error: %s", ex.what());
+		}
+	}
+	for (int i = 0; i < numChannels; i++)
+	{
+		int ch = baseChNum + i + 1;
+		btnDrawInputAdvChConfig[i]->getParamQuantity()->name = rack::string::f("Configure %s Channel %d", "Input", ch);
+		btnDrawOutputAdvChConfig[i]->getParamQuantity()->name = rack::string::f("Configure %s Channel %d", "Output", ch);
+	}
+	return;
+}
+
+
 
 //-- Events --//
 // onDragEnd() - See if are still 
@@ -727,29 +870,48 @@ void oscCVWidget::toggleChannelPathConfig(bool showInput, bool showOutput)
 		// Hide our expander text box.
 		// (Everything is hidden OR every channel text box is show).
 		tbExpanderID->visible = false;
+		btnExpRenumber->setVisible(false);
+		dialExpEditPageNumber->setVisible(false);
 	}
 	else
 	{
 		tbExpanderID->visible = true;		
+		btnExpRenumber->setVisible(true);
+		dialExpEditPageNumber->setVisible(true);
 		if (showInput)
 		{
 			// Move expander to the right
 			tbExpanderID->box.pos.x = tbExpanderXPos[1];
+			btnExpRenumber->box.pos.x = tbExpanderXPos[1];
+			dialExpEditPageNumber->box.pos.x = tbExpanderXPos[1];
 		}
 		else 
 		{
-			tbExpanderID->box.pos.x = tbExpanderXPos[0];			
+			tbExpanderID->box.pos.x = tbExpanderXPos[0];
+			btnExpRenumber->box.pos.x = tbExpanderXPos[0];
+			dialExpEditPageNumber->box.pos.x = tbExpanderXPos[0];
 		}
 		if (colorizeChannels) {
 			tbExpanderID->borderColor = showConfigColor;
 			tbExpanderID->caretColor = showConfigColor;
 			tbExpanderID->caretColor.a = 0.70;
+
+			btnExpRenumber->backgroundColor = showConfigColor;
+			btnExpRenumber->borderColor = showConfigColor;
+			//btnExpRenumber->color = TSColors::COLOR_BLACK;
+			
+			//btnExpRenumber->borderColor = showConfigColor;
+			//btnExpRenumber->color = showConfigColor;
 		}
 	}
 	return;
 }
 // Read the channel path configs and store in module's channels.
-std::string oscCVWidget::readChannelPathConfig(TSOSCCVInputChannel* inputChannels, TSOSCCVChannel* outputChannels, int nChannels)
+// @inputChannels : (IN/OUT) The input channels array.
+// @outputChannels : (IN/OUT) The output channels array.
+// @nChannels : (IN) Size of the channel arrays.
+// @channelColumn : (IN) Which column / page of channels are we displaying (we can only display 8 at a time).
+std::string oscCVWidget::readChannelPathConfig(TSOSCCVInputChannel* inputChannels, TSOSCCVChannel* outputChannels, int nChannels, int channelColumn)
 {
 	std::string expanderName = std::string("");
 	if (tbExpanderID->visible)
@@ -760,12 +922,17 @@ std::string oscCVWidget::readChannelPathConfig(TSOSCCVInputChannel* inputChannel
 	{
 		try
 		{
-			for (int i = 0; i < nChannels; i++)
+			int startIx = channelColumn * CVOSCCV_EXP_NUM_CHANNELS_PER_COL;
+			int maxChannels = this->numberChannels < nChannels ? this->numberChannels : nChannels;
+			for (int i = 0; i < maxChannels; i++)
 			{
-				if (inputChannels)
-					inputChannels[i].setPath(this->tbOscInputPaths[i]->text);
-				if (outputChannels)
-					outputChannels[i].setPath(this->tbOscOutputPaths[i]->text);					
+				if (startIx < nChannels)
+				{
+					if (inputChannels)
+						inputChannels[startIx + i].setPath(this->tbOscInputPaths[i]->text);
+					if (outputChannels)
+						outputChannels[startIx + i].setPath(this->tbOscOutputPaths[i]->text);
+				}
 			}
 		}
 		catch (const std::exception& e)
@@ -777,7 +944,9 @@ std::string oscCVWidget::readChannelPathConfig(TSOSCCVInputChannel* inputChannel
 } // end readChannelPathConfig()
 
 // Read the channel path configs and store in module's channels.
-void oscCVWidget::readChannelPathConfig(int index)
+// @index : (IN) The module index (0 is master, < 0 is input expander, > 0 is output expander).
+// @colIx : (IN) The column index of the module.
+void oscCVWidget::readChannelPathConfig(int index, int colIx)
 {
 	if (module != NULL)
 	{
@@ -794,7 +963,10 @@ void oscCVWidget::readChannelPathConfig(int index)
 				oscCVExpander* exp = thisModule->getExpansionModule(index);
 				if (exp)
 				{
-					exp->displayName = readChannelPathConfig(exp->inputChannels, exp->outputChannels, exp->numberChannels);
+#if OSCSV_DEBUG_EXPANDERS
+					DEBUG("** Saving Expander %d - Column Ix %d. Expander has %d total channels.", index, colIx, exp->numberChannels);
+#endif
+					exp->displayName = readChannelPathConfig(exp->inputChannels, exp->outputChannels, exp->numberChannels, colIx);
 					exp->renamePorts(); // [Rack v2] Ports can have labels.
 				}
 			}
@@ -808,20 +980,26 @@ void oscCVWidget::readChannelPathConfig(int index)
 } // end readChannelPathConfig()
 
 // Set the channel path text boxes.
-void oscCVWidget::setChannelPathConfig(TSOSCCVInputChannel* inputChannels, TSOSCCVChannel* outputChannels, int nChannels, std::string expanderName) 
+// @inputChannels : (IN) The input channels array.
+// @outputChannels : (IN) The output channels array.
+// @nChannels : (IN) Size of the channel arrays.
+// @channelColumn : (IN) Which column / page of channels are we displaying (we can only display 8 at a time).
+void oscCVWidget::setChannelPathConfig(TSOSCCVInputChannel* inputChannels, TSOSCCVChannel* outputChannels, int nChannels, std::string expanderName, int channelColumn) 
 {
 	if (inputChannels != NULL || outputChannels != NULL)
 	{
 		try
 		{
-			for (int i = 0; i < nChannels; i++)
+			int startIx = channelColumn * CVOSCCV_EXP_NUM_CHANNELS_PER_COL;
+			for (int i = 0; i < this->numberChannels; i++)
 			{
-				if (inputChannels)
-					this->tbOscInputPaths[i]->text = inputChannels[i].getPath();
+				bool hasChannel = startIx + i < nChannels;
+				if (inputChannels && hasChannel)
+					this->tbOscInputPaths[i]->text = inputChannels[startIx + i].getPath();
 				else
 					this->tbOscInputPaths[i]->text = std::string("");
-				if (outputChannels)
-					this->tbOscOutputPaths[i]->text = outputChannels[i].getPath();
+				if (outputChannels && hasChannel)
+					this->tbOscOutputPaths[i]->text = outputChannels[startIx + i].getPath();
 				else
 					this->tbOscOutputPaths[i]->text = std::string("");					
 			}
@@ -847,7 +1025,17 @@ void oscCVWidget::setChannelPathConfig() {
 			}
 			else if (thisModule->expCurrentEditExpanderIx != 0 && thisModule->expCurrentEditExpander)
 			{
-				setChannelPathConfig(thisModule->expCurrentEditExpander->inputChannels, thisModule->expCurrentEditExpander->outputChannels, thisModule->expCurrentEditExpander->numberChannels, thisModule->expCurrentEditExpander->displayName);
+#if OSCSV_DEBUG_EXPANDERS
+				DEBUG("** READING Expander %d - Column Ix %d (Module ColIx is %d). Expander has %d total channels.", thisModule->expCurrentEditExpanderIx, 
+					this->showConfigColumnIndex, thisModule->expCurrentEditPageCol,
+					thisModule->expCurrentEditExpander->numberChannels);
+#endif
+				//thisModule->expCurrentEditPageCol
+				setChannelPathConfig(thisModule->expCurrentEditExpander->inputChannels, 
+					thisModule->expCurrentEditExpander->outputChannels, 
+					thisModule->expCurrentEditExpander->numberChannels, 
+					thisModule->expCurrentEditExpander->displayName, 
+					this->showConfigColumnIndex);
 			}
 		}
 		catch (const std::exception& e)
@@ -1903,4 +2091,6 @@ bool TSOscCVChannelConfigScreen::saveValues(/*out*/ TSOSCCVChannel* channelPtr)
 	}
 	return saved;
 } // end saveValues()
+
+
 

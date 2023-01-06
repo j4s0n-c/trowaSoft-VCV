@@ -37,14 +37,15 @@ oscCV::oscCV(int numChannels, bool cv2osc, bool osc2cv) // : Module(NUM_PARAMS +
 		inputChannels = new TSOSCCVInputChannel[numberChannels];
 		// [Rack v2] Add labels for inputs and outputs (and lights)
 		int portId = 0;
-		DEBUG("oscCV - Setting Input Labels");
+		//DEBUG("oscCV - Setting Input Labels");
 		for (int i = 0; i < numberChannels; i++)
 		{
+			inputChannels[i].setStoreHistory(true); // Track the historic values for charts.
 			portId = i * 2;
 			sprintf(buffer, "Ch %d Trigger Send", i + 1);
 			configInput(InputIds::CH_INPUT_START + portId, buffer);
 			sprintf(buffer, "Ch %d Value", i + 1);
-			configInput(InputIds::CH_INPUT_START + portId + 1, buffer);			
+			configInput(InputIds::CH_INPUT_START + portId + 1, buffer);
 			// Configure the Light Also:
 			sprintf(buffer, "Ch %d Message Sent", i + 1);			
 			configLight(LightIds::CH_LIGHT_START + portId, buffer);
@@ -56,9 +57,9 @@ oscCV::oscCV(int numChannels, bool cv2osc, bool osc2cv) // : Module(NUM_PARAMS +
 		pulseGens = new dsp::PulseGenerator[numberChannels];
 		// [Rack v2] Add labels for inputs and outputs (and lights)
 		int portId = 0;
-		//DEBUG("oscCV - Setting Output Labels");		
 		for (int i = 0; i < numberChannels; i++)
 		{
+			outputChannels[i].setStoreHistory(true); // Track the historic values for charts.
 			portId = i * 2;
 			sprintf(buffer, "Ch %d Received Trigger", i + 1);
 			configOutput(OutputIds::CH_OUTPUT_START + portId, buffer);
@@ -83,6 +84,21 @@ oscCV::oscCV(int numChannels, bool cv2osc, bool osc2cv) // : Module(NUM_PARAMS +
 	// OSC Configuration Screen:
 	configButton(/*paramId*/ oscCV::ParamIds::OSC_AUTO_RECONNECT_PARAM, "Automatically reconnect on load");		
 	configButton(/*paramId*/ oscCV::ParamIds::OSC_SAVE_CONF_PARAM, "Enable/Disable OSC");	
+
+	// Expander 
+	configButton(/*paramId*/ oscCV::ParamIds::OSC_EXPANDER_RENUMBER_PARAM, "Renumber the channels on this expander.");
+	// Expander Edit Page Number / Column:
+	{
+		std::vector<std::string> labels;
+		for (int i = 0; i < expMaxEditPageCols; i++)
+		{
+			std::string lbl = rack::string::f("Page %d", i + 1);
+			expEditPageLabels.push_back(lbl);
+			labels.push_back(lbl);
+		}
+		configSwitch(/*paramId*/ oscCV::ParamIds::OSC_EXPANDER_PAGE_PARAM, 0.0f, expMaxEditPageCols - 1, 0.0f,
+			"Page/Column", labels);
+	}
 	
 #if TROWA_OSSCV_SHOW_ADV_CH_CONFIG	
 	// configParam(/*paramId*/ oscCV::ParamIds::OSC_CH_SAVE_PARAM, /*minVal*/ 0.0f, /*maxVal*/ 1.0f, /*defVal*/ 0.0f);
@@ -480,6 +496,7 @@ void oscCV::process(const ProcessArgs &args)
 			// Reset
 			expCurrentEditExpanderIx = 0;
 			expCurrentEditExpander = NULL;
+			setExpansionEditPageCol(0); // Reset to page 0
 		}
 	}
 	// 2. Previous Config
@@ -488,6 +505,7 @@ void oscCV::process(const ProcessArgs &args)
 		// Previous button hit
 		expCurrentEditExpanderIx--;
 		expCurrentEditExpander = getExpansionModule(expCurrentEditExpanderIx);
+		setExpansionEditPageCol(0); // Reset to page 0
 		if (expCurrentEditExpander)
 		{
 			this->oscShowConfigurationScreen = true;
@@ -505,6 +523,10 @@ void oscCV::process(const ProcessArgs &args)
 				expCurrentEditExpander = NULL;
 			}
 		}
+		if (expCurrentEditExpander)
+		{
+			setMaxExpansionEditPageCol(expCurrentEditExpander->numberColumns);
+		}
 	}
 	// 3. Next Config
 	else if (this->oscConfigNextTrigger.process(this->params[oscCV::ParamIds::OSC_EXPANDER_CONFIG_NEXT_PARAM].getValue()))
@@ -512,6 +534,7 @@ void oscCV::process(const ProcessArgs &args)
 		// Previous button hit
 		expCurrentEditExpanderIx++;
 		expCurrentEditExpander = getExpansionModule(expCurrentEditExpanderIx);
+		setExpansionEditPageCol(0); // Reset to page 0
 		if (expCurrentEditExpander)
 		{
 			this->oscShowConfigurationScreen = true;
@@ -529,12 +552,23 @@ void oscCV::process(const ProcessArgs &args)
 				expCurrentEditExpander = NULL;				
 			}
 		}
+		if (expCurrentEditExpander)
+		{
+			setMaxExpansionEditPageCol(expCurrentEditExpander->numberColumns);
+		}
 	}
 	if (expCurrentEditExpander)
 	{
 		try
 		{
 			expCurrentEditExpanderName = expCurrentEditExpander->displayName;
+			if (this->expRenumberExpanderTrigger.process(this->params[oscCV::ParamIds::OSC_EXPANDER_RENUMBER_PARAM].getValue()))
+			{
+				// User wants to renumber the current expander.
+				// Set the object and let the UI renumber it (so it can update the text boxes).
+				expToRenumber = expCurrentEditExpander;
+			}
+			this->expCurrentEditPageCol = static_cast<int>( this->params[oscCV::ParamIds::OSC_EXPANDER_PAGE_PARAM].getValue() );
 		}
 		catch (const std::exception& expansionEx)
 		{
@@ -690,7 +724,8 @@ void oscCV::process(const ProcessArgs &args)
 		{
 			// Input
 			Expander* exp = &(this->leftExpander);
-			while (exp != NULL && exp->module && exp->module->model == modelOscCVExpanderInput)
+			while (exp != NULL && exp->module 
+				&& CVOSCCV_IS_EXPANDER_INPUT_MODEL(exp->module->model)) // == modelOscCVExpanderInput)
 			{				
 				dynamic_cast<oscCVExpander*>(exp->module)->processInputs(oscNamespace, oscInitialized, sendTime, packetOpened, oscMutex, oscStream);			
 				exp = &(exp->module->leftExpander); // Go to next so we can see if that's another expander.
@@ -787,11 +822,13 @@ void oscCV::process(const ProcessArgs &args)
 		
 		// ### Expansion Modules ###		
 		// Expansion OSC->CV:
+#if !OSC2CV_EXP_HANDLE_OUTPUTS_DIRECTLY
 		try
 		{
 			// Input
 			Module::Expander* exp = &(this->rightExpander);
-			while (exp != NULL && exp->module && exp->module->model == modelOscCVExpanderOutput)
+			while (exp != NULL && exp->module && CVOSCCV_IS_EXPANDER_OUTPUT_MODEL(exp->module->model))
+				//&& exp->module->model == modelOscCVExpanderOutput)
 			{				
 				dynamic_cast<oscCVExpander*>(exp->module)->processOutputs(dt);			
 				exp = &(exp->module->rightExpander); // Go to next so we can see if that's another expander.
@@ -800,7 +837,8 @@ void oscCV::process(const ProcessArgs &args)
 		catch (const std::exception& expansionEx)
 		{
 			WARN("Error with Expansion Module Output: %s.", expansionEx.what());
-		}				
+		}
+#endif
 	} // end OSC->CV
 	return;
 } // end step()
@@ -836,9 +874,15 @@ int oscCV::getNumExpansionModules(TSOSCCVExpanderDirection dir)
 {
 	int n = 0;
 	Module::Expander* exp = (dir == TSOSCCVExpanderDirection::Input) ? &(this->leftExpander) : &(this->rightExpander);
-	while (exp != NULL && exp->module && 
-		((dir == TSOSCCVExpanderDirection::Input && exp->module->model == modelOscCVExpanderInput) 
-			|| (dir == TSOSCCVExpanderDirection::Output && exp->module->model == modelOscCVExpanderOutput)))
+	//while (exp != NULL && exp->module &&
+	//	((dir == TSOSCCVExpanderDirection::Input && exp->module->model == modelOscCVExpanderInput)
+	//		|| (dir == TSOSCCVExpanderDirection::Output && exp->module->model == modelOscCVExpanderOutput)))
+
+	while (
+			exp != NULL && exp->module && 
+			( (dir == TSOSCCVExpanderDirection::Input && CVOSCCV_IS_EXPANDER_INPUT_MODEL(exp->module->model))
+				|| (dir == TSOSCCVExpanderDirection::Output && CVOSCCV_IS_EXPANDER_OUTPUT_MODEL(exp->module->model)) )
+		)
 	{				
 		n++;
 		exp = (dir == TSOSCCVExpanderDirection::Input) ? &(exp->module->leftExpander) : &(exp->module->rightExpander);
@@ -863,8 +907,13 @@ oscCVExpander* oscCV::getExpansionModule(int index)
 			count = -index;
 		}
 		Module::Expander* exp = (left) ? &(this->leftExpander) : &(this->rightExpander);
-		while (exp != NULL && exp->module && item == NULL && 
-			((left && exp->module->model == modelOscCVExpanderInput) || (!left && exp->module->model == modelOscCVExpanderOutput))
+		//while (
+		//	exp != NULL && exp->module && item == NULL &&
+		//	((left && exp->module->model == modelOscCVExpanderInput) || (!left && exp->module->model == modelOscCVExpanderOutput))
+		//	)
+		while (
+				exp != NULL && exp->module && item == NULL && 
+				((left && CVOSCCV_IS_EXPANDER_INPUT_MODEL(exp->module->model)) || (!left && CVOSCCV_IS_EXPANDER_OUTPUT_MODEL(exp->module->model)))
 			)
 		{				
 			n++;

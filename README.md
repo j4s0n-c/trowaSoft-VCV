@@ -196,7 +196,7 @@ and is new in v0.6.3.
 	+ **In Port** - Port for receiving messages. ~~Currently, trowaSoft modules can NOT share the same ports.~~
       (as of v1.0.2) **cvOSCcv** modules may **share the same ports** to either speak to the same endpoint or talk to each other.
 	+ **Namespace** - The OSC namespace. Default is empty (none).
-	+ **Auto Con** - Automatically reconnect on load from save. The connection will be restore if the connection was active (in the save file) and this is checked.
+	+ **Auto Con** - Automatically reconnect on load from save. The connection will be restored if the connection was active (in the save file) and this is checked.
     + Per Channel:  
         + **Address** - Endpoint address. Default is `/ch/{channel #}`.
 		+ **ADV** - (as of v0.6.2) Advanced settings for simple value conversions. Specify simple OSC data types (float, int, bool) and the CV and OSC ranges.
@@ -207,20 +207,23 @@ and is new in v0.6.3.
 ### cvOSCcv Expansion Modules
 ![Expansion modules for cvOSCcv: cvOSC and OSCcv.](https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/cvOSC_OSCcv_Expanders_screenshot.png?raw=true "Expansion modules for cvOSCcv: cvOSC and OSCcv")
 
-**cvOSC** and **OSCcv** are expansion modules for **cvOSCcv**. They add extra inputs or outputs respectively. These modules are new in version 1.0.2.
+**cvOSC** and **OSCcv** are expansion modules for **cvOSCcv**. They add extra inputs or outputs respectively. These modules are new in version 1.0.2. The 16/32-channel versions are new in v2.0.7.
 
-+ **cvOSC**: CV => OSC. 
-	+ Adds 8 more input channels. Each channel has a **TRG** (mono) and a **VAL** (poly) input.
++ **cvOSC** / **cvOSC16** / **cvOSC32**: CV => OSC. 
+	+ Adds 8/16/32 more input channels. Each channel has a **TRG** (mono) and a **VAL** (poly) input.
 	+ Module will only connect to a master if it is placed to the **LEFT** of the master cvOSCcv module. It must be touching it or another cvOSC.
-+ **OSCcv**: OSC => CV. 
-	+ Adds 8 more output channels. Each channel has a **TRG** (mono) and a **VAL** (poly) output.
++ **OSCcv** / **OSCcv16** / **OSCcv32**: OSC => CV. 
+	+ Adds 8/16/32 more output channels. Each channel has a **TRG** (mono) and a **VAL** (poly) output.
 	+ Module will only connect to a master if it is placed to the **RIGHT** of the master cvOSCcv module. It must be touching it or another OSCcv.
 + Multiple expansion modules may be chained.
 + Expansion modules have no user controls. They must be configured in their master cvOSCcv module. Configurable items are:
     + Expansion Module Name (only used for display, not used in OSC)
 	+ Channel Addresses
 	+ Channel Conversions
+	+ **RENUMBER** : (new v2.0.7) Button to "renumber" the channel addresses. All advanced channel settings are retained, only the addresses are updated.
+	+ **PAGE** : (new v2.0.7) For expansion modules with more than 8 channels, change the channel page/column that you are editing.
 + By default, channels start at #9. After connecting to a master [cvOSCcv](#cvosccv) module, initializing the expansion module will "re-number" its channels (i.e. `/ch/9` will become `/ch/17`).
+  Or (as of v2.0.7) you may **RENUMBER** the channel names only in the master's configuration screen.
 
   NOTE: The expander's name is only for display purposes to help identify which expander you are configuring in the master module.
 

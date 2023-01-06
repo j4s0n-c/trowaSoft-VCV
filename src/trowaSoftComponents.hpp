@@ -651,6 +651,7 @@ struct TS_ScreenBtn : Switch {
 		btnText = text;
 		this->module = module;
 		this->paramId = paramId;
+		initParamQuantity();
 		// if (module) {
 			// if (this->paramQuantity == NULL)
 				// this->paramQuantity = module->paramQuantities[paramId];
@@ -950,6 +951,301 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 		}
 		return;
 	}
+};
+
+//--------------------------------------------------------------
+// Control that shows displays the value on a screen and allows increment/decrement
+// and also knob behavior.
+//--------------------------------------------------------------
+struct TS_ScreenDial : SliderKnob {
+	// If increment/decrement is enabled.
+	bool incrDecrEnabled = true;
+	// How wide the area is for increment/decrement.
+	float incrDecrWidth = 20.0;
+	// How much to change when user clicks increment/decrement areas.
+	float changeAmount = 1.0f;
+	// Background color
+	NVGcolor backgroundColor = nvgRGBA(0, 0, 0, 0);
+	// Text color
+	NVGcolor color = TSColors::COLOR_TS_GRAY;
+	// Border color
+	NVGcolor borderColor = TSColors::COLOR_TS_GRAY;
+	// Border width
+	int borderWidth = 1;
+	// Corner radius. 0 for straight corners.
+	int cornerRadius = 5;
+	// Font size for our display numbers
+	int fontSize = 10;
+	// Font face
+	//std::shared_ptr<Font> font = NULL;
+	std::string fontPath; // Rack v2 store font path
+	enum TextAlignment {
+		Left = NVG_ALIGN_LEFT,
+		Center = NVG_ALIGN_CENTER,
+		Right = NVG_ALIGN_RIGHT
+	};
+	TextAlignment textAlign = TextAlignment::Center;
+
+	// Create screen dial.
+	TS_ScreenDial(Vec size = Vec(100.f, 20.f))
+	{
+		fontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT);
+		box.size = size;
+	}
+	TS_ScreenDial(Vec size, Module* module, int paramId) : TS_ScreenDial(size)
+	{
+		this->module = module;
+		this->paramId = paramId;
+		initParamQuantity();
+	}
+	void setVisible(bool visible) {
+		this->visible = visible;
+		return;
+	}
+	// Get the text displayed on the screen
+	virtual std::string getDisplayText()
+	{
+		ParamQuantity* pQty = getParamQuantity();
+		if (pQty)
+			return pQty->getDisplayValueString();
+		else
+			return std::string("");
+	}
+
+	float getValue()
+	{
+		ParamQuantity* pQty = getParamQuantity();
+		return (pQty) ? pQty->getValue() : 0.0f;
+	}
+	void setValue(float val)
+	{
+		ParamQuantity* pQty = getParamQuantity();
+		if (pQty)
+			pQty->setValue(val);
+	}
+	void setMaxValue(float maxVal)
+	{
+		ParamQuantity* pQty = getParamQuantity();
+		if (pQty)
+			pQty->maxValue = maxVal;
+	}
+	float getMaxValue()
+	{
+		ParamQuantity* pQty = getParamQuantity();
+		return (pQty) ? pQty->getMaxValue() : 0.f;
+	}
+
+	void setMinValue(float minVal)
+	{
+		ParamQuantity* pQty = getParamQuantity();
+		if (pQty)
+			pQty->maxValue = minVal;
+	}
+	float getMinValue()
+	{
+		ParamQuantity* pQty = getParamQuantity();
+		return (pQty) ? pQty->getMinValue() : 0.f;
+	}
+
+	// Intercept the left/right areas for incrementing.
+	void onButton(const ButtonEvent& e) override
+	{
+		bool isIncr = true;
+		bool isAdj = (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT) ? isAdjustmentClick(e.pos, isIncr) : false;
+
+		if (isAdj) {
+			ParamQuantity* pq = getParamQuantity();
+			if (pq) {
+				float oldValue = pq->getSmoothValue();
+				float newValue = oldValue + ((isIncr) ? changeAmount : -changeAmount);
+				pq->setValue(newValue);
+
+				// Reget the value (in case paramQty has changed it or snapped it).
+				newValue = pq->getValue();
+
+				// Push ParamChange history action
+				history::ParamChange* h = new history::ParamChange;
+				h->name = "move knob";
+				h->moduleId = module->id;
+				h->paramId = paramId;
+				h->oldValue = oldValue;
+				h->newValue = newValue;
+				APP->history->push(h);
+			}
+
+			e.consume(this);
+		}
+		else {
+			this->SliderKnob::onButton(e);
+		}
+		return;
+	}
+
+	virtual void drawBackground(const DrawArgs& args)
+	{
+		// Background
+		nvgBeginPath(args.vg);
+		if (cornerRadius > 0)
+			nvgRoundedRect(args.vg, 0.0, 0.0, box.size.x, box.size.y, cornerRadius);
+		else
+			nvgRect(args.vg, 0.0, 0.0, box.size.x, box.size.y);
+		nvgFillColor(args.vg, backgroundColor);
+		nvgFill(args.vg);
+		// Background - border.
+		if (borderWidth > 0) {
+			nvgStrokeWidth(args.vg, borderWidth);
+			nvgStrokeColor(args.vg, borderColor);
+			nvgStroke(args.vg);
+		}
+		return;
+	}
+
+	void draw(const DrawArgs& args) override {
+		if (visible)
+		{
+			// Draw background
+			this->drawBackground(args);
+		}
+		return;
+	}
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// drawLayer()
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	virtual void drawLayer(const DrawArgs& args, int layer) override
+	{
+		if (visible && layer == 1)
+		{
+			//-------------------
+			// Draw Background
+			//-------------------
+			this->drawBackground(args);
+
+			//-------------------
+			// Draw Buttons
+			//-------------------
+			this->drawButtons(args);
+
+			//-------------------
+			// Draw Text
+			//-------------------
+			std::shared_ptr<Font> font = APP->window->loadFont(fontPath);
+			if (font && font->handle >= 0)
+			{
+				nvgSave(args.vg);
+				// Calculate bounds
+				rack::Rect b;
+				Vec padding = Vec(3.f + incrDecrWidth, 1.f);
+				b.pos = Vec(padding.x, padding.y);
+				b.size = Vec(box.size.x - 2.f * padding.x, box.size.y - 2.f * padding.y);
+
+				Vec txtPos = Vec(padding.x, box.size.y / 2.0f);
+				if (this->textAlign == TextAlignment::Center)
+					txtPos.x = box.size.x / 2.0f;
+				else if (this->textAlign == TextAlignment::Right)
+					txtPos.x = box.size.x - padding.x;
+
+				// Scissor 
+				nvgScissor(args.vg, b.pos.x, b.pos.y, b.size.x, b.size.y);
+
+				nvgTextAlign(args.vg, this->textAlign | NVG_ALIGN_MIDDLE);
+				// Default Font:
+				nvgFontSize(args.vg, fontSize);
+				nvgFontFaceId(args.vg, font->handle);
+				nvgFillColor(args.vg, color);
+
+				// DRAW THE TEXT:
+				nvgText(args.vg, txtPos.x, txtPos.y, this->getDisplayText().c_str(), NULL);
+
+				nvgResetScissor(args.vg);
+				nvgRestore(args.vg);
+			} // end if font
+
+		}
+		return;
+	}
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// drawTriangle()
+	// Draw a triangle.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	void drawTriangle(const DrawArgs& args, Vec p1, Vec p2, Vec p3, int strokeWidth, NVGcolor strokeColor, NVGcolor fillColor)
+	{
+		nvgBeginPath(args.vg);
+		nvgMoveTo(args.vg, p1.x, p1.y);
+		nvgLineTo(args.vg, p2.x, p2.y);
+		nvgLineTo(args.vg, p3.x, p3.y);
+		nvgLineTo(args.vg, p1.x, p1.y);
+
+		if (strokeWidth > 0 && strokeColor.a > 0.f) {
+			nvgStrokeWidth(args.vg, strokeWidth);
+			nvgStrokeColor(args.vg, strokeColor);
+			nvgStroke(args.vg);
+		}
+		if (fillColor.a > 0.f) {
+			nvgFillColor(args.vg, fillColor);
+			nvgFill(args.vg);
+		}
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// drawButtons()
+	// Draw the increment/decrement buttons.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	virtual void drawButtons(const DrawArgs& args)
+	{
+		if (!incrDecrEnabled)
+			return;
+
+		nvgSave(args.vg);
+
+		int strokeWidth = 1;
+		NVGcolor strokeColor = color;
+		NVGcolor fillColor = TSColors::COLOR_BLACK_TRANSPARENT;
+
+		rack::Rect b;
+		Vec p1, p2, p3;
+		Vec padding = Vec(3.f, 3.f);
+
+		// Draw Left/Right buttons
+		// Left:		
+		b.pos = Vec(padding.x, padding.y);
+		b.size = Vec(incrDecrWidth - 2.f * padding.x, box.size.y - 2.f * padding.y);
+		//nvgScissor(b.pos.x, b.pos.y, b.size.x, b.size.y);
+		p1 = Vec(b.pos.x, b.pos.y + b.size.y / 2.0f); // Point
+		p2 = Vec(b.pos.x + b.size.x, b.pos.y + b.size.y);
+		p3 = Vec(b.pos.x + b.size.x, b.pos.y);
+		drawTriangle(args, p1, p2, p3, strokeWidth, strokeColor, fillColor);
+		//nvgResetScissor(args.vg);
+
+		// Right:
+		b.pos = Vec(box.size.x - incrDecrWidth + padding.x, padding.y);
+		p1 = Vec(b.pos.x + b.size.x, b.pos.y + b.size.y / 2.0f); // Point
+		p2 = Vec(b.pos.x, b.pos.y);
+		p3 = Vec(b.pos.x, b.pos.y + b.size.y);
+		drawTriangle(args, p1, p2, p3, strokeWidth, strokeColor, fillColor);
+
+		nvgRestore(args.vg);
+	}
+	// Given the click position, determines if this was a click for increment/decrementing.
+	bool isAdjustmentClick(Vec clickPos, bool& isIncrement)
+	{
+		bool isAdj = false;
+		if (incrDecrEnabled)
+		{
+			if (clickPos.x < incrDecrWidth)
+			{
+				isAdj = true;
+				isIncrement = false;
+			}
+			else if (clickPos.x > box.size.x - incrDecrWidth)
+			{
+				isAdj = true;
+				isIncrement = true;
+			}
+		}
+		return isAdj;
+	}
+
 };
 
 //--------------------------------------------------------------

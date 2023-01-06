@@ -28,7 +28,11 @@ void init(rack::Plugin *p) {
 	p->addModel(modelOscCV);
 	p->addModel(modelOscCVExpanderInput);
 	p->addModel(modelOscCVExpanderOutput);
-	
+	p->addModel(modelOscCVExpanderInput16);
+	p->addModel(modelOscCVExpanderOutput16);
+	p->addModel(modelOscCVExpanderInput32);
+	p->addModel(modelOscCVExpanderOutput32);
+
 	// Scope Modules:
 	p->addModel(modelMultiScope);
 

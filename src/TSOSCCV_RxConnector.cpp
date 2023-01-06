@@ -233,7 +233,7 @@ void OscCVRxMsgRouter::ProcessMessage(const osc::ReceivedMessage& rxMsg, const I
 						{
 							// Let this thread handle sorting/delivery.
 							Module::Expander* exp = &(oscModule->rightExpander);
-							while (!recipientFound && exp != NULL && exp->module && exp->module->model == modelOscCVExpanderOutput)
+							while (!recipientFound && exp != NULL && exp->module && CVOSCCV_IS_EXPANDER_OUTPUT_MODEL(exp->module->model)) // == modelOscCVExpanderOutput)
 							{
 								oscCVExpander* expMod = dynamic_cast<oscCVExpander*>(exp->module);
 								//recipientFound = deliverMessage(path, expMod->outputChannels, expMod->numberChannels, expMod->rxMsgQueue, bArgs, fArgs, iArgs);// boolArg, floatArg, uintArg, intArg);

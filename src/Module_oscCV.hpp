@@ -26,9 +26,6 @@ extern Model* modelOscCV;
 #define TROWA_OSSCV_SHOW_ADV_CH_CONFIG			1 // Flag to showing advanced config or hiding it (while it is not finished)
 #define OSC_CV_OUTPUT_BUFFER_SIZE			1024*128 // Hopefully large enough (may not be from adding poly cables).  
 
-
-
-
 //===============================================================================
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // oscCV
@@ -50,7 +47,7 @@ struct oscCV : Module {
 		OSC_ADV_CONF_BACK_PARAM, // [TBI] Advanced configuration Back
 		OSC_AUTO_RECONNECT_PARAM, // Automatically reconnect (if connection is active as of save) on re-load.
 		OSC_CH_SAVE_PARAM, // Channel: Save changes and go back to main config. 
-		OSC_CH_CANCEL_PARAM, // Channel: Save changes and go back to main config. 
+		OSC_CH_CANCEL_PARAM, // Channel: Cancel changes and go back to main config. 
 		OSC_CH_OSC_DATATYPE_PARAM, // Channel: OSC data type.
 		OSC_CH_TRANSLATE_VALS_PARAM, // Channel: Flag to translate/massage values
 		OSC_CH_MIN_CV_VOLT_PARAM, // Channel: Minimum CV Voltage
@@ -62,6 +59,8 @@ struct oscCV : Module {
 		OSC_CH_SEND_THRESHOLD_PARAM, // [TBI] Channell [INPUT->OSC only]: CV value change needed to trigger send (if trigger not active)
 		OSC_EXPANDER_CONFIG_PREV_PARAM, // Expander: Configure Previous	(goes towards Left/Input)
 		OSC_EXPANDER_CONFIG_NEXT_PARAM, // Expander: Configure Next (goes towards Right/Output)
+		OSC_EXPANDER_PAGE_PARAM, // Expander : Which page/column we are editing for expanders with more than 8 channels.
+		OSC_EXPANDER_RENUMBER_PARAM, // Expander: Renumber the current expander's channel names (in addition to users 'intializing' an expander, add a button in config to directly do this from there).
 		CH_PARAM_START,
 		NUM_PARAMS = CH_PARAM_START // Add #channels * 2 to this
 	};
@@ -123,7 +122,17 @@ struct oscCV : Module {
 	int expCurrentEditExpanderIx = 0;
 	// [Expander] Current edit name.
 	std::string expCurrentEditExpanderName;
-	
+	// [Expander] For expanders with more than 8 channels, the current page/column index we are editing.
+	int expCurrentEditPageCol = 0;
+	// [Expander] Maximum page edit columns. Not sure we'll ever do 64 channels, but maybe.
+	const int expMaxEditPageCols = 8;
+	// [Expander] Page labels for editing an expander.
+	std::vector<std::string> expEditPageLabels;
+	// [Expander] Renumber the channels of the current expander.
+	dsp::SchmittTrigger expRenumberExpanderTrigger;
+	// [Expander] The expander to renumber.
+	oscCVExpander* expToRenumber = NULL;
+
 	// Configure - Previous (goes Left or towards Inputs).
 	dsp::SchmittTrigger oscConfigPrevTrigger;
 	// Configure - Next (goes Right or towards Output).
@@ -244,7 +253,7 @@ struct oscCV : Module {
 				outputInfos[OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = OSC2CV_LBL_OUT_VALUE + outputChannels[i].path; // Received Value
 				lightInfos[LightIds::CH_LIGHT_START + portId + 1]->LightInfo::name = OSC2CV_LBL_LIGHT_MSG_RX + outputChannels[i].path; // Message Received
 			}
-		}				
+		}
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -254,20 +263,15 @@ struct oscCV : Module {
 	void initialChannels() {
 		for (int i = 0; i < numberChannels; i++)
 		{
-			//int portId = i *2;
 			if (doCVPort2OSC) {
 				inputChannels[i].channelNum = i + 1;
 				inputChannels[i].path = "/ch/" + std::to_string(i + 1);
 				inputChannels[i].initialize();
-				// inputInfos[InputIds::CH_INPUT_START + portId]->PortInfo::name = "Trigger Send: " + inputChannels[i].path;
-				// inputInfos[InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = "Value: " + inputChannels[i].path;						
 			}
 			if (doOSC2CVPort) {
 				outputChannels[i].channelNum = i + 1;
 				outputChannels[i].path = "/ch/" + std::to_string(i + 1);
 				outputChannels[i].initialize();
-				// outputInfos[OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = "Received Trigger: " + outputChannels[i].path;
-				// outputInfos[OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = "Value Received: " + outputChannels[i].path;				
 			}
 		}
 		// Rename the ports:
@@ -341,6 +345,47 @@ struct oscCV : Module {
 	// @index: 0 is this master module (invalid). Negative to the left. Positive to the right.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
 	oscCVExpander* getExpansionModule(int index);
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
+	// setExpansionEditPageCol()
+	// Set which current page we are doing. Also sets the param quantity.
+	// @pageIx : 0 to N
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
+	void setExpansionEditPageCol(int pageIx)
+	{
+		this->paramQuantities[ParamIds::OSC_EXPANDER_PAGE_PARAM]->setValue(pageIx);
+		this->expCurrentEditPageCol = pageIx;
+		return;
+	}
+
+	void setMaxExpansionEditPageCol(int maxNumPages)
+	{
+		this->paramQuantities[ParamIds::OSC_EXPANDER_PAGE_PARAM]->maxValue = maxNumPages - 1;
+		SwitchQuantity* sQty = dynamic_cast<SwitchQuantity*>(this->paramQuantities[ParamIds::OSC_EXPANDER_PAGE_PARAM]);
+		if (sQty)
+		{
+			// Edit labels
+			int cnt = static_cast<int>(sQty->labels.size());
+			if (cnt > maxNumPages)
+			{
+				// Remove the end ones
+				//DEBUG("Deleting the end elements starting at index %d", maxNumPages);
+				sQty->labels.erase(std::next(sQty->labels.begin(), maxNumPages), sQty->labels.end());
+			}
+			else if (cnt < maxNumPages)
+			{
+				int nLabels = static_cast<int>(expEditPageLabels.size());
+				for (int i = cnt; i < maxNumPages; i++)
+				{
+					std::string lbl = (i < nLabels) ? expEditPageLabels[i] : rack::string::f("Page %d", i + 1);
+					sQty->labels.push_back(lbl);
+				}
+			}
+
+		}
+		return;
+	}
+
 	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// getSendFrequencyIx()

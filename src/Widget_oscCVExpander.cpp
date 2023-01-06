@@ -7,23 +7,35 @@ using namespace rack;
 #include "Module_oscCVExpander.hpp"
 #include "TSColors.hpp"
 
+#define COL_RACK_GRID_WIDTH		6	// Number of RACK_GRID_WIDTH a single column of channel ports are.
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // oscCVExpanderWidget()
 // Instantiate a oscCVExpander widget. 
 // @oscExpanderModule : (IN) Pointer to the osc module.
 // @expanderDirection : (IN) What direction (IN/OUT).
+// @numChannels: (IN) Specify the number of channels. Essential for previews where the module is NULL.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSCCVExpanderDirection expanderDirection) : TSSModuleWidgetBase(oscExpanderModule, false)
+oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSCCVExpanderDirection expanderDirection, int numChannels) : TSSModuleWidgetBase(oscExpanderModule, false)
 {
 	const int screwSize = 15;
-	box.size = Vec(6 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT);
 	bool isPreview = this->module == NULL; // If this is null, then this isn't a real module instance but a 'Preview'?	
-	if (!isPreview && oscExpanderModule == NULL)
+	//if (!isPreview && oscExpanderModule == NULL)
+	//{
+	//	oscExpanderModule = dynamic_cast<oscCVExpander*>(this->module);
+	//}
+	if (isPreview)
 	{
-		oscExpanderModule = dynamic_cast<oscCVExpander*>(this->module);
+		this->numberChannels = numChannels;
+		this->expanderType = expanderDirection;
 	}
-	this->numberChannels = (isPreview) ? TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS : oscExpanderModule->numberChannels; 
-	this->expanderType = (isPreview) ? expanderDirection : oscExpanderModule->expanderType;	
+	else
+	{
+		this->numberChannels = oscExpanderModule->numberChannels;
+		this->expanderType = oscExpanderModule->expanderType;
+	}
+	this->numberColumns = numberChannels / channelsPerColumn;
+	box.size = Vec(COL_RACK_GRID_WIDTH * numberColumns * RACK_GRID_WIDTH, RACK_GRID_HEIGHT);
 	bandXStart = (expanderType == TSOSCCVExpanderDirection::Input) ? box.size.x - bandWidth : 0.f;
 	lastConfigStatus = false;
 
@@ -39,13 +51,22 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 			panel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/OSCcv.svg")));			
 		addChild(panel);
 	}
+
+	//////////////////////////////////////////////
+	// Framebuffer
+	//////////////////////////////////////////////
+	// Cache widgets that don't change or don't change that often.
+	fbw = new FramebufferWidget();
+	fbw->box.size = box.size;
+	addChild(fbw);
 		
 	//////////////////////////////////////////////
 	// Indicator - For when we are being configured.
 	//////////////////////////////////////////////		
 	oscCVExpanderSideIndicator* indicator = new oscCVExpanderSideIndicator(this, Vec(box.size.x, box.size.y - screwSize*2));
 	indicator->box.pos = Vec(0, screwSize);
-	addChild(indicator);
+	//addChild(indicator);
+	fbw->addChild(indicator);
 
 	//////////////////////////////////////////////
 	// Top display
@@ -62,8 +83,9 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 	TSOscCVExpanderLabels* labelArea = new TSOscCVExpanderLabels(this->expanderType);
 	labelArea->box.pos = Vec(TROWA_HORIZ_MARGIN, topScreenSize.y + 24);
 	labelArea->box.size = Vec(box.size.x - TROWA_HORIZ_MARGIN * 2, box.size.y - labelArea->box.pos.y - 15);
-	addChild(labelArea);
-
+	labelArea->numberColumns = numberColumns;
+	//addChild(labelArea);
+	fbw->addChild(labelArea);
 
 	//////////////////////////////////////////////
 	// Connection/Indicator Lights
@@ -104,25 +126,41 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 	
 	
 	// Inputs / Outputs
+	int colDx = COL_RACK_GRID_WIDTH * RACK_GRID_WIDTH;
 	int dx = 28;
 	int dy = 30;
 	ledSize = Vec(5, 5);
 	float ledYOffset = 12.5;
-	xStart = (expanderType == TSOSCCVExpanderDirection::Input) ? TROWA_HORIZ_MARGIN : box.size.x - TROWA_HORIZ_MARGIN - 2*dx - ledSize.x/2;
+	//xStart = (expanderType == TSOSCCVExpanderDirection::Input) ? TROWA_HORIZ_MARGIN : box.size.x - TROWA_HORIZ_MARGIN - 2*dx - ledSize.x/2;
+	xStart = (expanderType == TSOSCCVExpanderDirection::Input) ? TROWA_HORIZ_MARGIN : colDx - TROWA_HORIZ_MARGIN - 2 * dx - ledSize.x / 2;
+
 	yStart = 98;
-	
+
 	x = xStart;
 	y = yStart;
+
+	// Save our start position for later
+	colStartPos = Vec(x, y);
+	rowDy = dy; // Save row height for later.
+
 	// Fix OSCcv lights not lighting up on message received:
 	int lightOffset = (expanderType == TSOSCCVExpanderDirection::Input) ? 0 : 1; // For our LightIds, we still reserve 2 per channel in case we want to use them.
 	for (int r = 0; r < numberChannels; r++)
 	{
 		TS_Port* port = NULL;
 
+		if (r > 0 && r % channelsPerColumn == 0)
+		{
+			xStart += colDx; // Go to the next column
+			y = yStart;
+		}
+
+		NVGcolor chColor = TSColors::CHANNEL_COLORS[r % TSColors::NUM_CHANNEL_COLORS];
+
 		// Trigger Input:
 		x = xStart;
 		if (colorizeChannels)
-			port = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2, !plugLightsEnabled, TSColors::CHANNEL_COLORS[r % TSColors::NUM_CHANNEL_COLORS]));
+			port = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2, !plugLightsEnabled, chColor));
 		else
 			port = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2, !plugLightsEnabled));				
 		if (expanderType == TSOSCCVExpanderDirection::Input)
@@ -139,7 +177,7 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 		// Value input:
 		x += dx;
 		if (colorizeChannels)
-			port = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2 + 1, !plugLightsEnabled, TSColors::CHANNEL_COLORS[r % TSColors::NUM_CHANNEL_COLORS]));
+			port = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2 + 1, !plugLightsEnabled, chColor));
 		else
 			port = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2 + 1, !plugLightsEnabled));					
 		if (expanderType == TSOSCCVExpanderDirection::Input)
@@ -154,7 +192,7 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 		
 		// Light (to indicate when we send/recv OSC)
 		float ledX = (expanderType == TSOSCCVExpanderDirection::Input) ? xStart - ledSize.x : x + dx + ledSize.x/2.0;		
-		addChild(TS_createColorValueLight<ColorValueLight>(Vec(ledX, y + ledYOffset), oscExpanderModule, oscCVExpander::LightIds::CH_LIGHT_START + r * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + lightOffset, ledSize, TSColors::CHANNEL_COLORS[r]));
+		addChild(TS_createColorValueLight<ColorValueLight>(Vec(ledX, y + ledYOffset), oscExpanderModule, oscCVExpander::LightIds::CH_LIGHT_START + r * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + lightOffset, ledSize, chColor));
 
 		y += dy;
 	} // end ports
@@ -211,10 +249,23 @@ void oscCVExpanderWidget::step()
 				{
 					lastConfigStatus = thisModule->beingConfigured;
 					lastConfigA = (thisModule->beingConfigured) ? maxa : 0.0f;
+					// Redraw our indicator
+					fbw->setDirty();
 					dir = false;
 				}
 				if (lastConfigStatus)
 				{
+					// Redraw our indicator
+					fbw->setDirty();
+					if (thisModule->beingConfigured)
+					{
+						this->configColumnIx = thisModule->configureColIx;
+						/// TODO: Add check for which channel is being configured.
+					}
+					else
+					{
+						this->configColumnIx = -1; // Not being configured.
+					}
 					if (dir)
 					{
 						lastConfigA += da * APP->engine->getSampleTime();
@@ -291,12 +342,35 @@ void oscCVExpanderSideIndicator::draw(/*in*/ const DrawArgs &args)
 			nvgBeginPath(args.vg);
 			// nvgRect(args.vg, 0, 0.0, box.size.x, box.size.y);
 			// nvgFillColor(args.vg, color);
-			// nvgFill(args.vg);
-			
+			// nvgFill(args.vg);			
 			nvgRect(args.vg, strokeWidth/2.f, strokeWidth/2.f, box.size.x-strokeWidth, box.size.y-strokeWidth);			
 			nvgStrokeWidth(args.vg, strokeWidth);
 			nvgStrokeColor(args.vg, color);
 			nvgStroke(args.vg);
+
+			int configColIx = parent->configColumnIx;
+			if (parent->numberColumns > 1 && configColIx > -1)
+			{
+				// Highlight the column being edited
+				color.a = 0.6;
+				int colDx = COL_RACK_GRID_WIDTH * RACK_GRID_WIDTH;
+				float margin = 0.f;
+				//const int dx = 28;
+				const int screwSize = 15;
+				//float x = parent->colStartPos.x + configColIx * colDx - margin - screwSize + strokeWidth;
+				float x = configColIx * colDx + 1.0f; 	// Actually just fill put the entire column (minus the column divider line)
+				float y = parent->colStartPos.y - margin - screwSize + 1.0f;// +2.0f;
+				//float colWidth = dx * 3.0f - strokeWidth;
+				//Vec cSize = Vec(colWidth + margin * 2.f, parent->rowDy * parent->channelsPerColumn + margin * 2.f);
+				// Actually just fill put the entire column
+				Vec cSize = Vec(colDx - 2.0f, parent->rowDy * parent->channelsPerColumn + margin * 2.f);
+				nvgBeginPath(args.vg);
+				nvgRect(args.vg, x, y, cSize.x, cSize.y);
+				nvgFillColor(args.vg, color);
+				nvgFill(args.vg);
+			}
+
+
 			nvgRestore(args.vg);			
 		}
 	}
@@ -321,7 +395,15 @@ void TSOscCVExpanderTopDisplay::step() {
 	}
 	if (displayName.compare(lastName) != 0 || lastConnectedToMaster != connectedToMaster)
 	{
-		sprintf(scrollingMsg, "%s  -  %s  -  ", displayName.c_str(), (connectedToMaster) ? "Master Found" : "No Connection");
+		if (parentWidget->numberChannels > 16)
+		{
+			// We have more room, repeat it here.
+			sprintf(scrollingMsg, "%s  -  %s  -  %s  -  %s  -  ",
+				displayName.c_str(), (connectedToMaster) ? "Master Found" : "No Connection",
+				displayName.c_str(), (connectedToMaster) ? "Master Found" : "No Connection");
+		}
+		else
+			sprintf(scrollingMsg, "%s  -  %s  -  ", displayName.c_str(), (connectedToMaster) ? "Master Found" : "No Connection");
 	}
 
 	dt += 100.0 / APP->engine->getSampleRate();
@@ -417,6 +499,7 @@ void TSOscCVExpanderTopDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer
 // draw()
 // @args.vg : (IN) NVGcontext to draw on
 // Draw labels on our widget.
+// Also now draw divider lines for multi-column expanders.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSOscCVExpanderLabels::draw(/*in*/ const DrawArgs &args) {
 	std::shared_ptr<Font> font = APP->window->loadFont(fontPath); // Rack v2 load font each time
@@ -437,29 +520,55 @@ void TSOscCVExpanderLabels::draw(/*in*/ const DrawArgs &args) {
 	xStart = 0;
 	yStart = 25; // 17
 	dx = 28;
-	
+
+	//TROWA_HORIZ_MARGIN
+	//colDx - TROWA_HORIZ_MARGIN - 2 * dx - ledSize.x / 2
+	int colDx = COL_RACK_GRID_WIDTH * RACK_GRID_WIDTH;
 	const char* labelType = (expanderType == TSOSCCVExpanderDirection::Input) ? "INPUTS" : "OUTPUTS";
 	if (expanderType == TSOSCCVExpanderDirection::Input)
 	{
 		//--- * Inputs *---//
 		// (Left hand side)		
-		x = xStart + dx / 2;		
+		//x = xStart + dx / 2;		
+		xStart += dx / 2;
 	}
 	else 
 	{
 		//-- * Outputs *--//
 		// (Right hand side)				
-		x = box.size.x - dx / 2 - dx;
+		//x = box.size.x - dx / 2 - dx;
+		xStart += colDx - 2*TROWA_HORIZ_MARGIN - dx / 2 - dx;
 	}
-	// TRIG:
-	y = yStart;
-	nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
-	nvgText(args.vg, x, y, "TRG", NULL);
-	// VAL:
-	x += dx;
-	y = yStart;
-	nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
-	nvgText(args.vg, x, y, "VAL", NULL);
+	NVGcolor gridColor = textColor;// nvgRGB(0x44, 0x44, 0x44);
+	// Now we may allow > 1 column of channels.
+	for (int c = 0; c < numberColumns; c++)
+	{
+		// TRIG:
+		x = xStart;
+		y = yStart;
+		nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
+		nvgText(args.vg, x, y, "TRG", NULL);
+		// VAL:
+		x += dx;
+		y = yStart;
+		nvgTextAlign(args.vg, NVG_ALIGN_CENTER);
+		nvgText(args.vg, x, y, "VAL", NULL);
+
+		// Draw Divider Line if we have > 1 column
+		if (c > 0)
+		{
+			nvgBeginPath(args.vg);
+			float lx = colDx * c - box.pos.x;
+			nvgMoveTo(args.vg, /*start x*/ lx, /*start y*/ yStart + 2.f);
+			nvgLineTo(args.vg, /*x*/ lx, /*y*/ box.size.y - 26.f);
+			nvgStrokeWidth(args.vg, 1.0);
+			nvgStrokeColor(args.vg, gridColor);
+			nvgStroke(args.vg);
+		}
+
+		xStart += colDx;
+	}
+
 	// Bottom (INPUTS/OUTPUTS)
 	//x = xStart + dx;
 	x = box.size.x / 2.0f;

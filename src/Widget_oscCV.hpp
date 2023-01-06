@@ -1,7 +1,6 @@
 #ifndef WIDGET_OSCCV_HPP
 #define WIDGET_OSCCV_HPP
 
-//#include <widget/Widget.hpp> //#include "widgets.hpp"
 #include "TSSModuleWidgetBase.hpp"
 #include "TSOSCConfigWidget.hpp"
 #include "Module_oscCV.hpp"
@@ -18,6 +17,7 @@ struct TSOscCVTopDisplay;
 struct TSOscCVMiddleDisplay;
 struct TSOscCVLabels;
 struct TSOscCVChannelConfigScreen;
+struct TSPageNumberControl;
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // oscCVWidget
@@ -50,6 +50,7 @@ struct oscCVWidget : TSSModuleWidgetBase {
 	bool showConfigScreen = false;
 	// -- EXPANDERS --
 	int showConfigIndex = 0;
+	int showConfigColumnIndex = 0;
 	ColorValueLight* prevLight = NULL;
 	ColorValueLight* nextLight = NULL;	
 	NVGcolor showConfigColor = TSColors::COLOR_WHITE;
@@ -60,6 +61,10 @@ struct oscCVWidget : TSSModuleWidgetBase {
 	// Text box for an expander's id/name.
 	TSTextField* tbExpanderID;
 	int tbExpanderXPos[2];
+	// Button to renumber the expander
+	TS_ScreenBtn* btnExpRenumber = NULL;
+	// Which page number / column number we are editing for expanders with more than 8 channels.
+	TSPageNumberControl* dialExpEditPageNumber = NULL;
 
 	// Channel colors
 	/// TODO: Move this to someplace else
@@ -83,8 +88,8 @@ struct oscCVWidget : TSSModuleWidgetBase {
 			display = NULL;
 			middleDisplay = NULL;
 			oscChannelConfigScreen = NULL;
-			btnDrawInputAdvChConfig.clear();
-			btnDrawOutputAdvChConfig.clear();
+			//btnDrawInputAdvChConfig.clear();
+			//btnDrawOutputAdvChConfig.clear();
 		}
 		catch (std::exception& ex)
 		{
@@ -104,13 +109,25 @@ struct oscCVWidget : TSSModuleWidgetBase {
 	// Set the channel path text boxes.
 	void setChannelPathConfig();
 	// Read the channel path configs and store in module's channels.
-	//void readChannelPathConfig();	
+	// @index : (IN) The module index (0 is master, < 0 is input expander, > 0 is output expander).
+	// @colIx : (IN) The column index of the module.
+	void readChannelPathConfig(int index, int colIx);		
 	// Read the channel path configs and store in module's channels.
-	void readChannelPathConfig(int index);		
-	// Read the channel path configs and store in module's channels.
-	std::string readChannelPathConfig(TSOSCCVInputChannel* inputChannels, TSOSCCVChannel* outputChannels, int numChannels);	
+	// @inputChannels : (IN/OUT) The input channels array.
+	// @outputChannels : (IN/OUT) The output channels array.
+	// @nChannels : (IN) Size of the channel arrays.
+	// @channelColumn : (IN) Which column / page of channels are we displaying (we can only display 8 at a time).
+	std::string readChannelPathConfig(TSOSCCVInputChannel* inputChannels, TSOSCCVChannel* outputChannels, int numChannels, int channelColumn = 0);
 	// Set the channel path text boxes.
-	void setChannelPathConfig(TSOSCCVInputChannel* inputChannels, TSOSCCVChannel* outputChannels, int numChannels, std::string expanderName);
+	// @inputChannels : (IN) The input channels array.
+	// @outputChannels : (IN) The output channels array.
+	// @nChannels : (IN) Size of the channel arrays.
+	// @channelColumn : (IN) Which column / page of channels are we displaying (we can only display 8 at a time).
+	void setChannelPathConfig(TSOSCCVInputChannel* inputChannels, TSOSCCVChannel* outputChannels, int numChannels, std::string expanderName, int channelColumn = 0);
+
+	// Rename the advanced configuration buttons
+	void renameAdvConfigBtns();
+
 	// OnDragEnd - Revisit what expanders we may be connected to.
 	void onDragEnd(const event::DragEnd &e) override;
 	
@@ -549,5 +566,28 @@ struct TSOscCVMiddleDisplay : TransparentWidget {
 	void drawChannelBar(/*in*/ const DrawArgs &args, /*in*/ TSOSCCVChannel* channelData,  /*in*/ int x, /*in*/ int y, /*in*/ int width, /*in*/ int height, /*in*/ NVGcolor lineColor);
 
 }; // end struct TSOscCVMiddleDisplay
+
+struct TSPageNumberControl : TS_ScreenDial
+{
+
+	TSPageNumberControl(Vec size, Module* module, int paramId) : TS_ScreenDial(size, module, paramId)
+	{
+		return;
+	}
+
+	// Displays 'x of N' (i.e. Normal display string ('x') with 'of N' appended where 'N' is the maxValue + 1).
+	// So for like 'Page 2 of 4'.
+	std::string getDisplayText() override
+	{
+		ParamQuantity* pQty = getParamQuantity();
+		if (pQty)
+		{
+			int maxNumPages = static_cast<int>(pQty->maxValue) + 1;
+			return rack::string::f("%s of %d", pQty->getDisplayValueString().c_str(), maxNumPages);
+		}
+		else
+			return std::string("");
+	}
+};
 
 #endif // !WIDGET_OSCCV_HPP

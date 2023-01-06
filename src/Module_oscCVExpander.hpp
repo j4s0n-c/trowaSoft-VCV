@@ -13,9 +13,20 @@ using namespace rack;
 #include <mutex>
 #include <queue>
 
-// Model for trowa OSC2CV Expander
+// Model for trowa OSC2CV Expander (default 8 channel)
 extern Model* modelOscCVExpanderInput;
 extern Model* modelOscCVExpanderOutput;
+// Models for 16-channel expanders
+extern Model* modelOscCVExpanderInput16;
+extern Model* modelOscCVExpanderOutput16;
+// Models for 32-channel expanders.
+extern Model* modelOscCVExpanderInput32;
+extern Model* modelOscCVExpanderOutput32;
+
+// Check if the model is an expander input.
+#define CVOSCCV_IS_EXPANDER_INPUT_MODEL(model)		((model == modelOscCVExpanderInput || model == modelOscCVExpanderInput16 || model == modelOscCVExpanderInput32))
+// Check if the model is an expander output.
+#define CVOSCCV_IS_EXPANDER_OUTPUT_MODEL(model)		((model == modelOscCVExpanderOutput || model == modelOscCVExpanderOutput16 || model == modelOscCVExpanderOutput32))
 
 #include "TSOSCCV_Common.hpp"
 #include "TSColors.hpp"
@@ -27,46 +38,27 @@ extern Model* modelOscCVExpanderOutput;
 #define OSC2CV_LBL_OUT_VALUE		"Received Value: "
 #define OSC2CV_LBL_LIGHT_MSG_RX		"Message Received: "
 
+#define CVOSCCV_EXP_NUM_CHANNELS_PER_COL	TROWA_OSCCV_DEFAULT_NUM_CHANNELS // Number of channels per column (for layout and paging)
+// Master module only has this many rows to show, so more than this needs to go into another column.
 
 
-//=== DEBUG MacOS ====
-//#define USE_MODULE_STATIC_RX					1 // Debug MAC OS issues. Start keeping a static buffer of msg objects for each module.
-//#define OSC_RX_MSG_BUFFER_SIZE				   40 // Debug MAC OS issues. Start keeping a static buffer of msg objects for each module.
-// NOTES:
-// User reported crash on Osc RECV (Poly) on Mac.
-// Tested: Intermittent crashes on Windows, Definite crashes on Mac.
-// Tried:
-// 1. Forgot to implement copy constructor on message. Did that. Fixed intermittent crashes on Windows, but not Mac.
-// 2. Thought it was the still somehow the message going out of scope even though copy is in modules, queue. Changed to pointers (dynamic heap msg).
-//    Still crashed on Mac (though lasted a lot longer before crashing).
-// 3. Noticed lots of memory issues (growing) on Mac. Changed vector<float> to float* and created new float[N]. Memory didn't grow as much but Mac still crashed.
-//    Since normally deleted heap memory isn't released back to OS, this may be too many messages created constantly?
-// 4. Changed to static array float[16]. Mac still crashed.
-// 5. Added mutex for message queue access. Mutex on message queue seemed to fix crash on Mac. But RAM usage still seemed high.
-// 6. RAM USAGE: Added static buffer on the oscCV module. Items will be reused. No checks for 'overwriting' a message that has not been handled yet though.
-//    Just making the queue fairly large.
-// ? Static buffer may help with speed too (not as many new & deletes) and possibly RAM usage.
-// * Runtime Test * (dynamic message vs static buffer messages) - Ran for 1 hourish straight:
-// Dynamic Message Creation vs Static Buffer (Size 30).
-// 1 multiWave, 1 Merge (to make 3 waveforms into a Poly channel), 1 cvOSCcv (sending and receiving Poly (3-value array)).
-// Send & Receive @ 500 Hz.
-// Rack Mac <==> Win talking to each other.
-//- Result -
-// Windows 10: No difference in RAM usage (RAM usage 71-81 MB). 
-// MacOS (Mojave 10.14.6): 320-350 MB dynamic messages (65 minutes) vs 273 - 294 MB static message buffer (60 minutes)
-// Both Win & Mac seem to grow in RAM slowly. Need to find what the hell is leaking. Thought it was the messages, but apparently not because it grows even with a 
-// static buffer of messages.
-// The difference is Windows seems to somehow recover RAM from Rack.exe as the RAM usage will reduce periodically?
-// Does Mac use a crap ton more RAM because it lacks a video card? Is that the Intel HD graphics taking up 150 MB?
-// Or is Mac running everything in sandbox/vm so that is the overhead???
-// >> RAM seems to grow slowly with just multiWave + MERGE module. Maybe it's in multiWave.
+#define OSC2CV_EXP_STORE_HISTORY				0 // Store history or not for expander received messages. Originally we were going to display this, but we never did, so don't keep the data.
+#define OSC2CV_EXP_HANDLE_OUTPUTS_DIRECTLY		1 // If an OSCcv expander (output) should handle the outputs itself. Originally, master was doing everything.
+// TEST: OSCcv handling messages: ~55.5%
+// master = ~9.6%, OSCcv = 7.5%, OSCcv32 = 24%, OSCcv16 = 14.4%
+// TEST: master handling messages: ~55.9% - 59.9%
+// master = 52-56%, OSCcv = 0.8%, OSCcv32 = 1.2%, OSCcv16 = 1.9%
+// So master handling everything is a little more? Basically the same... but maybe slightly better to have slaves handle their own
+// messages since the Delivery thread is giving them messages anyway.
 
-
-
+//===============================================================================
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // Expansion module for a master cvOSCcv module....
 // The only problem with the native Expansion interface is the 1 sample delay when using the messaging interface.
 // Try to work around this (may be a little hokey) by trying to implement some (hopefully) thread-safe manipulation of the Expanders
-// directly from the master module? Or have the Expanders manipulate the cvOSCcv module? Easier for master to manipulate the slaves...
+// directly from the master module.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+//===============================================================================
 struct oscCVExpander : Module 
 {
 	// User control parameters
@@ -91,7 +83,9 @@ struct oscCVExpander : Module
 	};
 	
 	// Number of channels we have
-	int numberChannels = TROWA_OSCCV_DEFAULT_NUM_CHANNELS;	
+	int numberChannels = TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS;
+	// Number of columns/pages for the channels.
+	int numberColumns = 1;
 	// Input CV (from Rack) ==> Needs to be output to OSC
 	TSOSCCVInputChannel* inputChannels = NULL;
 	// Input OSC (from External) ==> Needs to be translated to Rack output port CV
@@ -123,6 +117,10 @@ struct oscCVExpander : Module
 	NVGcolor thisColor = ColorNotConnected;
 	// If this module is being configured.
 	bool beingConfigured = false;
+	// If this module is being configured, the column index being configured.
+	int configureColIx = -1;
+	// If this module is being configured and a certain channel is being configured, the channel index.
+	int configureChannelIx = -1;
 	
 	// The expander type (INPUT/OUTPUT). Maybe we'll have 'both' someday? 
 	TSOSCCVExpanderDirection expanderType = TSOSCCVExpanderDirection::Unknown;
@@ -141,11 +139,19 @@ struct oscCVExpander : Module
 	oscCVExpander(int numChannels, TSOSCCVExpanderDirection direction);	
 	
 	~oscCVExpander();
+
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// initChannels()
 	// Initialize the channels.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	void initChannels(int baseChannel);
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// renumberChannels()
+	// Renumber the channels only (does not reset advanced settings).
+	// Renames the ports too.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+	void renumberChannels();
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// Rename the ports (i.e. after loading from save) after our actual
 	// real channel addresses.
@@ -179,8 +185,16 @@ struct oscCVExpander : Module
 	// 1 away means we are right next to master.
 	// 2 away means there is one expander in between us and the master.
 	// -1 means no master found :-(.
+	// 
+	// Also find the # channels away (now that expanders can have varying # channels).
+	// Next to the master = 8
+	// One away with a 16-channel between = 24
+	//
+	// @n : Current level.
+	// @nChannelsAway : # channels away from the master.
+	// @masterId : (OUT) The master module id.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-			
-	int findMaster(int n, int& masterId);	
+	int findMaster(int n, int& nChannelsAway, int& masterId);	
 	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// findMaster()
@@ -188,8 +202,16 @@ struct oscCVExpander : Module
 	// 1 away means we are right next to master.
 	// 2 away means there is one expander in between us and the master.
 	// -1 means no master found :-(.
+	// 
+	// Also find the # channels away (now that expanders can have varying # channels).
+	// Next to the master = 8
+	// One away with a 16-channel between = 24
+	//
+	// @n : Current level.
+	// @nChannelsAway : # channels away from the master.
+	// @master : (OUT) The master module.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-			
-	int findMaster(int n, Module* &master);		
+	int findMaster(int n, int& nChannelsAway, Module* &master);
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// calcMasterDistance()
 	// Find how many modules (of oscCVExpanders/oscCV) away a master oscCV module is.
@@ -199,7 +221,8 @@ struct oscCVExpander : Module
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-				
 	void calcMasterDistance()
 	{
-		this->lvlFromMaster = findMaster(0, masterModuleId);
+		int baseChannels = 0;
+		this->lvlFromMaster = findMaster(0, baseChannels, masterModuleId);
 	}
 	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -256,31 +279,37 @@ struct oscCVExpander : Module
 #endif		
 };
 
+// Expander Input cvOSC - Default 8 channels.
+template<int N = TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS>
 struct oscCVExpanderInput : oscCVExpander
 {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// oscCVExpander()
+	// oscCVExpanderInput()
 	// Create a module with numChannels.
 	// @numChannels: (IN) Number of input or output 'channels'.
 	// @direction: (IN) The type of expander (INPUT or OUTPUT).
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	oscCVExpanderInput() : oscCVExpander(TROWA_OSCCV_DEFAULT_NUM_CHANNELS, TSOSCCVExpanderDirection::Input)
+	oscCVExpanderInput() : oscCVExpander(N, TSOSCCVExpanderDirection::Input)
 	{
 		return;
 	}
 };
+// Expander Output OSCcv - Default 8 channels.
+template<int N = TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS>
 struct oscCVExpanderOutput : oscCVExpander
 {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// oscCVExpander()
+	// oscCVExpanderOutput()
 	// Create a module with numChannels.
 	// @numChannels: (IN) Number of input or output 'channels'.
 	// @direction: (IN) The type of expander (INPUT or OUTPUT).
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	oscCVExpanderOutput() : oscCVExpander(TROWA_OSCCV_DEFAULT_NUM_CHANNELS, TSOSCCVExpanderDirection::Output)
+	oscCVExpanderOutput() : oscCVExpander(N, TSOSCCVExpanderDirection::Output)
 	{
 		return;
 	}
 };
+
+
 
 #endif // endif !MODULE_OSCCV_EXPANDER_HPP

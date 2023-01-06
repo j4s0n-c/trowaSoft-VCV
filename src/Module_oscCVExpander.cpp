@@ -1,9 +1,7 @@
-
 #include <rack.hpp>
 using namespace rack;
 
 #include <random.hpp>
-
 #include <stdio.h>
 #include "TSOSCCV_Common.hpp"
 #include "Module_oscCVExpander.hpp"
@@ -11,9 +9,15 @@ using namespace rack;
 #include "Widget_oscCVExpander.hpp"
 #include "Widget_oscCV.hpp"
 
-// Model for trowa oscCVExpander Input
-Model* modelOscCVExpanderInput = createModel<oscCVExpanderInput, oscCVExpanderInputWidget>(/*slug*/ "cvOSCcv-InputExpander");
-Model* modelOscCVExpanderOutput = createModel<oscCVExpanderOutput, oscCVExpanderOutputWidget>(/*slug*/ "cvOSCcv-OutputExpander");
+// Models for trowa oscCVExpanders (default 8 channel)
+Model* modelOscCVExpanderInput = createModel<oscCVExpanderInput<TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS>, oscCVExpanderInputWidget<TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS>>(/*slug*/ "cvOSCcv-InputExpander");
+Model* modelOscCVExpanderOutput = createModel<oscCVExpanderOutput<TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS>, oscCVExpanderOutputWidget<TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS>>(/*slug*/ "cvOSCcv-OutputExpander");
+// Models for 16-channel expanders
+Model* modelOscCVExpanderInput16 = createModel<oscCVExpanderInput<16>, oscCVExpanderInputWidget<16>>(/*slug*/ "cvOSCcv-InputExpander-16");
+Model* modelOscCVExpanderOutput16 = createModel<oscCVExpanderOutput<16>, oscCVExpanderOutputWidget<16>>(/*slug*/ "cvOSCcv-OutputExpander-16");
+// Models for 32-channel expanders.
+Model* modelOscCVExpanderInput32 = createModel<oscCVExpanderInput<32>, oscCVExpanderInputWidget<32>>(/*slug*/ "cvOSCcv-InputExpander-32");
+Model* modelOscCVExpanderOutput32 = createModel<oscCVExpanderOutput<32>, oscCVExpanderOutputWidget<32>>(/*slug*/ "cvOSCcv-OutputExpander-32");
 
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -27,6 +31,7 @@ oscCVExpander::oscCVExpander(int numChannels, TSOSCCVExpanderDirection direction
 	int numInputs = 0;
 	int numOutputs = 0;
 	this->numberChannels = numChannels;
+	this->numberColumns = numberChannels / CVOSCCV_EXP_NUM_CHANNELS_PER_COL;
 	if (direction == TSOSCCVExpanderDirection::Input)
 	{
 		numInputs = numChannels * 2;
@@ -57,7 +62,10 @@ oscCVExpander::oscCVExpander(int numChannels, TSOSCCVExpanderDirection direction
 			configInput(InputIds::CH_INPUT_START + inputId + 1, buffer);
 			// Configure the Light Also:
 			sprintf(buffer, "Ch %d Message Sent", i + 1);			
-			configLight(LightIds::CH_LIGHT_START + inputId, buffer);	
+			configLight(LightIds::CH_LIGHT_START + inputId, buffer);
+
+			/// TODO: If we do ever want to chart the value history, turn history tracking on
+			/// inputChannels[i].setStoreHistory(true);
 		}
 	}
 	else
@@ -73,17 +81,18 @@ oscCVExpander::oscCVExpander(int numChannels, TSOSCCVExpanderDirection direction
 			configOutput(OutputIds::CH_OUTPUT_START + inputId + 1, buffer);
 			// Configure the Light Also:			
 			sprintf(buffer, "Ch %d Message Received", i + 1);			
-			configLight(LightIds::CH_LIGHT_START + inputId + 1, buffer);			
+			configLight(LightIds::CH_LIGHT_START + inputId + 1, buffer);
+
+			/// TODO: If we do ever want to chart the value history, turn history tracking on
+			/// outputChannels[i].setStoreHistory(true);
 		}
 	}
 	
 	// Can we see how far away a master is right now?	
-	int lvlFromMaster = findMaster(0, masterModuleId);
-	int baseChannels = TROWA_OSCCV_DEFAULT_NUM_CHANNELS; // Master probably has this many channels.
-	if (lvlFromMaster > 1)
-	{
-		baseChannels += (lvlFromMaster - 1)*this->numberChannels; // Other expanders should have the same # of channels as we do.
-	}
+	int baseChannels = 0;
+	int lvlFromMaster = findMaster(0, baseChannels, masterModuleId);
+	if (lvlFromMaster == -1)
+		baseChannels = TROWA_OSCCV_DEFAULT_NUM_CHANNELS; // Master probably has this many channels.
 	initChannels(baseChannels);
 	
 	_expID = (direction == TSOSCCVExpanderDirection::Input) ? "I" : "O";
@@ -128,45 +137,67 @@ oscCVExpander::~oscCVExpander()
 // Set channels to default values.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void oscCVExpander::initChannels(int baseChannel) {
-	//char buffer[50];	
 	for (int i = 0; i < numberChannels; i++)
 	{
-		//int portId = i * 2;
 		if (this->expanderType == TSOSCCVExpanderDirection::Input) {
 			inputChannels[i].channelNum = i + 1 + baseChannel;
 			inputChannels[i].path = "/ch/" + std::to_string(i + 1 + baseChannel);
 			inputChannels[i].initialize();
-			
-			// // [Rack v2] Add labels for inputs and outputs			
-			// inputInfos[oscCVExpander::InputIds::CH_INPUT_START + portId]->PortInfo::name = "Trigger Send: " + inputChannels[i].path;
-			// inputInfos[oscCVExpander::InputIds::CH_INPUT_START + portId + 1]->PortInfo::name = "Value: " + inputChannels[i].path;
 		}
 		else {
 			outputChannels[i].channelNum = i + 1 + baseChannel;
 			outputChannels[i].path = "/ch/" + std::to_string(i + 1 + baseChannel);
 			outputChannels[i].initialize();
-			// [Rack v2] Add labels for inputs and outputs
-			// outputInfos[oscCVExpander::OutputIds::CH_OUTPUT_START + portId]->PortInfo::name = "Received Trigger: " + outputChannels[i].path;
-			// outputInfos[oscCVExpander::OutputIds::CH_OUTPUT_START + portId + 1]->PortInfo::name = "Value Received: " + outputChannels[i].path;			
 		}
 	}
 	// [Rack v2] Add labels for inputs and outputs
 	renamePorts();
 	return;
 }
+
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// renumberChannels()
+// Renumber the channels only (does not reset advanced settings).
+// Renames the ports too.
+//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
+void oscCVExpander::renumberChannels()
+{
+	int baseChannel = 0;
+	this->lvlFromMaster = findMaster(0, baseChannel, masterModuleId);
+	if (lvlFromMaster == -1)
+		baseChannel = TROWA_OSCCV_DEFAULT_NUM_CHANNELS; // Master probably has this many channels.
+
+	oscMutex.lock();
+	for (int i = 0; i < numberChannels; i++)
+	{
+		if (this->expanderType == TSOSCCVExpanderDirection::Input) {
+			inputChannels[i].channelNum = i + 1 + baseChannel;
+			inputChannels[i].path = "/ch/" + std::to_string(i + 1 + baseChannel);
+		}
+		else {
+			outputChannels[i].channelNum = i + 1 + baseChannel;
+			outputChannels[i].path = "/ch/" + std::to_string(i + 1 + baseChannel);
+		}
+	}
+	oscMutex.unlock();
+
+	// The tool tips for ports aren't used in OSC so we don't have to lock anything for this
+	// [Rack v2] Add labels for inputs and outputs
+	renamePorts();
+	return;
+}
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // reset(void)
 // Initialize values.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void oscCVExpander::onReset() {
 	// Reset our values
+	int baseChannels = 0;
+	this->lvlFromMaster = findMaster(0, baseChannels, masterModuleId);
+	if (lvlFromMaster == -1)
+		baseChannels = TROWA_OSCCV_DEFAULT_NUM_CHANNELS; // Master probably has this many channels.
 	oscMutex.lock();
-	this->lvlFromMaster = findMaster(0, masterModuleId);
-	int baseChannels = TROWA_OSCCV_DEFAULT_NUM_CHANNELS; // Master probably has this many channels.
-	if (this->lvlFromMaster  > 0)
-	{
-		baseChannels += (this->lvlFromMaster  - 1)*this->numberChannels; // Other expanders should have the same # of channels as we do.
-	}
 	initChannels(baseChannels);
 	oscMutex.unlock();
 	return;
@@ -177,8 +208,11 @@ void oscCVExpander::onReset() {
 // 1 away means we are right next to master.
 // 2 away means there is one expander in between us and the master.
 // -1 means no master found :-(.
+// Also find the # channels away (now that expanders can have varying # channels).
+// Next to the master = 8
+// One away with a 16-channel between = 24
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
-int oscCVExpander::findMaster(int n, int& masterId)
+int oscCVExpander::findMaster(int n, int& nChannelsAway, int& masterId)
 {
 	try
 	{
@@ -190,11 +224,14 @@ int oscCVExpander::findMaster(int n, int& masterId)
 				if (rightExpander.module->model == modelOscCV)
 				{
 					masterId = dynamic_cast<oscCV*>(rightExpander.module)->oscId;
+					nChannelsAway += TROWA_OSCCV_DEFAULT_NUM_CHANNELS; // 8
 					return n + 1; // Master found					
 				}
-				else if (rightExpander.module->model == modelOscCVExpanderInput && dynamic_cast<oscCVExpander*>(rightExpander.module)->expanderType == this->expanderType)
+				else if ( (CVOSCCV_IS_EXPANDER_INPUT_MODEL(rightExpander.module->model)) // == modelOscCVExpanderInput
+					&& dynamic_cast<oscCVExpander*>(rightExpander.module)->expanderType == this->expanderType)
 				{
-					return dynamic_cast<oscCVExpander*>(rightExpander.module)->findMaster(n + 1, masterId);				
+					nChannelsAway += dynamic_cast<oscCVExpander*>(rightExpander.module)->numberChannels;
+					return dynamic_cast<oscCVExpander*>(rightExpander.module)->findMaster(n + 1, nChannelsAway, masterId);				
 				}
 			}
 		}
@@ -206,11 +243,14 @@ int oscCVExpander::findMaster(int n, int& masterId)
 				if (leftExpander.module->model == modelOscCV)
 				{
 					masterId = dynamic_cast<oscCV*>(leftExpander.module)->oscId;
+					nChannelsAway += TROWA_OSCCV_DEFAULT_NUM_CHANNELS; // 8
 					return n + 1; // Master found					
 				}
-				else if (leftExpander.module->model == modelOscCVExpanderOutput && dynamic_cast<oscCVExpander*>(leftExpander.module)->expanderType == this->expanderType)
+				else if (  (CVOSCCV_IS_EXPANDER_OUTPUT_MODEL(leftExpander.module->model)) // == modelOscCVExpanderOutput
+					&& dynamic_cast<oscCVExpander*>(leftExpander.module)->expanderType == this->expanderType)
 				{
-					return dynamic_cast<oscCVExpander*>(leftExpander.module)->findMaster(n + 1, masterId);				
+					nChannelsAway += dynamic_cast<oscCVExpander*>(leftExpander.module)->numberChannels;
+					return dynamic_cast<oscCVExpander*>(leftExpander.module)->findMaster(n + 1, nChannelsAway, masterId);				
 				}
 			}	
 		}		
@@ -228,7 +268,7 @@ int oscCVExpander::findMaster(int n, int& masterId)
 // 2 away means there is one expander in between us and the master.
 // -1 means no master found :-(.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
-int oscCVExpander::findMaster(int n, Module* &master)
+int oscCVExpander::findMaster(int n, int& nChannelsAway, Module* &master)
 {
 	try
 	{
@@ -240,11 +280,14 @@ int oscCVExpander::findMaster(int n, Module* &master)
 				if (rightExpander.module->model == modelOscCV)
 				{
 					master = dynamic_cast<oscCV*>(rightExpander.module);
+					nChannelsAway += TROWA_OSCCV_DEFAULT_NUM_CHANNELS; // 8
 					return n + 1; // Master found					
 				}
-				else if (rightExpander.module->model == modelOscCVExpanderInput && dynamic_cast<oscCVExpander*>(rightExpander.module)->expanderType == this->expanderType)
+				else if (CVOSCCV_IS_EXPANDER_INPUT_MODEL(rightExpander.module->model)
+					&& dynamic_cast<oscCVExpander*>(rightExpander.module)->expanderType == this->expanderType)
 				{
-					return dynamic_cast<oscCVExpander*>(rightExpander.module)->findMaster(n + 1, master);				
+					nChannelsAway += dynamic_cast<oscCVExpander*>(rightExpander.module)->numberChannels;
+					return dynamic_cast<oscCVExpander*>(rightExpander.module)->findMaster(n + 1, nChannelsAway, master);				
 				}
 			}
 		}
@@ -256,11 +299,14 @@ int oscCVExpander::findMaster(int n, Module* &master)
 				if (leftExpander.module->model == modelOscCV)
 				{
 					master = dynamic_cast<oscCV*>(leftExpander.module);
+					nChannelsAway += TROWA_OSCCV_DEFAULT_NUM_CHANNELS; // 8
 					return n + 1; // Master found					
 				}
-				else if (leftExpander.module->model == modelOscCVExpanderOutput && dynamic_cast<oscCVExpander*>(leftExpander.module)->expanderType == this->expanderType)
+				else if (CVOSCCV_IS_EXPANDER_OUTPUT_MODEL(leftExpander.module->model)
+					&& dynamic_cast<oscCVExpander*>(leftExpander.module)->expanderType == this->expanderType)
 				{
-					return dynamic_cast<oscCVExpander*>(leftExpander.module)->findMaster(n + 1, master);				
+					nChannelsAway += dynamic_cast<oscCVExpander*>(leftExpander.module)->numberChannels;
+					return dynamic_cast<oscCVExpander*>(leftExpander.module)->findMaster(n + 1, nChannelsAway, master);				
 				}
 			}	
 		}		
@@ -279,7 +325,8 @@ void oscCVExpander::process(const ProcessArgs &args)
 {
 	oscCV* master = NULL;
 	Module* mod = NULL;
-	lvlFromMaster = findMaster(0, mod);
+	int baseChannels = 0;
+	lvlFromMaster = findMaster(0, baseChannels, mod);
 	if (mod)
 	{
 		master = dynamic_cast<oscCV*>(mod);
@@ -303,15 +350,26 @@ void oscCVExpander::process(const ProcessArgs &args)
 			// Check if our right neighbor is of same type as us (output)
 			lights[LightIds::RIGHT_CONNECTED_LIGHT].value = (rightExpander.module && rightExpander.module->model == modelOscCVExpanderOutput);
 			ix = lvlFromMaster;
+#if OSC2CV_EXP_HANDLE_OUTPUTS_DIRECTLY
+			// Now I handle my own outputs instead of making the master do it.
+			this->processOutputs(args.sampleTime);
+#endif
 		}
 		thisColor = oscCVWidget::calcColor(ix);
 		try
 		{
 			// Check if we are currently being configured by the master module.
 			beingConfigured = master->expCurrentEditExpander == this;
+			if (beingConfigured)
+			{
+				this->configureColIx = master->expCurrentEditPageCol;
+				/// TODO: Add tracking of the channel being configured if any.
+			}
 		}
 		catch (std::exception &e)
 		{
+			beingConfigured = false;
+			this->configureColIx = 0;
 			WARN("Error searching for master module.\n%s", e.what());
 		}
 	}
@@ -527,16 +585,15 @@ void oscCVExpander::processOutputs(float sampleTime)
 		{
 			// Output the value first
 			// We should limit this value (-10V to +10V). Rack says nothing should be higher than +/- 12V.
-			// float outVal = outputChannels[c].getValOSC2CV();
-			// outputs[OutputIds::CH_OUTPUT_START + c * 2 + 1].setVoltage(clamp(outVal, TROWA_OSCCV_MIN_VOLTAGE, TROWA_OSCCV_MAX_VOLTAGE));
-			// outputChannels[c].addValToBuffer(outVal);
 			// Polyphonic output :::::::::::::::::::::::
 			outputs[OutputIds::CH_OUTPUT_START + c * 2 + 1].setChannels(outputChannels[c].numVals);
 			for (int j = 0; j < outputChannels[c].numVals; j++)
 			{
 				outputs[OutputIds::CH_OUTPUT_START + c * 2 + 1].setVoltage(/*v*/clamp(outputChannels[c].translatedVals[j], TROWA_OSCCV_MIN_VOLTAGE, TROWA_OSCCV_MAX_VOLTAGE), /*channel*/ j);				
 			}
-			outputChannels[c].addValToBuffer(outputChannels[c].translatedVals[0]);			
+#if OSC2CV_EXP_STORE_HISTORY
+			outputChannels[c].addValToBuffer(outputChannels[c].translatedVals[0]);
+#endif
 			// Then trigger if needed.
 			bool trigger = pulseGens[c].process(dt);
 			outputs[OutputIds::CH_OUTPUT_START + c * 2].setVoltage((trigger) ? TROWA_OSCCV_TRIGGER_ON_V : TROWA_OSCCV_TRIGGER_OFF_V);

@@ -9,8 +9,6 @@
 #include <rack.hpp>
 using namespace rack;
 
-/// TODO: [Rack VST] Subsequent loads of VST Window the fonts disappear even though we are loading them before using them in draw... ????
-
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // oscCVExpanderWidget
 // Open Sound Control <==> Control Voltage EXPANDER Widget
@@ -18,6 +16,10 @@ using namespace rack;
 struct oscCVExpanderWidget : TSSModuleWidgetBase {
 	// Number of channels. Should be in the module instance, but since we are no longer guaranteed a non-NULL reference, we will store the # channels here.
 	int numberChannels = TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS;
+	// The number of columns for our channels.
+	int numberColumns = 1;
+	// The number of channels per column.
+	const int channelsPerColumn = CVOSCCV_EXP_NUM_CHANNELS_PER_COL;
 	// If we should color the channels.
 	bool colorizeChannels = true;
 	// Plug lights
@@ -36,19 +38,30 @@ struct oscCVExpanderWidget : TSSModuleWidgetBase {
 	bool lastConfigStatus = false;
 	// Alpha channel 
 	float lastConfigA = 0.0f;	
+	// Direction for increasing or decreasing alpha.
 	bool dir = false;
-	
+	// The column being configured.
+	int configColumnIx = 0;
+	// Starting position of the first column.
+	Vec colStartPos;
+	// Row height (for each channel).
+	float rowDy = 0.0f; 
+
 	ColorValueLight* lightMasterConnected = NULL;
 	ColorValueLight* lightRightConnected = NULL;
 	ColorValueLight* lightLeftConnected = NULL;
+
+	// Cache widgets that don't change or don't change that often.
+	FramebufferWidget* fbw = NULL;
 	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// oscCVExpanderWidget()
 	// Instantiate a oscCVExpander widget. 
 	// @oscExpanderModule : (IN) Pointer to the osc module.
 	// @expanderDirection : (IN) What direction (IN/OUT).
+	// @numChannels: (IN) Specify the number of channels. Essential for previews where the module is NULL.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSCCVExpanderDirection expanderDirection);
+	oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSCCVExpanderDirection expanderDirection, int numChannels = TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS);
 	~oscCVExpanderWidget()
 	{
 		return;
@@ -62,7 +75,9 @@ struct oscCVExpanderWidget : TSSModuleWidgetBase {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // oscCVExpanderInputWidget
 // CV -> OSC
+// Default 8 channels.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+template<int N = TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS>
 struct oscCVExpanderInputWidget : oscCVExpanderWidget {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// oscCVExpanderInputWidget()
@@ -70,7 +85,7 @@ struct oscCVExpanderInputWidget : oscCVExpanderWidget {
 	// @oscExpanderModule : (IN) Pointer to the osc module.
 	// @expanderDirection : (IN) What direction (IN/OUT).
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	oscCVExpanderInputWidget(oscCVExpander* oscExpanderModule) : oscCVExpanderWidget(oscExpanderModule, TSOSCCVExpanderDirection::Input)
+	oscCVExpanderInputWidget(oscCVExpander* oscExpanderModule) : oscCVExpanderWidget(oscExpanderModule, TSOSCCVExpanderDirection::Input, N)
 	{
 		return;
 	}
@@ -78,7 +93,9 @@ struct oscCVExpanderInputWidget : oscCVExpanderWidget {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // oscCVExpanderOutputWidget
 // OSC -> CV
+// Default 8 channels.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+template<int N = TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS>
 struct oscCVExpanderOutputWidget : oscCVExpanderWidget {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// oscCVExpanderOutputWidget()
@@ -86,7 +103,7 @@ struct oscCVExpanderOutputWidget : oscCVExpanderWidget {
 	// @oscExpanderModule : (IN) Pointer to the osc module.
 	// @expanderDirection : (IN) What direction (IN/OUT).
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	oscCVExpanderOutputWidget(oscCVExpander* oscExpanderModule) : oscCVExpanderWidget(oscExpanderModule, TSOSCCVExpanderDirection::Output)
+	oscCVExpanderOutputWidget(oscCVExpander* oscExpanderModule) : oscCVExpanderWidget(oscExpanderModule, TSOSCCVExpanderDirection::Output, N)
 	{
 		return;
 	}
@@ -121,7 +138,7 @@ struct TSOscCVExpanderTopDisplay : TransparentWidget {
 	bool showDisplay = true;
 	std::string displayName;
 	std::string directionName;
-	char scrollingMsg[100];
+	char scrollingMsg[200];
 	int scrollIx = 0;
 	float dt = 0.0f;
 	float scrollTime_sec = 0.05f;
@@ -181,6 +198,7 @@ struct TSOscCVExpanderLabels : TransparentWidget {
 	int fontSize;
 	std::string fontPath; // Rack v2 store font path
 	TSOSCCVExpanderDirection expanderType;
+	int numberColumns = 1;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// TSOscCVExpanderLabels(void)
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -201,7 +219,8 @@ struct TSOscCVExpanderLabels : TransparentWidget {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
 	// @args.vg : (IN) NVGcontext to draw on
-	// Draw labels on our widget.
+	// Draw labels on our widget. 
+	// Also now draw divider lines for multi-column expanders.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void draw(/*in*/ const DrawArgs &args) override;
 }; // end TSOscCVLabels

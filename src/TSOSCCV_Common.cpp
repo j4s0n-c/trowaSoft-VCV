@@ -11,6 +11,8 @@ const int TROWA_OSCCV_Send_Freq_Opts_Hz[TROWA_OSCCV_NUM_SEND_HZ_OPTS] = { 100, 1
 //--------------------------------------------------------
 void TSOSCCVChannel::addValToBuffer(float buffVal)
 {
+	if (!storeHistory)
+		return;
 	float deltaTime = powf(2.0, -12.0);
 	int frameCount = (int)ceilf(deltaTime * APP->engine->getSampleRate());
 	// Add frame to buffer
