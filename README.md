@@ -149,7 +149,7 @@ These are basic boolean on/off pad step sequencers (0V or 10V), based off the [F
     + The white preview in the center of the screen shows the shape *after* it is moved by "*Rotation*" and/or "*Offset*" parameters.
 
 ### multiWave & multiWaveMini
-![multiWave](https://github.com/j4s0n-c/trowaSoft-VCV/blob/v2/screenshots/multiWave.png?raw=true "multiWave digitial oscillator") ![multiWaveMini](https://github.com/j4s0n-c/trowaSoft-VCV/blob/v2/screenshots/multiWaveMini.png?raw=true "multiWaveMini oscillator")
+![multiWave](https://github.com/j4s0n-c/trowaSoft-VCV/blob/v2/screenshots/multiWave.png?raw=true "multiWave digitial oscillator") ![multiWaveMini](https://github.com/j4s0n-c/trowaSoft-VCV/blob/v2/screenshots/multiWave_mini.png?raw=true "multiWaveMini oscillator")
 
 **multiWave** is a digital oscillator module with three (3) oscillators/clocks, each with two (2) configurable wave channel outputs. 
 This module has been made to complement [multiScope](#multiscope) and is new in v0.6.3.
