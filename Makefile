@@ -31,8 +31,7 @@ DISTRIBUTABLES += $(wildcard LICENSE*) \
  $(wildcard res/*.svg) \
  $(wildcard res/*/*.svg) \
  res/Fonts \
- pd other \
- README.md CHANGELOG.md
+ pd other 
 # ^ add our other folders (supplementary files) -- add the readme and changelog
 
 include $(RACK_DIR)/plugin.mk

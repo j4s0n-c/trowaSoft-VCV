@@ -87,7 +87,7 @@ These are basic boolean on/off pad step sequencers (0V or 10V), based off the [F
 ### multiSeq
 ![multiSeq](https://github.com/j4s0n-c/trowaSoft-VCV/blob/v2/screenshots/multiSeq.png?raw=true "multiSeq trigger and variable voltage sequencer")
 
-**multiSeq** is a combination of trigSeq and voltSeq. It supports triggers or variable voltages. This module is new as of v2.0.4.
+**multiSeq** is a combination of trigSeq and voltSeq. It supports triggers or variable voltages. This module is new in v2.0.4.
 
 + **multiSeq** is 64-step.
 + 64 patterns.
@@ -192,8 +192,6 @@ Starting in Rack v1, the ability to see and set parameter (i.e knob) values dire
 ![multiScope](https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/multiScope.png?raw=true "multiScope")
 
 **multiScope** is a visual effects scope, with lissajous mode, that allows three (3) waveforms to be drawn on the same screen/canvas. (code based on [JW Modules FullScope](https://github.com/jeremywen) and [Fundamental Scope](https://github.com/VCVRack/Fundamental))
-
-**v1.0**: Windows, Linux, and **Mac** all have the latest scope now.  For previous versions (<1.0), the Mac version was stuck on the original scope due to crashes and no time for debugging.
 
 + **CV Inputs per Channel**:
     + **X** - X-value (horizontal component).
