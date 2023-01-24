@@ -189,7 +189,7 @@ Starting in Rack v1, the ability to see and set parameter (i.e knob) values dire
         + **MOD** - The modulated waveform (based on the MOD knob and the incoming MOD signal input).
 
 ### multiScope
-![multiScope](https://github.com/j4s0n-c/trowaSoft-VCV/blob/master/screenshots/multiScope.png?raw=true "multiScope")
+![multiScope](https://github.com/j4s0n-c/trowaSoft-VCV/blob/v2/screenshots/multiScope.png?raw=true "multiScope")
 
 **multiScope** is a visual effects scope, with lissajous mode, that allows three (3) waveforms to be drawn on the same screen/canvas. (code based on [JW Modules FullScope](https://github.com/jeremywen) and [Fundamental Scope](https://github.com/VCVRack/Fundamental))
 
