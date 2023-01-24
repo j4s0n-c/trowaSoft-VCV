@@ -132,7 +132,7 @@ These are basic boolean on/off pad step sequencers (0V or 10V), based off the [F
         + **Rotation** - **[+]** (-10V to +10V) Rotation. 1 V per full rotation (360º). If **SPIN** is on, this is the rate of rotation (º/s), else this is the absolute rotation (º).
         + **X<sub>c</sub>** - **[-OR-]** (-10V to +10V) Center of rotation (x). Default is 0 V.
         + **Y<sub>c</sub>** - **[-OR-]** (-10V to +10V) Center of rotation (y). Default is 0 V.
-        + **SPIN** - **[Control Only]** Turn on if the rotation is absolute rotation. False if relative (rotation is speed).
+        + **SPIN** - **[Control Only]** Turn on if the rotation is relative (rotation is speed). Turn off if absolute rotation.
     + *Offset* - Final offset applied after all other transformations.
         + **X-Offset** - **[-OR-]** (-10V to +10V) Offset in the x direction. Default is 0 V.
         + **Y-Offset** - **[-OR-]** (-10V to +10V) Offset in the y direction. Default is 0 V.
