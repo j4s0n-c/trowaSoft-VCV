@@ -35,12 +35,16 @@ struct multiOscillatorWidget : TSSModuleWidgetBase {
 	TS_Oscillator* oscillators;
 	// The channel widgets for each output oscillator channel.
 	std::vector<TSOscillatorChannelWidget*> channelWidgets;
+	// If this widget has a screen. j4s0n wants a mini version without screen and ever since Rack added being able to type in parameter
+	// values directly, it's not as important to have a display to show the values and to allow users to enter values.
+	bool hasScreen = true;
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// multiOscillatorWidget()
 	// @thisModule : (IN) Pointer to the multiOscillator module.
+	// @addScreen : (IN)(Opt'l) Add the screen (like original) or not. Default is true.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	multiOscillatorWidget(multiOscillator* thisModule);
+	multiOscillatorWidget(multiOscillator* thisModule, bool addScreen = true);
 
 	~multiOscillatorWidget();
 	// Step
@@ -60,27 +64,34 @@ struct multiOscillatorWidget : TSSModuleWidgetBase {
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void deserialize(json_t* rootJ);
 
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// savePreset()
-	// @presetName : (IN) The name to use for the preset.
-	// Save the current state as a preset with the given name (will clobber/overwrite
-	// if an existing preset exists by the same name).
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void savePreset(std::string presetName);
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// loadPreset()
-	// @presetName : (IN) The preset to load.
-	// Load the preset with the given name.
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void loadPreset(std::string presetName);
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// getPresets()
-	// Get the presets names.
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	void getPresets();
+	////-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	//// savePreset()
+	//// @presetName : (IN) The name to use for the preset.
+	//// Save the current state as a preset with the given name (will clobber/overwrite
+	//// if an existing preset exists by the same name).
+	////-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	//void savePreset(std::string presetName);
+	////-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	//// loadPreset()
+	//// @presetName : (IN) The preset to load.
+	//// Load the preset with the given name.
+	////-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	//void loadPreset(std::string presetName);
+	////-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	//// getPresets()
+	//// Get the presets names.
+	////-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	//void getPresets();
 };
 
-
+// Mini with no screen.
+struct multiOscillatorMiniWidget : multiOscillatorWidget
+{
+	multiOscillatorMiniWidget(multiOscillator* thisModule) : multiOscillatorWidget(thisModule, false)
+	{
+		return;
+	}
+};
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // Display for the oscillator widget.
@@ -209,14 +220,17 @@ struct TSSingleOscillatorWidget : Widget
 
 	// Parameter text boxes (even child text bo
 	std::vector<TSParamTextField*> tbAllParamValues;
+	// If this should have a screen or not.
+	bool hasScreen = true;
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// TSSingleOscillatorWidget()
 	// @parentWidget: (IN) Parent MODULE widget.
 	// @osc : (IN) Pointer to the oscillator this widget represents.
 	// @num : (IN) The oscillator number.
+	// @addScreen : (IN)(Opt'l) If this should have a screen or not (default is true like original module).
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	TSSingleOscillatorWidget(multiOscillatorWidget* parentWidget, TS_Oscillator* osc, int num);
+	TSSingleOscillatorWidget(multiOscillatorWidget* parentWidget, TS_Oscillator* osc, int num, bool addScreen = true);
 
 	~TSSingleOscillatorWidget()
 	{
@@ -243,8 +257,6 @@ struct TSOscillatorChannelDisplayWidget : TransparentWidget
 	// Parent module widget
 	//multiOscillatorWidget* parentModuleWidget;
 	TSOscillatorChannelWidget* parentWidget;
-	//std::shared_ptr<Font> font;       // Rack v2 Conversion - Don't even store this font ptr
-	//std::shared_ptr<Font> labelFont;   // Rack v2 Conversion - Don't even store this font ptr
 	std::string fontPath; // Rack v2 store font path
 	std::string labelFontPath; // Rack v2 store font path
 	bool showBackground = false;
@@ -278,6 +290,8 @@ struct TSOscillatorChannelDisplayWidget : TransparentWidget
 			textBoxes[i] = NULL;
 		}
 	}
+
+
 	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// draw()
@@ -330,6 +344,9 @@ struct TSOscillatorChannelWidget : Widget// VirtualWidget
 	// Text boxes for oscillator parameters.
 	// Each output signal has AM Mix, Phase Shift, Aux.
 	std::vector<TSParamTextField*> tbParamValues;
+	// If this has a screen.
+	bool hasScreen = true;
+
 	TSOscillatorChannelWidget(multiOscillatorWidget* parentModuleWidget, TSSingleOscillatorWidget* parentOscWidget, Vec location, int chNumber, NVGcolor chColor, int bInputId, int bParamId, int bOutputId, int bLightId, TS_OscillatorOutput* oscOutput);
 
 	~TSOscillatorChannelWidget()
@@ -342,8 +359,11 @@ struct TSOscillatorChannelWidget : Widget// VirtualWidget
 
 	void step() override
 	{
-		// AUX:
-		tbParamValues[0]->canTabToThisEnabled = (oscillatorOutput->waveFormType == WaveFormType::WAVEFORM_SQR);
+		if (hasScreen)
+		{
+			// AUX:
+			tbParamValues[0]->canTabToThisEnabled = (oscillatorOutput->waveFormType == WaveFormType::WAVEFORM_SQR);
+		}
 		//VirtualWidget::step();
 		Widget::step();
 		return;

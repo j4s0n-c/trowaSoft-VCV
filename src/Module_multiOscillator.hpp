@@ -7,13 +7,15 @@
 #include <rack.hpp>
 using namespace rack;
 #include "trowaSoft.hpp"
-//#include "dsp/digital.hpp"
+#include "TSModuleBase.hpp"
 
 #define DEBUG_MOSC 0
 
 
 // Model for trowa multiOscillator
 extern Model* modelMultiOscillator;
+// Model for trowa multiOscillatorMini
+extern Model* modelMultiOscillatorMini;
 
 #define TROWA_MOSC_DEFAULT_NUM_OSCILLATORS		  3 // Default # of oscillators.
 #define TROWA_MOSC_DEFAULT_NUM_OSC_OUTPUTS		  2 // For a given frequency, how many output signals
@@ -54,6 +56,7 @@ extern Model* modelMultiOscillator;
 #define TROWA_MOSC_F_KNOB_MAX_V			   MOSC_FREQ_MAX_HZ // Frequency
 #define TROWA_MOSC_FREQ_KNOB_NEEDS_CONVERSION		0 // If Knob value is same as the frequency values, then we don't need to convert.
 
+#define	TROWA_MOSC_SYNC_BETWEEN_OSC		1 // To allow syncing between the oscillators clocks directly on the module
 
 // Wave form type (SINE, SQUARE, TRIANGLE, SAW).
 enum WaveFormType {
@@ -250,6 +253,8 @@ struct TS_Oscillator {
 		OSCWF_OFFSET_PARAM,
 		// Sync/Restart waveform.
 		OSCWF_SYNC_PARAM,
+		// Sync to the osillator above (0 = No, 1 = Yes).
+		OSCWF_SYNC_TO_INDEX_PARAM,
 		// Number of params for an oscillator.
 		OSCWF_NUM_PARAMS
 	};
@@ -280,6 +285,7 @@ struct TS_Oscillator {
 	// Base light ids for the oscillator. 
 	enum BaseLightIds{
 		OSCWF_SYNC_LED,
+		OSCWF_SYNC_TO_INDEX_LIGHT,
 		OSCWF_NUM_LIGHTS
 	};
 
@@ -319,8 +325,9 @@ struct TS_Oscillator {
 	dsp::SchmittTrigger synchTrigger;
 	// Sync out
 	dsp::PulseGenerator synchPulse;
-	//// If this oscillator should sync with another, the source oscillator index.
-	//int syncSrcOscillatorIx = -1;
+
+	// If this oscillator should sync with another, the source oscillator index.
+	int syncSrcOscillatorIx = -1;
 	//// If this step, the oscillator is restarted either by sync input or by reaching the end.
 	//bool oscillatorRestart = false;
 
@@ -360,12 +367,20 @@ struct TS_Oscillator {
 	//--------------------------------------------------------
 	void deserialize(json_t* rootJ);
 	//--------------------------------------------------------
-	// calculatePhase()
+	// applyPhaseAdjustment()
 	// @dt : (IN) Time elapsed.
 	// @doSync : (IN) If sync / reset requested.
 	// @returns: True if shifted phase has reset (gone over 1)
 	//--------------------------------------------------------
-	bool calculatePhase(float dt, bool doSync);
+	bool applyPhaseAdjustment(float dt, bool doSync);
+	//--------------------------------------------------------
+	// calculateNewCycle() - Does not apply the changes.
+	// @dt : (IN) Time elapsed.
+	// @doSync : (IN) If sync / reset requested.
+	// @returns: True if shifted phase has reset (gone over 1).
+	//--------------------------------------------------------
+	bool calculateNewCycle(float dt, bool doSync);
+
 	//--------------------------------------------------------
 	// setPhaseShift_deg()
 	// @deg : (IN) The phase shift in degrees.
@@ -391,7 +406,7 @@ struct TS_Oscillator {
 // Simple digital oscillator for drawing.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 //===============================================================================
-struct multiOscillator : Module {
+struct multiOscillator : TSModuleBase {
 	// User control parameters
 	enum ParamIds {
 		SYNC_PARAM,
@@ -418,12 +433,18 @@ struct multiOscillator : Module {
 	int numberOscillators = TROWA_MOSC_DEFAULT_NUM_OSCILLATORS;
 	// Collection of oscillators.
 	TS_Oscillator* oscillators = NULL;
+#if TROWA_MOSC_SYNC_BETWEEN_OSC
+	// Track resets
+	bool* oscSync; // This oscillator got signal to sync
+	bool* oscReset; // This oscillator will/has reset this step [started new cycle]
+#endif
 
 	// The number of output signals from the oscillator.
 	int numOscillatorOutputs = TROWA_MOSC_DEFAULT_NUM_OSC_OUTPUTS;
 
 	// 3 letter wave form abbreviations.
 	static const char* WaveFormAbbr[WaveFormType::NUM_WAVEFORMS];// = { "SIN", "TRI", "SAW", "SQR" };
+	static const char* AuxRampAbbr[2];
 
 	// If this has it controls configured.
 	bool isInitialized = false;
@@ -450,14 +471,6 @@ struct multiOscillator : Module {
 	static float KnobVoltage2Frequency(float knobVal);
 	static float KnobVoltage2PhaseShift(float knobVal);
 	static float PhaseShift2KnobVoltage(float phi_deg);
-	
-
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	// findSyncedOscillators(void)
-	// Try to find if osccilator A should be synced to oscillator B.
-	// @returns: Number of oscillators that have sync.
-	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-	int findSyncedOscillators();
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// initializeOscillators(void)

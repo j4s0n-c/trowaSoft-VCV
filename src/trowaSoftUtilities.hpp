@@ -53,6 +53,17 @@ using namespace rack;
 #define TROWA_MONOSPACE_FONT	"res/Fonts/larabieb.ttf"
 #define TROWA_MATH_FONT			"res/Fonts/Math Symbols Normal.ttf"
 
+
+// The draw layer (for drawLayer() in v2)
+enum DrawLayer {
+	ModuleWidgetShadowLayer = -1,
+	DeprecatedDrawLayer = 0,
+	LightLayer = 1,
+	PlugsCablesLayer = 2,
+	CableOutlineLayer = 3,
+	CustomerLayerStart = 1000
+};
+
 // Signals (Replace dsp::SchmittTrigger::HIGH, LOW).
 enum TriggerSignal
 {
@@ -75,10 +86,17 @@ inline float PatternToVolts(int patternIx)
 	return rescale(static_cast<float>(patternIx + 1),  1.0f, (float)(TROWA_SEQ_NUM_PATTERNS), (float)(TROWA_SEQ_PATTERN_MIN_V), (float)(TROWA_SEQ_PATTERN_MAX_V));
 }
 // Voltage [-5 to 5] to Octave -1 to 9
-inline int VoltsToOctave(float v)
+inline int VoltsToOctaveOld(float v)
 {
 	return (int)floorf(v + TROWA_SEQ_ZERO_OCTAVE);
 }
+inline int VoltsToOctave(float v)
+{
+	const float adj = 0.05f / TROWA_SEQ_NUM_NOTES;
+	// Sometimes the rounding error makes this wrong add some extra
+	return (int)floorf(v + TROWA_SEQ_ZERO_OCTAVE + adj);
+}
+
 // Octave -1 to 9 to Volts [-5 to 5]
 inline float OctaveToVolts(int octave)
 {
@@ -136,11 +154,13 @@ std::vector<std::string> str_split(const std::string& s, char delimiter);
 
 // Left trim (in place)
 static inline void ltrim(std::string &s) {
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
+    //s.erase(s.begin(), std::find_if(s.begin(), s.end(), std::not1(std::ptr_fun<int, int>(std::isspace))));
+	s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int c) {return !std::isspace(c); }));
 }
 // Right trim (in place)
 static inline void rtrim(std::string &s) {
-    s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+    //s.erase(std::find_if(s.rbegin(), s.rend(), std::not1(std::ptr_fun<int, int>(std::isspace))).base(), s.end());
+	s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) { return !std::isspace(ch);}).base(), s.end());
 }
 // Trim in place.
 static inline void trim(std::string &s) {
@@ -303,6 +323,14 @@ struct ValueSequencerMode
 		}
 		return;
 	}
+
+	virtual std::string GetDisplayString(float outVoltage)
+	{
+		char buffer[50];
+		GetDisplayString(outVoltage, buffer);
+		return std::string(buffer);
+	}
+
 	// Given the display string, return the output knob voltage.
 	virtual float GetKnobValueFromString(std::string displayStr)
 	{

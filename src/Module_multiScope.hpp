@@ -22,7 +22,7 @@
 #define TROWA_SCOPE_NUM_WAVEFORMS	3
 
 // Laying out controls
-#define TROWA_SCOPE_CONTROL_START_X			47  // 47
+#define TROWA_SCOPE_CONTROL_START_X			52  // 47
 #define TROWA_SCOPE_CONTROL_START_Y			40  // 94
 #define TROWA_SCOPE_CONTROL_DX					35 // 35
 #define TROWA_SCOPE_CONTROL_DY					30 // 26
@@ -30,7 +30,7 @@
 
 
 // Labels for each waveform / shape
-#define TROWA_SCOPE_SHAPE_FORMAT_STRING		"Shp %d"
+#define TROWA_SCOPE_SHAPE_FORMAT_STRING		"Shape %d"
 
 // multiScope model.
 extern Model *modelMultiScope;
@@ -123,6 +123,7 @@ struct multiScope : Module {
 	// Widget width
 	float widgetWidth = 0;
 	bool widgetShowDisplay = false; // Default off now.
+	static const int widgetWidthDefault = 720;
 
 	multiScope();
 	~multiScope();
@@ -321,7 +322,7 @@ struct TSScopeDisplay : TransparentWidget {
 
 	TSScopeDisplay() {
 		visible = true;
-		fontSize = 12;
+		fontSize = 11; // Was 12
 		for (int i = 0; i < TROWA_DISP_MSG_SIZE; i++)
 			messageStr[i] = '\0';
 	}
@@ -708,13 +709,13 @@ struct TSScopeLabelArea : TransparentWidget {
 		for (int wIx = 0; wIx < TROWA_SCOPE_NUM_WAVEFORMS; wIx++)
 		{
 			nvgFontSize(args.vg, fontSize);
-			x = xStart;
+			x = xStart - 5;
 			int waveY = y;
 			// Shape Label:		
 			nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 			// BG Box
 			nvgBeginPath(args.vg);
-			nvgRect(args.vg, x - 3, y - 2, TROWA_SCOPE_CONTROL_START_X - x + 3, fontSize + 3);
+			nvgRect(args.vg, x - 3, y - 2, TROWA_SCOPE_CONTROL_START_X - x + 7, fontSize + 3); //TROWA_SCOPE_CONTROL_START_X - x + 3
 			nvgFillColor(args.vg, textColor);
 			nvgFill(args.vg);
 			nvgFillColor(args.vg, TSColors::COLOR_BLACK);
@@ -724,7 +725,7 @@ struct TSScopeLabelArea : TransparentWidget {
 
 			// Line down lhs:
 			nvgBeginPath(args.vg);
-			nvgRect(args.vg, x - 3, y - 2, TROWA_SCOPE_CONTROL_START_X - x + 3, fontSize + 3);
+			//nvgRect(args.vg, x - 3, y - 2, TROWA_SCOPE_CONTROL_START_X - x + 3, fontSize + 3);
 			nvgMoveTo(args.vg, /*x*/ x - 3, /*y*/ y - 2);
 			nvgLineTo(args.vg, /*x*/ x - 3, /*y*/ y + shapeDy - 10);
 			nvgStrokeWidth(args.vg, 1.0);

@@ -39,14 +39,21 @@ multiScope::multiScope() // : Module(multiScope::NUM_PARAMS, multiScope::NUM_INP
 	configParam(/*id*/ multiScope::BGCOLOR_HUE_PARAM, /*minVal*/ 0, /*maxVal*/ 1.f, /*defVal*/ 0.0, /*label*/ "BG Color Hue", /*unit*/ " degrees", /*displayBase*/ 0, /*displayMultiplier*/ 360.f);
 	configParam(/*id*/ multiScope::BGCOLOR_SAT_PARAM, /*minVal*/ 0, /*maxVal*/ 1.f, /*defVal*/ 0.0, /*label*/ "BG Color Sat", /*unit*/ "%", /*displayBase*/ 0, /*displayMultiplier*/ 100.f);
 	configParam(/*id*/ multiScope::BGCOLOR_VAL_PARAM, /*minVal*/ 0, /*maxVal*/ 1.f, /*defVal*/ 0.0, /*label*/ "BG Color Light", /*unit*/ "%", /*displayBase*/ 0, /*displayMultiplier*/ 100.f);
+
+	std::vector<std::string> blendLabels;
+	for (int i = 0; i < TROWA_NUM_GLOBAL_EFFECTS; i++)
+	{
+		blendLabels.push_back(SCOPE_GLOBAL_EFFECTS[i]->label);
+	}
+
 	for (int wIx = 0; wIx < TROWA_SCOPE_NUM_WAVEFORMS; wIx++)
 	{
 		waveForms[wIx] = new TSWaveform();
 		waveForms[wIx]->setHueFromKnob(initColorKnobs[wIx]);
 		waveForms[wIx]->setFillHueFromKnob(initColorKnobs[wIx]);
 				
-		float defaultHue = initColorKnobs[wIx];
-		float defaultFillHue = initColorKnobs[wIx];
+		float defaultHue = waveForms[wIx]->waveHue;// initColorKnobs[wIx];
+		float defaultFillHue = waveForms[wIx]->fillHue; // initColorKnobs[wIx];
 		
 		// Configure Parameters:
 		// Hues are now 0 to 1
@@ -72,7 +79,10 @@ multiScope::multiScope() // : Module(multiScope::NUM_PARAMS, multiScope::NUM_INP
 		configParam(/*id*/ multiScope::FILL_COLOR_PARAM + wIx, /*minVal*/ TROWA_SCOPE_HUE_KNOB_MIN, /*maxVal*/ TROWA_SCOPE_HUE_KNOB_MAX, /*defVal*/ rescale(defaultFillHue, 0, 1.0, TROWA_SCOPE_HUE_KNOB_MIN, TROWA_SCOPE_HUE_KNOB_MAX), 
 			/*label*/ "Fill Color", /*unit*/ " degrees", /*displayBase*/ 0, /*displayMultiplier*/ 18.f, /*displayOffset*/ 180.0f);
 		configParam(/*id*/ multiScope::FILL_OPACITY_PARAM + wIx, TROWA_SCOPE_MIN_OPACITY, TROWA_SCOPE_MAX_OPACITY, TROWA_SCOPE_MAX_OPACITY, "Fill Opacity");
-		configParam(/*id*/ multiScope::EFFECT_PARAM + wIx, TROWA_SCOPE_EFFECT_KNOB_MIN, TROWA_SCOPE_EFFECT_KNOB_MAX, TROWA_SCOPE_EFFECT_KNOB_DEF, "Effect");		
+		//configParam(/*id*/ multiScope::EFFECT_PARAM + wIx, TROWA_SCOPE_EFFECT_KNOB_MIN, TROWA_SCOPE_EFFECT_KNOB_MAX, TROWA_SCOPE_EFFECT_KNOB_DEF, "Effect");	
+		// Use v2 switch labels:
+		SwitchQuantity* sQty = configSwitch(/*id*/ multiScope::EFFECT_PARAM + wIx, TROWA_SCOPE_EFFECT_KNOB_MIN, TROWA_SCOPE_EFFECT_KNOB_MAX, TROWA_SCOPE_EFFECT_KNOB_DEF, "Effect", blendLabels);
+		sQty->description = "Effect/Blend mode.";
 	}	
 	// Set our pointer
 	editColorPointer = &(this->plotBackgroundColor);	

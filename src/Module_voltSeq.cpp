@@ -53,6 +53,8 @@ voltSeq::voltSeq(int numSteps, int numRows, int numCols) : TSSequencerModuleBase
 	}	
 	this->reconfigureValueModeParamQty();	
 	this->configValueModeParam();	
+	// Populate labels.
+	this->populateNotesPatternsLabels();
 	return;
 }
 // Configure the value mode parameters on the steps.
@@ -574,9 +576,16 @@ voltSeqWidget::voltSeqWidget(voltSeq* seqModule) : TSSequencerWidgetBase(seqModu
 		{	
 			/// TODO: Combine the LightedKnob and LightArc now that we know more about the components
 			// Pad Knob:
-			TS_LightedKnob* knobPtr = dynamic_cast<TS_LightedKnob*>(createParam<TS_LightedKnob>(Vec(x, y), seqModule, TSSequencerModuleBase::CHANNEL_PARAM + r*numCols + c));
+			//TS_LightedKnob* knobPtr = dynamic_cast<TS_LightedKnob*>(createParam<TS_LightedKnob>(Vec(x, y), seqModule, TSSequencerModuleBase::CHANNEL_PARAM + r*numCols + c));
+			//knobPtr->id = r * numCols + c;
+			//addParam(knobPtr);
+			TS_VoltSeqLightKnob* knobPtr = dynamic_cast<TS_VoltSeqLightKnob*>(createParam<TS_VoltSeqLightKnob>(Vec(x, y), seqModule, TSSequencerModuleBase::CHANNEL_PARAM + r * numCols + c));
 			knobPtr->id = r * numCols + c;
+			knobPtr->seqModule = seqModule; // Typed pointer
 			addParam(knobPtr);
+
+			/// TODO: Add custom light knob where we can append context menu
+			/// uniquely for each valuemode.
 			
 			// Keep a reference to our pad lights so we can change the colors			
 			TS_LightArc* lightPtr = dynamic_cast<TS_LightArc*>(TS_createColorValueLight<TS_LightArc>(/*pos */ Vec(x+dx, y+dx), 
@@ -727,9 +736,9 @@ void voltSeqWidget::appendContextMenu(ui::Menu *menu)
 	
 
 	// Add voltSeq specific options:
-	MenuLabel *spacerLabel = new MenuLabel();
-	menu->addChild(spacerLabel); //menu->pushChild(spacerLabel);
-
+	//MenuLabel *spacerLabel = new MenuLabel();
+	//menu->addChild(spacerLabel); //menu->pushChild(spacerLabel);
+	menu->addChild(new ui::MenuSeparator);
 
 	voltSeq* sequencerModule = dynamic_cast<voltSeq*>(module);
 	assert(sequencerModule);
@@ -745,3 +754,32 @@ void voltSeqWidget::appendContextMenu(ui::Menu *menu)
 	//menuItem = new voltSeq_ShiftVoltageMenuItem("> -1 V/Octave/Patt", -1.0, sequencerModule);
 	menu->addChild(new voltSeq_ShiftVoltageMenuItem("> -1 V/Octave/Patt", -1.0, sequencerModule));// menu->pushChild(menuItem);
 }
+
+// If sequencer step, handle CTRL-C, CTRL-V
+void TS_VoltSeqLightKnob::onHoverKey(const HoverKeyEvent& e) {
+	if (this->module == NULL)
+		return;
+	if (seqModule != NULL)
+		controlSeqHandleStepKeyboardInput(e, this, seqModule);
+	if (!e.isConsumed())
+	{
+		// Base method
+		this->ParamWidget::onHoverKey(e);
+	}
+	return;
+}
+
+
+// Add enumeration menu if needed and copy/paste row.
+void TS_VoltSeqLightKnob::appendContextMenu(ui::Menu* menu) {
+	if (module == NULL || seqModule == NULL)
+		return;
+	ParamQuantity* pq = getParamQuantity();
+	if (pq == NULL)
+		return;
+	controlAppendContextMenuSelect(menu, this, seqModule);
+	controlAppendContextMenuCopyRowCol(menu, this, seqModule);
+	return;
+}
+
+

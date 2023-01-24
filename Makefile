@@ -20,15 +20,19 @@ MACHINE = $(shell $(CC) -dumpmachine)
 ifneq (, $(findstring mingw, $(MACHINE)))
 	SOURCES += $(wildcard lib/oscpack/ip/win32/*.cpp) 
 	LDFLAGS += -lws2_32 -lwinmm
-	LDFLAGS +=  -L$(RACK_DIR)/dep/lib #-lglew32 -lglfw3dll
-	#LDFLAGS += -lrtmidi
+	LDFLAGS +=  -L$(RACK_DIR)/dep/lib
 else
 	SOURCES += $(wildcard lib/oscpack/ip/posix/*.cpp) 
 endif
 
 
-DISTRIBUTABLES += $(wildcard LICENSE*) res \
- pd other
-# ^ add our other folders (supplementary files)
+DISTRIBUTABLES += $(wildcard LICENSE*) \
+ lib/oscpack/LICENSE \
+ $(wildcard res/*.svg) \
+ $(wildcard res/*/*.svg) \
+ res/Fonts \
+ pd other \
+ README.md CHANGELOG.md
+# ^ add our other folders (supplementary files) -- add the readme and changelog
 
 include $(RACK_DIR)/plugin.mk

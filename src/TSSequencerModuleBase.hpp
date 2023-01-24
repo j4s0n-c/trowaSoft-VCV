@@ -112,20 +112,20 @@ struct RandStructure {
 // Sequencer Base Class
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 //===============================================================================
-struct TSSequencerModuleBase : Module 
+struct TSSequencerModuleBase : Module
 {
 	// Some amount to add to Volts to Pattern since it doesn't seem to reverse back correctly when we are reading the input.
 	const float volts2PatternAdj = 0.05f;
-	
+
 	bool debugFirstRealStep = false;
 	bool debugFirstExecutedStep = false;
-	
+
 #if DEBUG_PATT_SEQ
 	float debugLastPatternInputVoltage = -1000.0f;
 	float debugLastPatternIxFloat = -1000.0f;
 	int debugLastPatternIx = -1;
 #endif
-	
+
 
 	enum ParamIds {
 		// BPM Knob
@@ -218,7 +218,7 @@ struct TSSequencerModuleBase : Module
 	// The current step being edited by knobs. (For the top display to show the value).
 	int currentStepBeingEditedIx = -1;
 	int currentStepBeingEditedParamId = -1;
-		
+
 
 	enum GateMode : short {
 		TRIGGER = 0,
@@ -246,7 +246,7 @@ struct TSSequencerModuleBase : Module
 	// Mode /////////////////////////
 	/////////////////////////////////
 	// [v1.0.4] Redo so they all have unique values.
-	enum ValueMode : short 
+	enum ValueMode : short
 	{
 		VALUE_TRIGGER = 0,		// Trigger
 		VALUE_RETRIGGER = 1, 	// Retrigger
@@ -258,11 +258,11 @@ struct TSSequencerModuleBase : Module
 		MIN_VALUE_MODE = 0,
 		MAX_VALUE_MODE = 5,
 		NUM_VALUE_MODES = MAX_VALUE_MODE + 1
-	};	
+	};
 	// The mode string.
 	const char* modeString;
 	// Mode strings (ENUMERATE ALL)
-	const char* modeStrings[ValueMode::NUM_VALUE_MODES] = { "TRIG", "RTRG", "GATE", "VOLT", "NOTE", "PATT" };		
+	const char* modeStrings[ValueMode::NUM_VALUE_MODES] = { "TRIG", "RTRG", "GATE", "VOLT", "NOTE", "PATT" };
 	// Array of ValueModes the sequencer supports. Derived class should set this. 
 	ValueMode* valueModesSupported = NULL;
 	// Number of ValueModes the sequencer supports. Derived class should set this. 
@@ -273,14 +273,17 @@ struct TSSequencerModuleBase : Module
 	virtual void reconfigureValueModeParamQty()
 	{
 		// Value Mode Knob is now index into our array:
-		TS_ParamQuantityEnum* pQty = dynamic_cast<TS_ParamQuantityEnum*>(this->paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM]);
-		pQty->minValue = 0; 
+		SwitchQuantity* pQty = dynamic_cast<SwitchQuantity*>(this->paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM]);
+		//TS_ParamQuantityEnum* pQty = dynamic_cast<TS_ParamQuantityEnum*>(this->paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM]);
+		pQty->minValue = 0;
 		pQty->maxValue = numValueModesSupported - 1;
 		pQty->defaultValue = selectedOutputValueModeIx; // Index into our array.
+		pQty->snapEnabled = true;
 		for (int i = 0; i < numValueModesSupported; i++)
 		{
 			int k = valueModesSupported[i];
-			pQty->addToEnumMap(i, modeStrings[k]);
+			//pQty->addToEnumMap(i, modeStrings[k]);
+			pQty->labels.push_back(modeStrings[k]);
 		}
 		return;
 	}
@@ -291,7 +294,18 @@ struct TSSequencerModuleBase : Module
 	int selectedOutputValueModeIx = 0;
 	ValueMode lastOutputValueMode = VALUE_TRIGGER;
 	// [v1.0.1] Each channel will now have its own mode.
-	ValueMode channelValueModes[TROWA_SEQ_NUM_CHNLS];	
+	ValueMode channelValueModes[TROWA_SEQ_NUM_CHNLS];
+
+
+	// Collection of all note labels.
+	std::vector<std::string> noteLabels;
+	// The raw voltage values (knob voltage, not actual output voltage).
+	std::vector<float> noteKnobValues;
+
+	// Collection of all pattern labels
+	std::vector<std::string> patternLabels;
+	// The raw voltage values (knob voltage, not actual output voltage).
+	std::vector<float> patternKnobValues;
 
 
 	///////////////////////////////////////////////////
@@ -304,7 +318,7 @@ struct TSSequencerModuleBase : Module
 	// The number of columns for steps (for layout).
 	int numCols = 4;
 	// Step data for each pattern and channel.
-	float * triggerState[TROWA_SEQ_NUM_PATTERNS][TROWA_SEQ_NUM_CHNLS];
+	float* triggerState[TROWA_SEQ_NUM_PATTERNS][TROWA_SEQ_NUM_CHNLS];
 	dsp::SchmittTrigger* gateTriggers;
 
 	// Knob indices for top control knobs.
@@ -332,9 +346,9 @@ struct TSSequencerModuleBase : Module
 	bool reloadEditMatrix = false;
 	// Keep track of the pattern that was playing last step (for OSC)
 	int lastPatternPlayingIx = -1;
-	// Index of which pattern we are playing
-	int currentPatternEditingIx = 0;
 	// Index of which pattern we are editing 
+	int currentPatternEditingIx = 0;
+	// Index of which pattern we are playing
 	int currentPatternPlayingIx = 0;
 	// Index of which channel (trigger/gate/voice) is currently displayed/edited.
 	int currentChannelEditingIx = 0;
@@ -368,10 +382,10 @@ struct TSSequencerModuleBase : Module
 	/// TODO: Get of Light references & manipluation (separate GUI elements from module)
 	// References to our pad lights
 	ColorValueLight*** padLightPtrs; /// TODO: Just make linear
-	
+
 	NVGcolor currentStepMatrixColor = TSColors::COLOR_TS_RED;
-	NVGcolor currentCopyChannelColor;	
-	NVGcolor currentPasteColor;	
+	NVGcolor currentCopyChannelColor;
+	NVGcolor currentPasteColor;
 
 	// Output lights (for triggers/gate jacks)
 	float gateLightsOut[TROWA_SEQ_NUM_CHNLS];
@@ -396,11 +410,24 @@ struct TSSequencerModuleBase : Module
 	int copySourceChannelIx = TROWA_SEQ_COPY_CHANNELIX_ALL;
 	// Copy buffer (steps)
 	float* copyBuffer[TROWA_SEQ_NUM_CHNLS];
+
+	// Copy & Paste of Row/Col only
+	// Copy Row Source
+	int copySourceRowIx = -1;
+	// Copy Column Source
+	int copySourceColIx = -1;
+	// Copy Row Destination
+	int copyDestRowIx = -1;
+	// Copy Column Destination
+	int copyDestColIx = -1;
+	// If a paste from the context menu is queued.
+	bool pasteFromContextMenuQueued = false;
+
 	dsp::SchmittTrigger copyPatternTrigger;
 	dsp::SchmittTrigger copyGateTrigger;
 	dsp::SchmittTrigger pasteTrigger;
 	// Color for Copy Pattern
-	static const NVGcolor COPY_PATTERN_COLOR; 
+	static const NVGcolor COPY_PATTERN_COLOR;
 	// Color for Running Light 
 	static const NVGcolor RUNNING_COLOR;
 	// Color for Reset Light 
@@ -482,12 +509,12 @@ struct TSSequencerModuleBase : Module
 	bool firstLoad = true;
 	// If this was loaded from a save, what version
 	int saveVersion = -1;
-	
+
 	// Base light change
 	const float baseLightLambda = 0.05f;
 	// Current light change
 	float lightLambda = baseLightLambda;
-	
+
 #if TROWA_SEQ_USE_INTERNAL_DIVISOR	
 	//--* Skipping Evaluations *--//
 	// Issue #51 https://github.com/j4s0n-c/trowaSoft-VCV/issues/51
@@ -498,18 +525,18 @@ struct TSSequencerModuleBase : Module
 	// User Stubs42 used 32 as his internal sampling divisor but was also using the internal clock
 	// For triggers, they must be 1 ms, so let's adjust the threshold/internal sampling divisor such that
 	// we run at least every 0.5 ms based on the engine sampling rate.
-	const int MAX_ILDETHRESHOLD = 32;	
-	int IDLETHRESHOLD = MAX_ILDETHRESHOLD;	
+	const int MAX_ILDETHRESHOLD = 32;
+	int IDLETHRESHOLD = MAX_ILDETHRESHOLD;
 #endif 	
-	
+
 	// The number of structured random patterns to actually use. Should be <= TROWA_SEQ_NUM_RANDOM_PATTERNS.
 	int numStructuredRandomPatterns = TROWA_SEQ_BOOLEAN_NUM_RANDOM_PATTERNS;
-	
+
 	//-----------------------------///////	
 	// INTERNAL PATTERN SEQUENCING ///////
 	//-----------------------------///////
 	// If this module has internal pattern sequencing (no to most, only multiSeq should have it for now).
-	bool allowPatternSequencing = false;	
+	bool allowPatternSequencing = false;
 	// Which pattern to play (for pattern sequencing).
 	int patternPlayHeadIx = -1;
 	// Flag if pattern sequencing is on.
@@ -533,7 +560,7 @@ struct TSSequencerModuleBase : Module
 	// The current pattern index being edited (index into patternData).
 	int currentPatternDataBeingEditedIx = -1;
 	// The current pattern param id being edited.
-	int currentPatternDataBeingEditedParamId = -1;	
+	int currentPatternDataBeingEditedParamId = -1;
 	// The control source. (Where a control command came from).
 	enum ControlSource : uint8_t
 	{
@@ -548,7 +575,7 @@ struct TSSequencerModuleBase : Module
 	};
 	// What is controlling the current pattern playing.
 	ControlSource patternPlayingControlSource = ControlSource::UserParameterSrc;
-	
+
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// TSSequencerModuleBase()
@@ -566,18 +593,32 @@ struct TSSequencerModuleBase : Module
 	// Delete our goodies.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	~TSSequencerModuleBase();
-	
+
 	// If a particular mode is supported by this module.
-	bool valueModeIsSupported(ValueMode mode);	
+	bool valueModeIsSupported(ValueMode mode);
 	// Gets the index into our supported value modes array of the given mode. Returns -1 if not found.
 	int getSupportedValueModeIndex(ValueMode mode);
-	
+
 	// Get the inputs for this step.
-	void getStepInputs(const ProcessArgs &args, bool* pulse, bool* reloadMatrix, bool* valueModeChanged, bool nextStep, float clockTime);
+	void getStepInputs(const ProcessArgs& args, bool* pulse, bool* reloadMatrix, bool* valueModeChanged, bool nextStep, float clockTime);
+	// Signal a paste from the context menu has been set.
+	void queuePasteFromMenu() { 
+		pasteFromContextMenuQueued = true; 
+		paramQuantities[ParamIds::PASTE_PARAM]->setValue(1.0f);
+		return;
+	}
 	// Paste the clipboard pattern and/or specific gate to current selected pattern and/or gate.
 	bool paste();
-	// Copy the contents:
-	void copy(int patternIx, int channelIx);
+	// Paste into the current row/column/step based off the parameter id and what is already on the clipboard.
+	bool pasteByParamId(int stepParamId);
+	// Copy the contents.
+	// @patternIx : (IN) Source pattern. The index into our pattern matrix (0-63).
+	// @channelIx : (IN) Source channel. The index of the channel (gate/trigger/voice) to copy if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL for all).
+	// @rowIx : (IN)(Opt'l) Source row index (if any). Default is -1 (NONE/ALL).
+	// @colIx : (IN)(Opt'l) Source column index (if any). Default is -1 (NONE/ALL). 
+	void copy(int patternIx, int channelIx, int rowIx = -1, int colIx = -1);
+	// Copy the single step by its parameter id.
+	void copyStepByParamId(int stepParamId);
 	// Set a single step value
 	virtual void setStepValue(int step, float val, int channel, int pattern);
 	// Get the toggle step value
@@ -589,7 +630,7 @@ struct TSSequencerModuleBase : Module
 	// Reset param quantities (i.e. from knobs) when we get a reset from an external message source.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	virtual void resetParamQuantities();
-	
+
 
 	// Initialize OSC on the given ip and ports.
 	void initOSC(const char* ipAddress, int outputPort, int inputPort);
@@ -601,22 +642,25 @@ struct TSSequencerModuleBase : Module
 	// Sets the command address strings too.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void setOSCNamespace(const char* oscNs);
-	
+
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// getValueSeqChannelModes()
 	// Gets the array of ValueSequencerModes if any.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
-	virtual ValueSequencerMode** getValueSeqChannelModes() 
+	virtual ValueSequencerMode** getValueSeqChannelModes()
 	{
 		return NULL;
 	}
+
+	// Populate our labels.
+	void populateNotesPatternsLabels();
 
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// reset(void)
 	// Reset ALL step values to default.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	void onReset() override;	
+	void onReset() override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// reset()
 	// Only the given pattern and channel.
@@ -631,13 +675,13 @@ struct TSSequencerModuleBase : Module
 	// Reset the pattern sequence / songmode steps only.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	virtual void resetPatternSequence();
-	
+
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// randomize()
 	// Only randomize the current gate/trigger steps by default.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 	virtual void onRandomize(const RandomizeEvent& e) override
-	{		
+	{
 		randomize(currentPatternEditingIx, currentChannelEditingIx, false);
 		return;
 	}
@@ -671,7 +715,7 @@ struct TSSequencerModuleBase : Module
 	virtual float getRandomValue(int channelIx) {
 		// Default are boolean sequencers
 		return getRandomValue();
-	}	
+	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// onShownStepChange()
 	// If we changed a step that is shown on the matrix, then do something.
@@ -681,7 +725,7 @@ struct TSSequencerModuleBase : Module
 		// DO nothing
 		return;
 	}
-	
+
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// isNewStep()
 	// We advance to new step or not. Also evaluates the RESET input and button.
@@ -698,7 +742,7 @@ struct TSSequencerModuleBase : Module
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
 	virtual void onSampleRateChange() override;
 #endif 
-	
+
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// clearClipboard(void)
@@ -713,28 +757,33 @@ struct TSSequencerModuleBase : Module
 		//pasteLight->setColor(TSColors::COLOR_WHITE); // Return the paste light to white
 		lights[COPY_PATTERN_LIGHT].value = 0;
 		lights[PASTE_LIGHT].value = 0;
+
+		copySourceRowIx = -1;
+		copySourceColIx = -1;
+		copyDestRowIx = -1;
+		copyDestColIx = -1;
 		return;
 	}
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// dataToJson(void)
 	// Save our junk to json.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	virtual json_t *dataToJson() override;
+	virtual json_t* dataToJson() override;
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// dataFromJson(void)
 	// Read in our junk from json.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-	virtual void dataFromJson(json_t *rootJ) override;
+	virtual void dataFromJson(json_t* rootJ) override;
 }; // end struct TSSequencerModuleBase
 
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // ParamQuantity for our value modes.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-struct TS_ValueSequencerParamQuantity : TS_ParamQuantity 
+struct TS_ValueSequencerParamQuantity : TS_ParamQuantity
 {
 	// Most of this functionality was already done in ValueSequencerMode back in v0.5 or whatever, so use it.
-	ValueSequencerMode* valueMode;	
+	ValueSequencerMode* valueMode;
 	char buffer[50];
 	TS_ValueSequencerParamQuantity() : TS_ParamQuantity()
 	{
@@ -746,5 +795,17 @@ struct TS_ValueSequencerParamQuantity : TS_ParamQuantity
 	// Given the string make it the float voltage.
 	void setDisplayValueString(std::string s) override;
 };
+
+///////////////////////////
+// Helper
+///////////////////////////
+
+// Append select options to a step control context menu.
+void controlAppendContextMenuSelect(Menu* menu, ParamWidget* paramControl, TSSequencerModuleBase* seqModule, bool addDivider = true, int overrideValueMode = -1, bool useIndexAsValue = false);
+// Append copy row and copy column options
+void controlAppendContextMenuCopyRowCol(Menu* menu, ParamWidget* paramControl, TSSequencerModuleBase* seqModule, bool addDivider = true);
+
+// Do copy/paste of a single step control
+void controlSeqHandleStepKeyboardInput(const rack::widget::Widget::HoverKeyEvent& e, ParamWidget* paramControl, TSSequencerModuleBase* seqModule);
 
 #endif

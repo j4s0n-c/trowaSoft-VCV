@@ -363,7 +363,7 @@ void oscCVExpander::process(const ProcessArgs &args)
 			if (beingConfigured)
 			{
 				this->configureColIx = master->expCurrentEditPageCol;
-				/// TODO: Add tracking of the channel being configured if any.
+				this->configureChannelIx = master->expCurrentEditChannelIx; // Track the channel being configured in Advanced Config
 			}
 		}
 		catch (std::exception &e)
@@ -377,6 +377,10 @@ void oscCVExpander::process(const ProcessArgs &args)
 	{
 		//------- NO CONNECTION --------
 		thisColor = ColorNotConnected;
+		// Make sure we signal any 'being configured' indicators to false for the widget
+		beingConfigured = false;
+		this->configureColIx = -1;
+		this->configureChannelIx = -1;
 		// If no master then don't bother showing connections on left / right.
 		lights[LightIds::MASTER_CONNECTED_LIGHT].value = 0.0f;
 		lights[LightIds::LEFT_CONNECTED_LIGHT].value = 0.0f;		

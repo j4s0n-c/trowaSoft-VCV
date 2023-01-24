@@ -4,53 +4,46 @@
 #include <rack.hpp>
 using namespace rack;
 
+#include "trowaSoftComponents.hpp"
+
+#define TS_DEFAULT_SCREW			TS_ScrewBlack	// Screw class to use for all module widgets
+#define TS_DEFAULT_PORT_INPUT		TS_Port			// Default input port
+#define TS_DEFAULT_PORT_OUTPUT		TS_Port			// Default output port
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // TSSModuleWidgetBase
 // Base Module Widget. Remove randomize of parameters.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-struct TSSModuleWidgetBase : ModuleWidget 
+struct TSSModuleWidgetBase : ModuleWidget
 {
 	bool randomizeParameters = false;
-	
+	// Screen size
+	const int screwSize = 15;
+
 	TSSModuleWidgetBase(Module* tsModule) : ModuleWidget()
 	{
 		if (this->module == NULL)
 			setModule(tsModule); // v1.0 We are not supposed to set this anymore.	
 		return;
-	}	
-	TSSModuleWidgetBase(Module* tsModule, bool randomizeParams) : TSSModuleWidgetBase(tsModule)
-	{ 
-		randomizeParameters = randomizeParams; 
-		return; 
 	}
-	
-	//--- v2 This is not needed anymore as randomizeEnabled is now on the ParamQuantity directly --
-	// // New v1 Rack Widget base class doesn't let use override this :-(.
-	// // So parameters will be randomized ALL the time, unless we override it on the ParamWidget.
-	// /// TODO: Override randomize() on all ParamWidgets (i.e. make custom widgets for all widgets we use).
-	// void randomizeAction()  { // <-- Not virtual :(
-		// assert(module);
+	TSSModuleWidgetBase(Module* tsModule, bool randomizeParams) : TSSModuleWidgetBase(tsModule)
+	{
+		randomizeParameters = randomizeParams;
+		return;
+	}
 
-		// // history::ModuleChange
-		// history::ModuleChange *h = new history::ModuleChange;
-		// h->name = "randomize module";
-		// h->moduleId = module->id;
-		// h->oldModuleJ = toJson();
-
-		// if (this->randomizeParameters)
-		// {
-			// // v2: No params collection now.			
-			// //for (ParamWidget *param : params) {
-			// std::vector<ParamWidget*> params = getParams();
-			// for (ParamWidget *param : params) {
-				// param->randomize();
-			// }			
-		// }
-		// APP->engine->randomizeModule(module);
-
-		// h->newModuleJ = toJson();
-		// APP->history->push(h);				
-	// }	
+	// Add screw widgets.
+	virtual void addScrews()
+	{
+		// Realistically we should push these screws in, but they look better at the edges plus
+		// we have to redo the backgrounds if push them in
+		
+		// Screws:
+		addChild(createWidget<TS_DEFAULT_SCREW>(Vec(0, 0)));
+		addChild(createWidget<TS_DEFAULT_SCREW>(Vec(box.size.x - screwSize, 0)));
+		addChild(createWidget<TS_DEFAULT_SCREW>(Vec(0, box.size.y - screwSize)));
+		addChild(createWidget<TS_DEFAULT_SCREW>(Vec(box.size.x - screwSize, box.size.y - screwSize)));
+	}
 };
 
 #endif // end if not defined

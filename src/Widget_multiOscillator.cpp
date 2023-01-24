@@ -10,6 +10,10 @@ using namespace rack;
 #define OSC_WIDGET_HEIGHT		115
 #define OSC_WIDGET_WIDTH		(49 * RACK_GRID_WIDTH)
 
+#define OSC_WIDGET_SCREEN_WIDTH	365 // Screen Width
+
+#define THREE_WAY_SWITCH		CKSSThree // Component Widget to use for 3-way switch. Until j4s0n makes one, I'll use the one in Rack
+
 // Mix % (0-100) to knob voltage (0-1V).
 static float AMMix2KnobVoltage(float mix) {
 	return mix / 100.f;
@@ -29,12 +33,25 @@ static float KnobVoltage2AUX(float knobVal) {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // multiOscillator()
 // @thisModule : (IN) Pointer to the multiOscillator module.
+// @addScreen : (IN)(Opt'l) Add the screen (like original) or not. Default is true.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-multiOscillatorWidget::multiOscillatorWidget(multiOscillator* thisModule) : TSSModuleWidgetBase(thisModule, true)
+multiOscillatorWidget::multiOscillatorWidget(multiOscillator* thisModule, bool addScreen) : TSSModuleWidgetBase(thisModule, true)
 {
 	// 26 : Sequencer width, so a little wider...
 	// was 30, now 43
+	this->hasScreen = addScreen;
 	box.size = Vec(48 * RACK_GRID_WIDTH, RACK_GRID_HEIGHT);
+
+	if (!hasScreen)
+	{
+		// Reduce the width
+		int n = static_cast<int>(std::ceil(static_cast<float>(OSC_WIDGET_SCREEN_WIDTH) / RACK_GRID_WIDTH));
+		if (n % 2 > 0)
+			n--; // j4s0n only wants even HP
+		box.size.x -= n * RACK_GRID_WIDTH;
+	}
+
+
 	bool isPreview = this->module == NULL; // If this is null, then this isn't a real module instance but a 'Preview'?	
 	if (!isPreview && thisModule == NULL)
 	{
@@ -49,7 +66,10 @@ multiOscillatorWidget::multiOscillatorWidget(multiOscillator* thisModule) : TSSM
 	{
 		SvgPanel *panel = new SvgPanel();
 		panel->box.size = box.size;
-		panel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/multiOscillator.svg")));
+		if (hasScreen)
+			panel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/multiOscillator.svg")));
+		else
+			panel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/multiOscillatorMini.svg")));
 		addChild(panel);
 	}
 
@@ -76,14 +96,14 @@ multiOscillatorWidget::multiOscillatorWidget(multiOscillator* thisModule) : TSSM
 	TSParamTextField* lastTb = NULL;
 	for (int i = 0; i < numberOscillators; i++)
 	{
-		TSSingleOscillatorWidget* oscillatorWidget = new TSSingleOscillatorWidget(this, &(oscillators[i]), i + 1);
-		oscillatorWidget->box.pos = Vec(x, y);
+		TSSingleOscillatorWidget* oscillatorWidget = new TSSingleOscillatorWidget(this, &(oscillators[i]), i + 1, this->hasScreen);
+		oscillatorWidget->box.pos = Vec(x + 8, y);
 		oscillatorWidget->box.size.x = box.size.x;
 		addChild(oscillatorWidget);
 		y += OSC_WIDGET_HEIGHT;
 
 		// Text box tabbing:
-		if (numberOscillators > 1)
+		if (hasScreen && numberOscillators > 1)
 		{
 			// For Prev-Next
 			if (firstTb == NULL)
@@ -97,7 +117,7 @@ multiOscillatorWidget::multiOscillatorWidget(multiOscillator* thisModule) : TSSM
 			lastTb = oscillatorWidget->tbAllParamValues[static_cast<int>(oscillatorWidget->tbAllParamValues.size()) - 1];
 		}
 	} // end for
-	if (numberOscillators > 1)
+	if (hasScreen && numberOscillators > 1)
 	{
 		// Text box tabbing:
 		if (firstTb != NULL && lastTb != NULL)
@@ -108,10 +128,7 @@ multiOscillatorWidget::multiOscillatorWidget(multiOscillator* thisModule) : TSSM
 	}
 
 	// Screws:
-	addChild(createWidget<ScrewBlack>(Vec(0, 0)));
-	addChild(createWidget<ScrewBlack>(Vec(box.size.x - 15, 0)));
-	addChild(createWidget<ScrewBlack>(Vec(0, box.size.y - 15)));
-	addChild(createWidget<ScrewBlack>(Vec(box.size.x - 15, box.size.y - 15)));
+	this->TSSModuleWidgetBase::addScrews();
 	
 	if (thisModule != NULL)
 	{
@@ -142,8 +159,6 @@ void multiOscillatorWidget::step()
 	TSSModuleWidgetBase::step();
 	return;
 } // end multiOscillator::step()
-
-
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // draw()
@@ -238,13 +253,19 @@ void TSSingleOscillatorDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer
 // @parentWidget: (IN) Parent MODULE widget.
 // @osc : (IN) Pointer to the oscillator this widget represents.
 // @num : (IN) The oscillator number.
+// @addScreen : (IN)(Opt'l) If this should have a screen or not (default is true like original module).
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parentWidget, TS_Oscillator* osc, int num)
+TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parentWidget, TS_Oscillator* osc, int num, bool addScreen)
 {
+	this->hasScreen = addScreen;	
+	const int screenWidth = OSC_WIDGET_SCREEN_WIDTH;
 	box.size = Vec(OSC_WIDGET_WIDTH, OSC_WIDGET_HEIGHT);
+	if (!hasScreen)
+		box.size.x -= screenWidth;
+	if (box.size.x > parentWidget->box.size.x)
+		box.size.x = parentWidget->box.size.x;
 	multiOscillator* thisModule = dynamic_cast<multiOscillator*>(parentWidget->module);
 	this->oscillator = osc;
-	//this->parentWidget = parentWidget;
 	this->oscillatorNumber = num;	
 	int oscIx = oscillatorNumber - 1;
 	bool plugLightsEnabled = parentWidget->plugLightsEnabled;
@@ -263,12 +284,15 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 	//-------------------------
 	// Display - In center
 	//-------------------------
-	this->oscillatorDisplay = new TSSingleOscillatorDisplay();
-	this->oscillatorDisplay->box.size = Vec(365, 45);
-	this->oscillatorDisplay->box.pos = Vec(screenStartX, 5);
-	this->oscillatorDisplay->module = thisModule;
-	this->oscillatorDisplay->parentWidget = this;
-	addChild(oscillatorDisplay);
+	if (hasScreen)
+	{
+		this->oscillatorDisplay = new TSSingleOscillatorDisplay();
+		this->oscillatorDisplay->box.size = Vec(screenWidth, 45);
+		this->oscillatorDisplay->box.pos = Vec(screenStartX, 5);
+		this->oscillatorDisplay->module = thisModule;
+		this->oscillatorDisplay->parentWidget = this;
+		addChild(oscillatorDisplay);
+	}
 
 	//-------------------------
 	// User controls (params) & Inputs:
@@ -297,7 +321,7 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 	for (int paramId = 0; paramId < numKnobVals; paramId++)
 	{
 		// Input CV Ports
-		port = TS_createInput<TS_Port>(Vec(x - 5, y+5), thisModule, baseInputId + paramId, !plugLightsEnabled, thisColor);
+		port = TS_createInput<TS_DEFAULT_PORT_INPUT>(Vec(x - 5, y+5), thisModule, baseInputId + paramId, !plugLightsEnabled, thisColor);
 		addChild(port);		
 		// [Rack v2] inputs, outputs, params no longer members of ModuleWidget.
 		//parentWidget->addInput(port);  //parentWidget->inputs.push_back(port);
@@ -319,46 +343,76 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 		// [Rack v2] inputs, outputs, params no longer members of ModuleWidget.
 		//parentWidget->addParam(knobPtr); // parentWidget->params.push_back(knobPtr);
 
-		// Input Text Field
-		TSParamTextField* knobTextBox = new TSParamTextField(TSTextField::TextType::RealNumberOnly, /*maxLength*/ 30, /*control*/ knobPtr, /*formatStr*/ formatStrs[paramId]);
-		knobTextBox->box.pos = Vec(screenStartX + 15 + paramId*88.75, y + tbDy);
-		knobTextBox->box.size = tbSize;
-		knobTextBox->borderColor = mainColor;
-		knobTextBox->visible = false;
-		knobTextBox->tabNextHiddenAction = TSTextField::TabFieldHiddenAction::ShowHiddenTabToField;
-		knobTextBox->autoHideMode = TSParamTextField::AutoHideMode::AutoHideOnDefocus;
-		addChild(knobTextBox);
-		tbParamValues.push_back(knobTextBox);
-		oscillatorDisplay->textBoxes[paramId] = knobTextBox;
-		// Collect all textboxes		
-		tbAllParamValues.push_back(knobTextBox);
+		if (hasScreen)
+		{
+			// Input Text Field
+			TSParamTextField* knobTextBox = new TSParamTextField(TSTextField::TextType::RealNumberOnly, /*maxLength*/ 30, /*control*/ knobPtr, /*formatStr*/ formatStrs[paramId]);
+			knobTextBox->box.pos = Vec(screenStartX + 15 + paramId * 88.75, y + tbDy);
+			knobTextBox->box.size = tbSize;
+			knobTextBox->borderColor = mainColor;
+			knobTextBox->visible = false;
+			knobTextBox->tabNextHiddenAction = TSTextField::TabFieldHiddenAction::ShowHiddenTabToField;
+			knobTextBox->autoHideMode = TSParamTextField::AutoHideMode::AutoHideOnDefocus;
+			addChild(knobTextBox);
+			tbParamValues.push_back(knobTextBox);
+			oscillatorDisplay->textBoxes[paramId] = knobTextBox;
+			// Collect all textboxes		
+			tbAllParamValues.push_back(knobTextBox);
+		}
 
 		x += dx;
 	} // end for
-	// Set the translators for the text boxes:
-	int baseTextBoxIx = 0;
-#if TROWA_MOSC_FREQ_KNOB_NEEDS_CONVERSION
-	tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_FREQUENCY_PARAM]->knob2TextVal = multiOscillator::KnobVoltage2Frequency;
-	tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_FREQUENCY_PARAM]->text2KnobVal = multiOscillator::Frequency2KnobVoltage;
+
+#if TROWA_MOSC_SYNC_BETWEEN_OSC
+	if (oscIx > 0)
+	{
+		 //addChild(createParam<THREE_WAY_SWITCH>(Vec(x - 5, y + 10), thisModule, baseParamId + TS_Oscillator::BaseParamIds::OSCWF_SYNC_TO_INDEX_PARAM));
+		 const int size = 13;
+		 Vec ledBtnSize = Vec(size, size); // LED button size
+		 // Was x-5
+		 TS_LEDButton* btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(x - 7, y + 10), thisModule, baseParamId + TS_Oscillator::BaseParamIds::OSCWF_SYNC_TO_INDEX_PARAM));
+		 btn->setSize(ledBtnSize);
+		 btn->momentary = false;
+		 addChild(btn);
+		 ColorValueLight* light = TS_createColorValueLight<ColorValueLight>(Vec(x - 4.5, y + 12.5), thisModule,
+			 baseLightId + TS_Oscillator::BaseLightIds::OSCWF_SYNC_TO_INDEX_LIGHT, ledBtnSize, TSColors::COLOR_WHITE);
+		 addChild(light);
+	}
 #endif
-	tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_PHASE_SHIFT_PARAM]->knob2TextVal = multiOscillator::KnobVoltage2PhaseShift;
-	tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_PHASE_SHIFT_PARAM]->text2KnobVal = multiOscillator::PhaseShift2KnobVoltage;
-	oscillatorDisplay->showDisplay = true;
+
+	if (hasScreen)
+	{
+		// Set the translators for the text boxes:
+		int baseTextBoxIx = 0;
+#if TROWA_MOSC_FREQ_KNOB_NEEDS_CONVERSION
+		tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_FREQUENCY_PARAM]->knob2TextVal = multiOscillator::KnobVoltage2Frequency;
+		tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_FREQUENCY_PARAM]->text2KnobVal = multiOscillator::Frequency2KnobVoltage;
+#endif
+		tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_PHASE_SHIFT_PARAM]->knob2TextVal = multiOscillator::KnobVoltage2PhaseShift;
+		tbParamValues[baseTextBoxIx + TS_Oscillator::BaseParamIds::OSCWF_PHASE_SHIFT_PARAM]->text2KnobVal = multiOscillator::PhaseShift2KnobVoltage;
+		oscillatorDisplay->showDisplay = true;
+	}
 
 	//------------------------------------------
 	// Right : Outputs and Sync
 	//------------------------------------------
 	// Sync In and Out
 	dx = 30;
-	x = screenStartX + screenWidth + outPortOffsetX;
+	//if (hasScreen)
+	//	x = screenStartX + screenWidth + outPortOffsetX;
+	//else
+	//	x = screenStartX + outPortOffsetX / 2;
+	x = parentWidget->box.size.x - 75;
 	y = yStart + 5;
-	port = TS_createInput<TS_Port>(Vec(x, y), thisModule, baseInputId + TS_Oscillator::BaseInputIds::OSCWF_SYNC_INPUT, !plugLightsEnabled, thisColor);
+	port = TS_createInput<TS_DEFAULT_PORT_INPUT>(Vec(x, y), thisModule, baseInputId + TS_Oscillator::BaseInputIds::OSCWF_SYNC_INPUT, !plugLightsEnabled, thisColor);
 	addChild(port);
+	//DEBUG("Sync Out : (%f, %f) ** - Parent W = %f, This W = %f", port->box.pos.x, port->box.pos.y, parentWidget->box.size.x, box.size.x);
+
 	// [Rack v2] inputs, outputs, params no longer members of ModuleWidget.
 	//parentWidget->addInput(port); //parentWidget->inputs.push_back(port);
 	// Output:
 	x += dx;
-	port = TS_createOutput<TS_Port>(Vec(x, y), thisModule, baseOutputId + TS_Oscillator::BaseOutputIds::OSCWF_SYNC_OUTPUT, !plugLightsEnabled, thisColor);
+	port = TS_createOutput<TS_DEFAULT_PORT_OUTPUT>(Vec(x, y), thisModule, baseOutputId + TS_Oscillator::BaseOutputIds::OSCWF_SYNC_OUTPUT, !plugLightsEnabled, thisColor);
 	addChild(port);
 	//parentWidget->outputs.push_back(port);
 
@@ -382,9 +436,12 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 		addChild(chWidget);
 		channelWidgets.push_back(chWidget);
 
-		for (int t = 0; t < static_cast<int>(chWidget->tbParamValues.size()); t++)
+		if (hasScreen)
 		{
-			tbAllParamValues.push_back(chWidget->tbParamValues[t]);
+			for (int t = 0; t < static_cast<int>(chWidget->tbParamValues.size()); t++)
+			{
+				tbAllParamValues.push_back(chWidget->tbParamValues[t]);
+			}
 		}
 
 		y += 35;
@@ -395,19 +452,22 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 		colorIx = (colorIx + 1) % TSColors::NUM_CHANNEL_COLORS; //TROWA_OSCCV_NUM_COLORS;
 	}
 
-	//--------------------------------------------
-	// Tabbing for text boxes
-	//--------------------------------------------
-	for (int t = 0; t < static_cast<int>(tbAllParamValues.size()); t++)
+	if (hasScreen)
 	{
-		if (t > 0)
-			tbAllParamValues[t]->prevField = tbAllParamValues[t - 1];
-		else
-			tbAllParamValues[t]->prevField = tbAllParamValues[static_cast<int>(tbAllParamValues.size()) - 1];
-		if (t < static_cast<int>(tbAllParamValues.size()) - 1)
-			tbAllParamValues[t]->nextField = tbAllParamValues[t + 1];
-		else
-			tbAllParamValues[t]->nextField = tbAllParamValues[0];
+		//--------------------------------------------
+		// Tabbing for text boxes
+		//--------------------------------------------
+		for (int t = 0; t < static_cast<int>(tbAllParamValues.size()); t++)
+		{
+			if (t > 0)
+				tbAllParamValues[t]->prevField = tbAllParamValues[t - 1];
+			else
+				tbAllParamValues[t]->prevField = tbAllParamValues[static_cast<int>(tbAllParamValues.size()) - 1];
+			if (t < static_cast<int>(tbAllParamValues.size()) - 1)
+				tbAllParamValues[t]->nextField = tbAllParamValues[t + 1];
+			else
+				tbAllParamValues[t]->nextField = tbAllParamValues[0];
+		}
 	}
 	return;
 } // end TSSingleOscillatorWidget()
@@ -417,19 +477,21 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSingleOscillatorWidget::draw(/*in*/ const DrawArgs &args)
 {
-	// Draw screen background
-	// Background Colors:
-	NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
-	NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
-	// Screen:
-	nvgBeginPath(args.vg);
-	nvgRoundedRect(args.vg, screenStartX, screenStartY, screenWidth, box.size.y - screenStartY, 5.0);
-	nvgFillColor(args.vg, backgroundColor);
-	nvgFill(args.vg);
-	nvgStrokeWidth(args.vg, 1.0);
-	nvgStrokeColor(args.vg, borderColor);
-	nvgStroke(args.vg);
-
+	if (hasScreen)
+	{
+		// Draw screen background
+		// Background Colors:
+		NVGcolor backgroundColor = nvgRGB(0x20, 0x20, 0x20);
+		NVGcolor borderColor = nvgRGB(0x10, 0x10, 0x10);
+		// Screen:
+		nvgBeginPath(args.vg);
+		nvgRoundedRect(args.vg, screenStartX, screenStartY, screenWidth, box.size.y - screenStartY, 5.0);
+		nvgFillColor(args.vg, backgroundColor);
+		nvgFill(args.vg);
+		nvgStrokeWidth(args.vg, 1.0);
+		nvgStrokeColor(args.vg, borderColor);
+		nvgStroke(args.vg);
+	}
 	this->Widget::draw(args);
 	return;
 } // end TSSingleOscillatorWidget::draw()
@@ -446,7 +508,6 @@ void TSOscillatorChannelDisplayWidget::onButton(const event::Button &e)  {
 	if (parentWidget == NULL || parentWidget->parentWidget->oscillatorDisplay->module == NULL)
 		return;
 	if (showDisplay) {		
-		//		if (e.button == 0 && e.pos.y >= yTbStart && e.pos.y < yTbEnd)
 		if (e.action == GLFW_PRESS && e.button == GLFW_MOUSE_BUTTON_LEFT
 			&& e.pos.y >= yTbStart && e.pos.y < yTbEnd)
 		{
@@ -606,14 +667,14 @@ void TSOscillatorChannelDisplayWidget::drawLayer(/*in*/ const DrawArgs &args, in
 				nvgText(args.vg, x, y2, label.c_str(), NULL);
 				switch (i)
 				{
-				case phaseShiftIx:
-				{
-					// Make a damn degree symbol (our font doesn't have one apparently)
-					float txtBounds[4];
-					float nextX = nvgTextBounds(args.vg, 0, 0, "PHASE (", NULL, txtBounds);
-					nvgFontSize(args.vg, fontSize * 0.6f);
-					nvgText(args.vg, x + nextX / 2.f - 1.25f, y2, "o", NULL); // make a tiny o
-				}
+					case phaseShiftIx:
+					{
+						// Make a damn degree symbol (our font doesn't have one apparently)
+						float txtBounds[4];
+						float nextX = nvgTextBounds(args.vg, 0, 0, "PHASE (", NULL, txtBounds);
+						nvgFontSize(args.vg, fontSize * 0.6f);
+						nvgText(args.vg, x + nextX / 2.f - 1.25f, y2, "o", NULL); // make a tiny o
+					}
 					break;
 				default:
 					break;
@@ -629,6 +690,52 @@ void TSOscillatorChannelDisplayWidget::drawLayer(/*in*/ const DrawArgs &args, in
 	this->Widget::drawLayer(args, layer);
 	return;
 } // end TSOscillatorChannelDisplayWidget::draw()
+
+
+// Pretty much hidden and then just shows the menu to select waveform type
+struct WaveTypeSelectMenu : OpaqueWidget {
+	TS_OscillatorOutput* oscOutput = NULL;
+	multiOscillator* thisModule = NULL;
+	int paramId = 0;
+
+	WaveTypeSelectMenu(multiOscillator* oscModule, int paramId, TS_OscillatorOutput* output)
+	{
+		this->thisModule = oscModule;
+		this->paramId = paramId;
+		this->oscOutput = output;
+	}
+
+
+	void createWaveformTypeMenu()
+	{
+		ui::Menu* menu = createMenu();
+		menu->addChild(createMenuLabel("Waveform Type"));
+		for (int i = 0; i < WaveFormType::NUM_WAVEFORMS; i++)
+		{
+			menu->addChild(createCheckMenuItem(thisModule->WaveFormAbbr[i], "",
+				[=]() {
+					return oscOutput->waveFormType == i;
+				},
+				[=]() {
+					thisModule->paramQuantities[paramId]->setValue(i);
+				}
+			));
+		}
+	}
+
+	void onButton(const ButtonEvent& e) override
+	{
+		if (oscOutput == NULL || thisModule == NULL)
+			return;
+		OpaqueWidget::onButton(e);
+		if (e.action == GLFW_PRESS && (e.button == GLFW_MOUSE_BUTTON_LEFT || e.button == GLFW_MOUSE_BUTTON_RIGHT)) {
+
+			createWaveformTypeMenu();
+			e.consume(this);
+		}
+	}
+};
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // TSOscillatorChannelWidget()
 // Widget for all ports and parameters for a channel output.
@@ -641,10 +748,14 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 	Vec location,
 	int chNumber, NVGcolor chColor, int bInputId, int bParamId, int bOutputId, int bLightId, TS_OscillatorOutput* oscOutput)
 {	
+	this->hasScreen = parentOscWidget->hasScreen;
 	box.size = Vec(OSC_WIDGET_WIDTH, 50);
+	if (!hasScreen)
+		box.size.x -= OSC_WIDGET_SCREEN_WIDTH;
 	box.pos = location;
 	this->parentWidget = parentOscWidget;
-	//this->parentModuleWidget = parentModuleWidget;
+	if (box.size.x > parentWidget->box.size.x)
+		box.size.x = parentWidget->box.size.x;
 	multiOscillator* thisModule = NULL;
 	if (parentModuleWidget->module != NULL)
 		thisModule = dynamic_cast<multiOscillator*>(parentModuleWidget->module);
@@ -657,16 +768,18 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 	channelColor = chColor;
 	bool plugLightsEnabled = parentModuleWidget->plugLightsEnabled;
 
-	//-------------------------
-	// Display - In center
-	//-------------------------
-	TSOscillatorChannelDisplayWidget* display = new TSOscillatorChannelDisplayWidget();
-	display->box.size = Vec(365, 45);
-	display->box.pos = Vec(parentWidget->screenStartX, 5);
-	//display->module = thisModule;
-	//display->parentModuleWidget = parentModuleWidget;
-	display->parentWidget = this;
-	addChild(display);
+	TSOscillatorChannelDisplayWidget* display = NULL;
+	if (hasScreen)
+	{
+		//-------------------------
+		// Display - In center
+		//-------------------------
+		display = new TSOscillatorChannelDisplayWidget();
+		display->box.size = Vec(365, 45);
+		display->box.pos = Vec(parentWidget->screenStartX, 5);
+		display->parentWidget = this;
+		addChild(display);
+	}
 
 	//-------------------------
 	// User controls (params) & Inputs:
@@ -682,7 +795,7 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 		// { TROWA_MOSC_KNOB_MIN_V, TROWA_MOSC_KNOB_MAX_V, multiOscillator::PhaseShift2KnobVoltage(MOSC_PHASE_SHIFT_DEFAULT_DEG) }, // Phi
 		// { TROWA_MOSC_MIX_MIN_V, TROWA_MOSC_MIX_MAX_V,  TROWA_MOSC_MIX_DEF_V } // Mod Mix
 	// };
-	bool hasTextBox[] = { false, true, true, true };
+	bool hasTextBox[] = { false, hasScreen, hasScreen, hasScreen };
 	const char* formatStrs[numKnobVals] = { "%0.0f", "%0.2f", "%0.2f", "%0.2f" };
 	TS_TinyBlackKnob* knobPtr = NULL;
 	TS_Port* port = NULL;
@@ -690,11 +803,11 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 	Vec tbSize = Vec(65, 22);
 	int x = xStart;
 	int y = yStart;
-	int tbDy = 5;
+	int tbDy = 5; 
 	for (int paramId = 0; paramId < numKnobVals; paramId++)
 	{
 		// Input CV Ports
-		port = TS_createInput<TS_Port>(Vec(x - 5, y + 5), thisModule, baseInputId + paramId, !plugLightsEnabled, channelColor);
+		port = TS_createInput<TS_DEFAULT_PORT_INPUT>(Vec(x - 5, y + 5), thisModule, baseInputId + paramId, !plugLightsEnabled, channelColor);
 		addChild(port);
 		//parentModuleWidget->inputs.push_back(port);
 
@@ -741,23 +854,27 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 				break;
 			}
 		}
+		else if (hasScreen && paramId == 0) {
+			// Waveform type
+			WaveTypeSelectMenu* waveSelect = new WaveTypeSelectMenu(thisModule, /*id*/ baseParamId + paramId, this->oscillatorOutput);
+			waveSelect->box.pos = Vec(parentOscWidget->screenStartX + 15 + paramId * 88.75, y + tbDy);
+			waveSelect->box.size = tbSize;
+			addChild(waveSelect);
+		}
 
 		x += dx;
 	} // end for
-	display->showDisplay = true;
+	if (hasScreen)
+		display->showDisplay = true;
 	//------------------------------------------
 	// Button for RNG or DIG
 	//------------------------------------------
 	const int size = 13;
 	Vec ledBtnSize = Vec(size, size); // LED button size
-	//Vec ledSize = Vec(size-2, size-2); // LED size
 	x += -7;
-	//LEDButton* btn = dynamic_cast<LEDButton*>(createParam<LEDButton>(Vec(x, y + 11), thisModule, baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM, 0, 1, 0));
 	TS_LEDButton* btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(x, y + 11), thisModule, baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM));	
-	//btn->box.size = ledBtnSize;
 	btn->setSize(ledBtnSize);
 	addChild(btn);
-	//parentModuleWidget->params.push_back(btn);
 	ColorValueLight* light = TS_createColorValueLight<ColorValueLight>(Vec(x + 2.5, y + 13.5), thisModule,
 		baseLightId + TS_OscillatorOutput::BaseLightIds::OUT_AM_MODE_LED, ledBtnSize, TSColors::COLOR_WHITE);
 	addChild(light);
@@ -767,18 +884,19 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 	// Right : Outputs
 	//------------------------------------------
 	// * RAW * signal
-	x = parentOscWidget->screenStartX + parentOscWidget->screenWidth + parentOscWidget->outPortOffsetX;
+	//if (hasScreen)
+	//	x = parentOscWidget->screenStartX + parentOscWidget->screenWidth + parentOscWidget->outPortOffsetX;
+	//else
+	//	x = parentOscWidget->screenStartX + parentOscWidget->outPortOffsetX / 2;
+	x = parentWidget->box.size.x - 75; // 90
 	y = yStart + 5;
-	//INFO(" >> Raw Signal id %d", baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_RAW_SIGNAL);
-	port = TS_createOutput<TS_Port>(Vec(x, y), thisModule, baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_RAW_SIGNAL, !plugLightsEnabled, chColor);
+	//DEBUG("2nd Out: (%d, %d) - Parent Width: %f, This Width: %f", x, y, parentWidget->box.size.x, box.size.x);
+	port = TS_createOutput<TS_DEFAULT_PORT_OUTPUT>(Vec(x, y), thisModule, baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_RAW_SIGNAL, !plugLightsEnabled, chColor);
 	addChild(port);
-	//parentModuleWidget->outputs.push_back(port);
 	// * Multiplied * signal
 	x += 30;
-	//INFO(" >> Mod Signal id %d", baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL);
-	port = TS_createOutput<TS_Port>(Vec(x, y), thisModule, baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL, !plugLightsEnabled, chColor);
+	port = TS_createOutput<TS_DEFAULT_PORT_OUTPUT>(Vec(x, y), thisModule, baseOutputId + TS_OscillatorOutput::BaseOutputIds::OUT_MULTIPLIED_SIGNAL, !plugLightsEnabled, chColor);
 	addChild(port);
-	//parentModuleWidget->outputs.push_back(port);
 	return;
 } // end TSOscilatorChannelWidget()
 

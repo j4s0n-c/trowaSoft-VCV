@@ -10,6 +10,9 @@ using namespace rack;
 #include "TSSequencerWidgetBase.hpp"
 #include "TSOSCConfigWidget.hpp"
 
+#define SEQ_PORT_IN_WIDGET		TS_DEFAULT_PORT_INPUT		// The port widget to use
+#define SEQ_PORT_OUT_WIDGET		TS_DEFAULT_PORT_OUTPUT		// The port widget to use
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // TSSequencerWidgetBase() - Base constructor.
 // Instantiate a trowaSoft Sequencer widget. v0.60 must have module as param.
@@ -31,7 +34,7 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 		thisModule = dynamic_cast<TSSequencerModuleBase*>(this->module);
 	}
 	bool isPreview = thisModule == NULL;
-		
+	
 	////////////////////////////////////
 	// DISPLAY
 	////////////////////////////////////
@@ -91,10 +94,7 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 		//addChild(labelArea);
 	}
 	// Screws:
-	addChild(createWidget<ScrewBlack>(Vec(0, 0)));
-	addChild(createWidget<ScrewBlack>(Vec(box.size.x - 15, 0)));
-	addChild(createWidget<ScrewBlack>(Vec(0, box.size.y - 15)));
-	addChild(createWidget<ScrewBlack>(Vec(box.size.x - 15, box.size.y - 15)));
+	this->TSSModuleWidgetBase::addScrews();
 
 	// Input Controls ==================================================	
 	// Run (Toggle)
@@ -260,19 +260,19 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	int portStart = 143;
 	
 	// Selected Pattern Playback:
-	addInput(TS_createInput<TS_Port>(Vec(xStart, portStart + (ySpacing * 0)), thisModule, TSSequencerModuleBase::InputIds::SELECTED_PATTERN_PLAY_INPUT));
+	addInput(TS_createInput<SEQ_PORT_IN_WIDGET>(Vec(xStart, portStart + (ySpacing * 0)), thisModule, TSSequencerModuleBase::InputIds::SELECTED_PATTERN_PLAY_INPUT));
 	
 	// Clock
-	addInput(TS_createInput<TS_Port>(Vec(xStart, portStart + (ySpacing * 1)), thisModule, TSSequencerModuleBase::InputIds::BPM_INPUT));
+	addInput(TS_createInput<SEQ_PORT_IN_WIDGET>(Vec(xStart, portStart + (ySpacing * 1)), thisModule, TSSequencerModuleBase::InputIds::BPM_INPUT));
 	
 	// Steps
-	addInput(TS_createInput<TS_Port>(Vec(xStart, portStart + (ySpacing * 2)), thisModule, TSSequencerModuleBase::InputIds::STEPS_INPUT));
+	addInput(TS_createInput<SEQ_PORT_IN_WIDGET>(Vec(xStart, portStart + (ySpacing * 2)), thisModule, TSSequencerModuleBase::InputIds::STEPS_INPUT));
 	
 	// External Clock
-	addInput(TS_createInput<TS_Port>(Vec(xStart, portStart + (ySpacing * 3)), thisModule, TSSequencerModuleBase::InputIds::EXT_CLOCK_INPUT));
+	addInput(TS_createInput<SEQ_PORT_IN_WIDGET>(Vec(xStart, portStart + (ySpacing * 3)), thisModule, TSSequencerModuleBase::InputIds::EXT_CLOCK_INPUT));
 	
 	// Reset 
-	addInput(TS_createInput<TS_Port>(Vec(xStart, portStart + (ySpacing * 4)), thisModule, TSSequencerModuleBase::InputIds::RESET_INPUT));
+	addInput(TS_createInput<SEQ_PORT_IN_WIDGET>(Vec(xStart, portStart + (ySpacing * 4)), thisModule, TSSequencerModuleBase::InputIds::RESET_INPUT));
 
 	// Outputs ==================================================
 	// Loop through each channel/voice/gate
@@ -298,13 +298,14 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	{
 		for (int c = 0; c < 2; c++)
 		{
-			// Triggers / Gates / Output:
-			addOutput(TS_createOutput<TS_Port>(Vec(x, y), thisModule, TSSequencerModuleBase::OutputIds::CHANNELS_OUTPUT+v, /*color*/ channelColors[v]));
+			// Put lights behind widget now
 			// Match the color to the trigger/gate/output:
-			addChild(TS_createColorValueLight<TS_LightRing>(/*position*/ Vec(x + 5, y + 5), 
-				/*thisModule*/ thisModule, 
-				/*lightId*/ TSSequencerModuleBase::LightIds::CHANNEL_LIGHTS+v,
+			addChild(TS_createColorValueLight<TS_LightRing>(/*position*/ Vec(x + 5, y + 5),
+				/*thisModule*/ thisModule,
+				/*lightId*/ TSSequencerModuleBase::LightIds::CHANNEL_LIGHTS + v,
 				/*size*/ outputLightSize, /*lightColor*/ channelColors[v % 16], /*backColor*/ channelColors[v % 16]));
+			// Triggers / Gates / Output:
+			addOutput(TS_createOutput<SEQ_PORT_OUT_WIDGET>(Vec(x, y), thisModule, TSSequencerModuleBase::OutputIds::CHANNELS_OUTPUT+v, /*color*/ channelColors[v]));
 			if (!isPreview)
 				thisModule->lights[TSSequencerModuleBase::LightIds::CHANNEL_LIGHTS + v].value = 0;
 			x += 36;
@@ -684,8 +685,9 @@ struct seqInitializeMenuItem : MenuItem {
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 void TSSequencerWidgetBase::appendContextMenu(ui::Menu *menu)
 {
-	MenuLabel *spacerLabel = new MenuLabel();
-	menu->addChild(spacerLabel);
+	//MenuLabel *spacerLabel = new MenuLabel();
+	//menu->addChild(spacerLabel);
+	menu->addChild(new ui::MenuSeparator);
 
 	TSSequencerModuleBase* sequencerModule = dynamic_cast<TSSequencerModuleBase*>(module);
 	MenuLabel* modeLabel = NULL;
@@ -711,9 +713,10 @@ void TSSequencerWidgetBase::appendContextMenu(ui::Menu *menu)
 	
 	
 	//-------- Spacer -------- //
-	modeLabel = new MenuLabel();
-	modeLabel->text = "";
-	menu->addChild(modeLabel); 
+	//modeLabel = new MenuLabel();
+	//modeLabel->text = "";
+	//menu->addChild(modeLabel); 
+	menu->addChild(new ui::MenuSeparator);
 	
 	//-------- Random ------- //
 	modeLabel = new MenuLabel();
@@ -845,6 +848,13 @@ void TSSeqLabelArea::draw(const DrawArgs &args)
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 //===============================================================================
 
+//struct PatternDialWidget : TS_ScreenDial {
+//	std::string getDisplayText() override
+//	{
+//		return rack::string::f("Pattern %s", this->TS_ScreenDial::getDisplayText().c_str());
+//	}
+//};
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // TSSeqPatternSeqConfigWidget();
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -867,20 +877,29 @@ TSSeqPatternSeqConfigWidget::TSSeqPatternSeqConfigWidget(TSSequencerModuleBase* 
 	ckEnabled->padding = 1;	
 	ckEnabled->color = TS_PATTERN_SEQ_STATUS_COLOR;
 	addChild(ckEnabled);
-		
+	
 	// TS_KnobColored* knobPtr = dynamic_cast<TS_KnobColored*>(createParam<TS_KnobColored>(Vec(200, 15), seqModule, TSSequencerModuleBase::ParamIds::PATTERN_SEQ_LENGTH_PARAM));
 	// knobPtr->init(TS_KnobColored::SizeType::Small, TS_KnobColored::KnobColor::MedGray);
 	// knobPtr->getParamQuantity()->randomizeEnabled = false; //knobPtr->allowRandomize = false;
 	// knobPtr->snap = true;		
 	// addChild(knobPtr);	
-	
+
+	//TS_ScreenDial* slider = dynamic_cast<TS_ScreenDial*>(createParam<TS_ScreenDial>(Vec(200, 5), seqModule, TSSequencerModuleBase::ParamIds::PATTERN_SEQ_LENGTH_PARAM));
+	//slider->color = TS_PATTERN_SEQ_STATUS_COLOR;
+	//slider->borderColor = TS_PATTERN_SEQ_STATUS_COLOR;
+	//slider->box.size = Vec(40, 40); // Vec(120.f, 20.f);
+	//slider->incrDecrWidth = 18.f;
+
+	// This slider sucks and was here just temporarily...	
 	TS_ScreenSlider* slider = dynamic_cast<TS_ScreenSlider*>(createParam<TS_ScreenSlider>(Vec(200, 5), seqModule, TSSequencerModuleBase::ParamIds::PATTERN_SEQ_LENGTH_PARAM));
 	slider->snap = true;
 	slider->setSliderDirection(TS_ScreenSlider::SliderDirection::Vertical);
 	slider->getParamQuantity()->randomizeEnabled = false;	
 	slider->getParamQuantity()->snapEnabled = true; // Make sure this is snapping
 	slider->box.size = Vec(20, 40);
+	slider->handleCornerRadius = 2.f;
 	slider->fillToValueColorPos = TS_PATTERN_SEQ_STATUS_COLOR;
+	
 	addChild(slider);	
 	return;
 }

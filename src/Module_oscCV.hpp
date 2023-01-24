@@ -120,6 +120,8 @@ struct oscCV : Module {
 	oscCVExpander* expCurrentEditExpander = NULL;
 	// [Expander] Current edit expander index. 0 is none. Negative is to the LEFT (input), Positive to the right (output).
 	int expCurrentEditExpanderIx = 0;
+	// [Expander] Current channel ix (ix into module) that is being edited in advanced channel config (if any).
+	int expCurrentEditChannelIx = -1;
 	// [Expander] Current edit name.
 	std::string expCurrentEditExpanderName;
 	// [Expander] For expanders with more than 8 channels, the current page/column index we are editing.
@@ -348,7 +350,7 @@ struct oscCV : Module {
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
 	// setExpansionEditPageCol()
-	// Set which current page we are doing. Also sets the param quantity.
+	// Set which current page we are doing. Also sets the Page/Column param quantity.
 	// @pageIx : 0 to N
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
 	void setExpansionEditPageCol(int pageIx)
@@ -357,7 +359,11 @@ struct oscCV : Module {
 		this->expCurrentEditPageCol = pageIx;
 		return;
 	}
-
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
+	// setMaxExpansionEditPageCol()
+	// Set the TOTAL number of pages the edit Page/Column control has.
+	// @maxNumPages : 1 to N.
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	void setMaxExpansionEditPageCol(int maxNumPages)
 	{
 		this->paramQuantities[ParamIds::OSC_EXPANDER_PAGE_PARAM]->maxValue = maxNumPages - 1;
@@ -369,7 +375,6 @@ struct oscCV : Module {
 			if (cnt > maxNumPages)
 			{
 				// Remove the end ones
-				//DEBUG("Deleting the end elements starting at index %d", maxNumPages);
 				sQty->labels.erase(std::next(sQty->labels.begin(), maxNumPages), sQty->labels.end());
 			}
 			else if (cnt < maxNumPages)
@@ -381,7 +386,6 @@ struct oscCV : Module {
 					sQty->labels.push_back(lbl);
 				}
 			}
-
 		}
 		return;
 	}

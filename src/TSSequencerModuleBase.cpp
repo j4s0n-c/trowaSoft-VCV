@@ -13,6 +13,8 @@
 #include "TSParamQuantity.hpp"
 
 
+#define DEBUG_VOLTAGE_TO_NOTE	0
+
 
 // Static Variables:
 
@@ -62,7 +64,7 @@ RandStructure TSSequencerModuleBase::RandomPatterns[TROWA_SEQ_NUM_RANDOM_PATTERN
 // @defChannelValMode : (IN) The default value mode for channels. (v1.0.4 now that VALUE_TRIGGER and VALUE_VOLT are unique).
 // @enablePatternSequencing: (IN) (Opt'l) Enable pattern sequencing for this type of module. Default is false.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-TSSequencerModuleBase::TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int numRows, /*in*/ int numCols, /*in*/ float defStateVal, 
+TSSequencerModuleBase::TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int numRows, /*in*/ int numCols, /*in*/ float defStateVal,
 	/*in*/ TSSequencerModuleBase::ValueMode defChannelValMode, bool enablePatternSequencing)
 {
 	// # Parameters and # Lights need to be increased by numSteps.
@@ -73,26 +75,26 @@ TSSequencerModuleBase::TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int num
 	{
 		numParams += numSteps;
 		PATTERN_SEQ_PARAM_START = NUM_PARAMS + numSteps;
-		
+
 		numLights += numSteps;
-		PATTERN_SEQ_LIGHT_START = NUM_LIGHTS + numSteps;;		
+		PATTERN_SEQ_LIGHT_START = NUM_LIGHTS + numSteps;;
 	}
 	config(numParams, NUM_INPUTS, NUM_OUTPUTS, numLights);
-	
+
 	defaultChannelValueMode = defChannelValMode;
-	defaultStateValue = defStateVal;	
+	defaultStateValue = defStateVal;
 	// Number of steps in not static at compile time anymore...
 	maxSteps = numSteps; // Num Steps may vary now up to 64	
-	
+
 	// INTERNAL PATTERN SEQUENCING //////
 	// If this module has internal pattern sequencing (no to most, only tsSeq should have it for now).
-	allowPatternSequencing = enablePatternSequencing;	
+	allowPatternSequencing = enablePatternSequencing;
 	// Which pattern to play (for pattern sequencing).
 	patternPlayHeadIx = -1;
 	// Flag if pattern sequencing is on.
-	patternSequencingOn = false;	
+	patternSequencingOn = false;
 	// Show the pattern seqeuncing configuration.
-	showPatternSequencingConfig = false;	
+	showPatternSequencingConfig = false;
 	lastShowPatternSequencingConfig = false;
 	if (allowPatternSequencing)
 	{
@@ -104,22 +106,22 @@ TSSequencerModuleBase::TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int num
 			patternData[p] = p % TROWA_SEQ_NUM_PATTERNS;
 			// Values will be indices (0-63). Display should be 1-64.
 			// Default to 0-63 (play in order).
-			configParam(PATTERN_SEQ_PARAM_START + p, /*min*/ 0.0f, /*max*/ TROWA_SEQ_NUM_PATTERNS - 1, /*default value*/ patternData[p], 
-				/*label*/ "Sequence " + std::to_string(p+1) + " Pattern #", /*unit*/ "", /*displayBase*/ 0.0f, /*displayMult*/ 1.0f, /*displayOffset*/ 1);			
+			configParam(PATTERN_SEQ_PARAM_START + p, /*min*/ 0.0f, /*max*/ TROWA_SEQ_NUM_PATTERNS - 1, /*default value*/ patternData[p],
+				/*label*/ "Sequence " + std::to_string(p + 1) + " Pattern #", /*unit*/ "", /*displayBase*/ 0.0f, /*displayMult*/ 1.0f, /*displayOffset*/ 1);
 		}
 		numPatternsInSequence = maxSteps;
 	}
 	else
 	{
 		// The patterns to play.
-		patternData = NULL;		
+		patternData = NULL;
 	}
-	
+
 	// Configure Parameters:
 	// BPM Knob
 	// BPM_PARAM,
-	configParam(/*id*/ TSSequencerModuleBase::ParamIds::BPM_PARAM, /*min*/ TROWA_SEQ_BPM_KNOB_MIN, /*max*/ TROWA_SEQ_BPM_KNOB_MAX, /*def*/ (TROWA_SEQ_BPM_KNOB_MAX + TROWA_SEQ_BPM_KNOB_MIN) / 2, 
-		/*label*/ "Tempo", /*unit*/ " BPM (1/" + std::string(BPMOptions[selectedBPMNoteIx]->label) + ")" , /*displayBase*/ 2.0f, /*displayMult*/ BPMOptions[selectedBPMNoteIx]->multiplier );
+	configParam(/*id*/ TSSequencerModuleBase::ParamIds::BPM_PARAM, /*min*/ TROWA_SEQ_BPM_KNOB_MIN, /*max*/ TROWA_SEQ_BPM_KNOB_MAX, /*def*/ (TROWA_SEQ_BPM_KNOB_MAX + TROWA_SEQ_BPM_KNOB_MIN) / 2,
+		/*label*/ "Tempo", /*unit*/ " BPM (1/" + std::string(BPMOptions[selectedBPMNoteIx]->label) + ")", /*displayBase*/ 2.0f, /*displayMult*/ BPMOptions[selectedBPMNoteIx]->multiplier);
 	// Run toggle		
 	// RUN_PARAM,
 	configButton(TSSequencerModuleBase::ParamIds::RUN_PARAM, "Run");
@@ -128,63 +130,67 @@ TSSequencerModuleBase::TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int num
 	configButton(TSSequencerModuleBase::ParamIds::RESET_PARAM, "Reset");
 	// Step length
 	// STEPS_PARAM,
-	configParam(TSSequencerModuleBase::ParamIds::STEPS_PARAM, 1.0, numSteps, numSteps, "Step Length");	
-	paramQuantities[TSSequencerModuleBase::ParamIds::STEPS_PARAM]->snapEnabled = true;	
+	configParam(TSSequencerModuleBase::ParamIds::STEPS_PARAM, 1.0, numSteps, numSteps, "Step Length");
+	paramQuantities[TSSequencerModuleBase::ParamIds::STEPS_PARAM]->snapEnabled = true;
 	// SELECTED_PATTERN_PLAY_PARAM,  // What pattern we are playing
-	configParam(TSSequencerModuleBase::ParamIds::SELECTED_PATTERN_PLAY_PARAM, /*min*/ 0.0f, /*max*/ TROWA_SEQ_NUM_PATTERNS - 1, /*default value*/ 0.0f, 
+	configParam(TSSequencerModuleBase::ParamIds::SELECTED_PATTERN_PLAY_PARAM, /*min*/ 0.0f, /*max*/ TROWA_SEQ_NUM_PATTERNS - 1, /*default value*/ 0.0f,
 		/*label*/ "Play Pattern", /*unit*/ std::string(""), /*displayBase*/ 0.0f, /*displayMult*/ 1.0f, /*displayOffset*/ 1);
-	paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_PATTERN_PLAY_PARAM]->snapEnabled = true;			
+	paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_PATTERN_PLAY_PARAM]->snapEnabled = true;
 	// SELECTED_PATTERN_EDIT_PARAM,  // What pattern we are editing
 	configParam(TSSequencerModuleBase::ParamIds::SELECTED_PATTERN_EDIT_PARAM, /*min*/ 0.0f, /*max*/ TROWA_SEQ_NUM_PATTERNS - 1, /*default value*/ 0.0f,
-		/*label*/ "Edit Pattern", /*unit*/ std::string(""), /*displayBase*/ 0.0f, /*displayMult*/ 1.0f, /*displayOffset*/ 1);	
-	paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_PATTERN_EDIT_PARAM]->snapEnabled = true;					
+		/*label*/ "Edit Pattern", /*unit*/ std::string(""), /*displayBase*/ 0.0f, /*displayMult*/ 1.0f, /*displayOffset*/ 1);
+	paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_PATTERN_EDIT_PARAM]->snapEnabled = true;
 	// SELECTED_CHANNEL_PARAM,	 // Which gate is selected for editing		
-	configParam(TSSequencerModuleBase::ParamIds::SELECTED_CHANNEL_PARAM, /*min*/ 0.0, /*max*/ TROWA_SEQ_NUM_CHNLS - 1, /*default value*/ 0, 
+	configParam(TSSequencerModuleBase::ParamIds::SELECTED_CHANNEL_PARAM, /*min*/ 0.0, /*max*/ TROWA_SEQ_NUM_CHNLS - 1, /*default value*/ 0,
 		/*label*/ "Edit Channel", /*unit*/ std::string(""), /*displayBase*/ 0.0f, /*displayMult*/ 1.0f, /*displayOffset*/ 1);
-	paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_CHANNEL_PARAM]->snapEnabled = true;							
+	paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_CHANNEL_PARAM]->snapEnabled = true;
 	// SELECTED_OUTPUT_VALUE_MODE_PARAM,     // Which value mode we are doing	
-	configParam<TS_ParamQuantityEnum>(TSSequencerModuleBase::ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM, /*min*/ 0, /*max*/ TROWA_SEQ_NUM_MODES - 1, /*default*/ TSSequencerModuleBase::ValueMode::VALUE_TRIGGER, /*label*/ "Mode");
-	dynamic_cast<TS_ParamQuantityEnum*>(this->paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM])->valMult = 1000.f;
+	//configParam<TS_ParamQuantityEnum>(TSSequencerModuleBase::ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM, /*min*/ 0, /*max*/ TROWA_SEQ_NUM_MODES - 1, /*default*/ TSSequencerModuleBase::ValueMode::VALUE_TRIGGER, /*label*/ "Mode");
+	//dynamic_cast<TS_ParamQuantityEnum*>(this->paramQuantities[TSSequencerModuleBase::ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM])->valMult = 1000.f;
+	// Rack v2.0 now has labels for a switch
+	SwitchQuantity* pQty = configParam<SwitchQuantity>(TSSequencerModuleBase::ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM, /*min*/ 0, /*max*/ TROWA_SEQ_NUM_MODES - 1, /*default*/ TSSequencerModuleBase::ValueMode::VALUE_TRIGGER, /*label*/ "Mode");
+	pQty->snapEnabled = true;
+
 	// SWING_ADJ_PARAM, // Amount of swing adjustment (-0.1 to 0.1)
 	configParam(TSSequencerModuleBase::ParamIds::SWING_ADJ_PARAM, -0.1, 0.1, 0.0); // Currently not used.		
 	// COPY_PATTERN_PARAM, // Copy the current editing Pattern
 	//configParam(TSSequencerModuleBase::ParamIds::COPY_PATTERN_PARAM, 0, 1, 0, /*label*/ "Copy Pattern");
-	configButton(TSSequencerModuleBase::ParamIds::COPY_PATTERN_PARAM, /*label*/ "Copy Pattern");	
+	configButton(TSSequencerModuleBase::ParamIds::COPY_PATTERN_PARAM, /*label*/ "Copy Pattern");
 	// COPY_CHANNEL_PARAM, // Copy the current Channel/gate/trigger in the current Pattern only.
 	//configParam(TSSequencerModuleBase::ParamIds::COPY_CHANNEL_PARAM, 0, 1, 0, /*label*/ "Copy Channel");
-	configButton(TSSequencerModuleBase::ParamIds::COPY_CHANNEL_PARAM, /*label*/ "Copy Channel");	
+	configButton(TSSequencerModuleBase::ParamIds::COPY_CHANNEL_PARAM, /*label*/ "Copy Channel");
 	// PASTE_PARAM, // Paste what is on our clip board to the now current editing.
 	//configParam(TSSequencerModuleBase::ParamIds::PASTE_PARAM, 0.0, 1.0, 0.0, "Paste");
-	configButton(TSSequencerModuleBase::ParamIds::PASTE_PARAM, "Paste");	
+	configButton(TSSequencerModuleBase::ParamIds::PASTE_PARAM, "Paste");
 	// SELECTED_BPM_MULT_IX_PARAM, // Selected index into our BPM calculation multipliers (for 1/4, 1/8, 1/8T, 1/16 note calcs)
 	//configParam(TSSequencerModuleBase::ParamIds::SELECTED_BPM_MULT_IX_PARAM, 0, 1, 0, /*label*/ "Next BPM Note");
-	configButton(TSSequencerModuleBase::ParamIds::SELECTED_BPM_MULT_IX_PARAM, "Next BPM Note");	
+	configButton(TSSequencerModuleBase::ParamIds::SELECTED_BPM_MULT_IX_PARAM, "Next BPM Note");
 	// OSC_SAVE_CONF_PARAM, // ENABLE and Save the configuration for OSC
 	//configParam(TSSequencerModuleBase::ParamIds::OSC_SAVE_CONF_PARAM, 0, 1, 0, /*label*/ "Enable/Disable OSC");	
-	configButton(TSSequencerModuleBase::ParamIds::OSC_SAVE_CONF_PARAM, /*label*/ "Enable/Disable OSC");		
+	configButton(TSSequencerModuleBase::ParamIds::OSC_SAVE_CONF_PARAM, /*label*/ "Enable/Disable OSC");
 	// OSC_AUTO_RECONNECT_PARAM,   // Auto-reconnect OSC on load from save file.
 	//configParam(TSSequencerModuleBase::ParamIds::OSC_AUTO_RECONNECT_PARAM, 0, 1, 0, /*label*/ "Auto-connect OSC");		
-	configButton(TSSequencerModuleBase::ParamIds::OSC_AUTO_RECONNECT_PARAM, /*label*/ "Auto-connect OSC");			
+	configButton(TSSequencerModuleBase::ParamIds::OSC_AUTO_RECONNECT_PARAM, /*label*/ "Auto-connect OSC");
 	// OSC_SHOW_CONF_PARAM, // Configure OSC toggle
 	//configParam(TSSequencerModuleBase::ParamIds::OSC_SHOW_CONF_PARAM, 0, 1, 0, "Toggle OSC Config Screen");
 	configButton(TSSequencerModuleBase::ParamIds::OSC_SHOW_CONF_PARAM, "Toggle OSC Config Screen");
 
 	// CHANNEL_PARAM, // Edit Channel/Step Buttons/Knobs	
-	
+
 	////////////////////////////////////////////////
 	// INTERNAL PATTERN SEQUENCING /////////////////
 	////////////////////////////////////////////////
 	configButton(TSSequencerModuleBase::ParamIds::PATTERN_SEQ_SHOW_CONFIG_PARAM, /*label*/ "Show Song Mode Config");
 	// configParam(TSSequencerModuleBase::ParamIds::PATTERN_SEQ_ON_PARAM, /*min*/ 0.0f, /*max*/ 1.0f, /*default value*/ 0.0f, 
 		// /*label*/ "Song Mode Active", /*unit*/ std::string(""), /*displayBase*/ 0.0f, /*displayMult*/ 1.0f, /*displayOffset*/ 1);	
-	configButton(TSSequencerModuleBase::ParamIds::PATTERN_SEQ_ON_PARAM, /*label*/ "Song Mode Active");		
+	configButton(TSSequencerModuleBase::ParamIds::PATTERN_SEQ_ON_PARAM, /*label*/ "Song Mode Active");
 	// Pattern Sequence Length - We can only have as many as we have steps (because of room).
-	configParam(TSSequencerModuleBase::ParamIds::PATTERN_SEQ_LENGTH_PARAM, /*min*/ 1.0f, /*max*/ maxSteps, /*default value*/ 1.0f, 
-		/*label*/ "Songe Mode/Pattern Sequence Length", /*unit*/ std::string(""), /*displayBase*/ 0.0f, /*displayMult*/ 1.0f, /*displayOffset*/ 0);	
+	configParam(TSSequencerModuleBase::ParamIds::PATTERN_SEQ_LENGTH_PARAM, /*min*/ 1.0f, /*max*/ maxSteps, /*default value*/ 1.0f,
+		/*label*/ "Songe Mode/Pattern Sequence Length", /*unit*/ std::string(""), /*displayBase*/ 0.0f, /*displayMult*/ 1.0f, /*displayOffset*/ 0);
 	paramQuantities[TSSequencerModuleBase::ParamIds::PATTERN_SEQ_LENGTH_PARAM]->snapEnabled = true;
-		
+
 	// Copy the default colors over. ? Or just reference them. This leaves it open to customize the colors eventually.
-	for (int i = 0; i < TROWA_SEQ_NUM_CHNLS; i++){
+	for (int i = 0; i < TROWA_SEQ_NUM_CHNLS; i++) {
 		voiceColors[i] = TSColors::CHANNEL_COLORS[i % TSColors::NUM_CHANNEL_COLORS];
 		// Initialize channel modes:
 		// v1.0.1 - Each channel will have its own mode.		
@@ -219,15 +225,15 @@ TSSequencerModuleBase::TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int num
 	this->numRows = numRows;
 	this->numCols = numCols;
 
-	stepLights = new float*[numRows];
-	gateLights = new float*[numRows];
-	padLightPtrs = new ColorValueLight**[numRows];
+	stepLights = new float* [numRows];
+	gateLights = new float* [numRows];
+	padLightPtrs = new ColorValueLight * *[numRows];
 
 	for (int r = 0; r < numRows; r++)
 	{
 		stepLights[r] = new float[numCols];
 		gateLights[r] = new float[numCols];
-		padLightPtrs[r] = new ColorValueLight*[numCols];
+		padLightPtrs[r] = new ColorValueLight * [numCols];
 		for (int c = 0; c < numCols; c++)
 		{
 			stepLights[r][c] = 0;
@@ -261,21 +267,21 @@ TSSequencerModuleBase::TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int num
 
 	initialized = false;
 	firstLoad = true;
-	
+
 	// [Rack v2] Add labels for inputs and outputs
 	configInput(InputIds::BPM_INPUT, "Tempo/BPM");
 	configInput(InputIds::EXT_CLOCK_INPUT, "External Clock");
 	configInput(InputIds::RESET_INPUT, "Reset");
 	configInput(InputIds::STEPS_INPUT, "Pattern (Step) Length");
 	configInput(InputIds::SELECTED_PATTERN_PLAY_INPUT, "Play Pattern");
-	
+
 	char buffer[50];
-	for (int ch = 0; ch < TROWA_SEQ_NUM_CHNLS ; ch++)
+	for (int ch = 0; ch < TROWA_SEQ_NUM_CHNLS; ch++)
 	{
 		sprintf(buffer, "Channel %d", ch + 1);
-		configOutput(OutputIds::CHANNELS_OUTPUT + ch, buffer);		
+		configOutput(OutputIds::CHANNELS_OUTPUT + ch, buffer);
 	}
-	
+
 #if TROWA_SEQ_USE_INTERNAL_DIVISOR
 	// Calculate our initial divisor and initial light lambda
 	onSampleRateChange();
@@ -320,12 +326,12 @@ TSSequencerModuleBase::~TSSequencerModuleBase()
 			delete[] triggerState[p][g];
 			triggerState[p][g] = NULL;
 		}
-	}	
+	}
 	if (patternData != NULL)
 	{
 		delete[] patternData;
 	}
-	
+
 	// Free our buffer if we had initialized it
 	oscMutex.lock();
 	if (oscBuffer != NULL)
@@ -361,10 +367,10 @@ void TSSequencerModuleBase::onReset()
 		// [v1.0.4] Sequencers can have different default output modes.
 		channelValueModes[c] = defaultChannelValueMode; //ValueMode::VALUE_TRIGGER;
 	}
-		
+
 	// [v1.0.4] Reset pattern sequencing data to default:
 	resetPatternSequence();
-	
+
 	/// TODO: Also clear our clipboard and turn off OSC?
 	reloadEditMatrix = true;
 	valuesChanging = false;
@@ -402,18 +408,18 @@ void TSSequencerModuleBase::reset(int patternIx, int channelIx, bool resetChanne
 	{
 		valuesChanging = true;
 
-		bool isCurrentEditChannelShown = patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx;		
-		
+		bool isCurrentEditChannelShown = patternIx == currentPatternEditingIx && channelIx == currentChannelEditingIx;
+
 		// Channel Modes are reset too (for example back to TRIG)
 		if (resetChannelMode)
 		{
 			// [v1.0.4] Sequencers can have different default output modes.
-			channelValueModes[channelIx] = defaultChannelValueMode;			
-			
+			channelValueModes[channelIx] = defaultChannelValueMode;
+
 			// Reload the knob and such:
 			if (channelIx == currentChannelEditingIx && selectedOutputValueMode != defaultChannelValueMode)
 			{
-				DEBUG("reset(%d, %d) - Set the value mode of the current edit channel to default (%s)!!!", patternIx, channelIx, modeStrings[defaultChannelValueMode]);
+				//DEBUG("reset(%d, %d) - Set the value mode of the current edit channel to default (%s)!!!", patternIx, channelIx, modeStrings[defaultChannelValueMode]);
 				// Reload the selected output value mode (TRIG, RTRIG, GATE, VOLT, NOTE, PATT)
 				selectedOutputValueMode = defaultChannelValueMode;
 				selectedOutputValueModeIx = getSupportedValueModeIndex(defaultChannelValueMode);
@@ -421,9 +427,9 @@ void TSSequencerModuleBase::reset(int patternIx, int channelIx, bool resetChanne
 				// Modify the knob 
 				// [v1.0.4] (now with the index not the mode value).
 				this->paramQuantities[ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM]->setValue(selectedOutputValueModeIx);
-			}			
-		}		
-		
+			}
+		}
+
 		// -- Reset Channel Values to Default Value --
 		// Get channel specific default value
 		float defVal = defaultStateValue;
@@ -431,7 +437,7 @@ void TSSequencerModuleBase::reset(int patternIx, int channelIx, bool resetChanne
 		if (chModes != NULL) {
 			int ix = getSupportedValueModeIndex(channelValueModes[channelIx]);
 			defVal = chModes[ix]->zeroValue;
-			DEBUG("reset(patt=%d, ch=%d) - Default Zero Value for Channel (Mode %s) is %3.1f", patternIx, channelIx, modeStrings[channelValueModes[channelIx]], defVal); 
+			//DEBUG("reset(patt=%d, ch=%d) - Default Zero Value for Channel (Mode %s) is %3.1f", patternIx, channelIx, modeStrings[channelValueModes[channelIx]], defVal);
 		}
 		for (int s = 0; s < maxSteps; s++)
 		{
@@ -439,10 +445,10 @@ void TSSequencerModuleBase::reset(int patternIx, int channelIx, bool resetChanne
 			if (isCurrentEditChannelShown)
 				onShownStepChange(s, defVal);
 		}
-		
+
 		if (isCurrentEditChannelShown)
 			reloadEditMatrix = true;
-		valuesChanging = false;		
+		valuesChanging = false;
 	} // end else (channel and pattern specified)		
 	return;
 }
@@ -461,8 +467,8 @@ void TSSequencerModuleBase::resetPatternSequence()
 			int val = p % TROWA_SEQ_NUM_PATTERNS;
 			this->params[PATTERN_SEQ_PARAM_START + p].setValue(val);
 			patternData[p] = val;
-		}		
-	}	
+		}
+	}
 	return;
 } // end resetPatternSequence()
 
@@ -473,7 +479,7 @@ void TSSequencerModuleBase::resetPatternSequence()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
 void TSSequencerModuleBase::randomizePatternSequence(bool useStructured)
 {
-	if (allowPatternSequencing && patternData != NULL)	
+	if (allowPatternSequencing && patternData != NULL)
 	{
 		int val = 0;
 		if (useStructured)
@@ -727,13 +733,20 @@ void TSSequencerModuleBase::cleanupOSC()
 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // copy()
-// @patternIx : (IN) The index into our pattern matrix (0-15).
-// @channelIx : (IN) The index of the channel (gate/trigger/voice) to copy if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL for all).
+// @patternIx : (IN) Source pattern. The index into our pattern matrix (0-63).
+// @channelIx : (IN) Source channel. The index of the channel (gate/trigger/voice) to copy if any (0-15, or TROWA_SEQ_COPY_CHANNELIX_ALL for all).
+// @rowIx : (IN)(Opt'l) Source row index (if any).  Default is -1 (NONE/ALL).
+// @colIx : (IN)(Opt'l) Source column index (if any).  Default is -1 (NONE/ALL). 
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSSequencerModuleBase::copy(/*in*/ int patternIx, /*in*/ int channelIx)
+void TSSequencerModuleBase::copy(/*in*/ int patternIx, /*in*/ int channelIx, int rowIx, int colIx)
 {
 	copySourceChannelIx = channelIx;
 	copySourcePatternIx = patternIx;
+	copySourceRowIx = rowIx;
+	copySourceColIx = colIx;
+	//DEBUG("Copying Pattern %d, Channel %d - Row %d, Col %d", copySourcePatternIx, copySourceChannelIx, copySourceRowIx, copySourcePatternIx);
+	// For now we will just copy the entire pattern or channel even if a row and column are specified
+	// On paste, we will only use the source row / column. This is so we don't accidentally paste mismatched rows/columns.
 	if (copySourceChannelIx == TROWA_SEQ_COPY_CHANNELIX_ALL)
 	{
 		// Copy entire pattern (all gates/triggers/voices)
@@ -745,7 +758,7 @@ void TSSequencerModuleBase::copy(/*in*/ int patternIx, /*in*/ int channelIx)
 			}
 		}
 	}
-	else
+	else if (copySourceRowIx < 0 && copySourceColIx < 0)
 	{
 		// Copy just the channel:
 		for (int s = 0; s < maxSteps; s++)
@@ -753,35 +766,201 @@ void TSSequencerModuleBase::copy(/*in*/ int patternIx, /*in*/ int channelIx)
 			copyBuffer[copySourceChannelIx][s] = triggerState[copySourcePatternIx][copySourceChannelIx][s];
 		}
 	}
+	else if (copySourceRowIx > -1 && copySourceColIx > -1)
+	{
+		// Copy single step
+		int s = copySourceRowIx * numCols + copySourceColIx;
+		copyBuffer[copySourceChannelIx][s] = triggerState[copySourcePatternIx][copySourceChannelIx][s];
+	}
+	else if (copySourceRowIx > -1)
+	{
+		// Copy Row
+		int startIx = copySourceRowIx * numCols;
+		int endIx = startIx + numCols;
+		for (int s = startIx; s < endIx; s++)
+		{
+			copyBuffer[copySourceChannelIx][s] = triggerState[copySourcePatternIx][copySourceChannelIx][s];
+		}
+	}
+	else if (copySourceColIx > -1)
+	{
+		// Copy Column
+		int startIx = copySourceColIx;
+		for (int s = startIx; s < maxSteps; s += numCols)
+		{
+			copyBuffer[copySourceChannelIx][s] = triggerState[copySourcePatternIx][copySourceChannelIx][s];
+		}
+	}
 	return;
 } // end copy()
+
+// Copy the single step by its parameter id.
+void TSSequencerModuleBase::copyStepByParamId(int stepParamId) {
+	if (stepParamId >= ParamIds::CHANNEL_PARAM && stepParamId < static_cast<int>(params.size()))
+	{
+		int step = stepParamId - ParamIds::CHANNEL_PARAM;
+		//DEBUG("Copy Step (ParamId %d) = Step Ix %d, Row %d, Col %d", stepParamId, step, step / numCols, step % numCols);
+		this->copy(this->currentPatternEditingIx, this->currentChannelEditingIx, step / numCols, step % numCols);
+	}
+	return;
+}
+// Paste into the current row/column/step based off the parameter id and what is already on the clipboard.
+bool TSSequencerModuleBase::pasteByParamId(int stepParamId) {
+	bool success = false;
+	if (copySourcePatternIx < 0 || copySourceChannelIx < 0) // Nothing to copy
+		return false;
+	if (stepParamId >= ParamIds::CHANNEL_PARAM && stepParamId < static_cast<int>(params.size()))
+	{
+		if (copySourceRowIx > -1 || copySourceColIx > -1)
+		{
+			int step = stepParamId - ParamIds::CHANNEL_PARAM;
+			//DEBUG("Paste Step (ParamId %d) = Step Ix %d, Row %d, Col %d", stepParamId, step, step / numCols, step % numCols);
+			copyDestRowIx = -1;
+			if (copySourceRowIx > -1)
+				copyDestRowIx = step / numCols;
+			copyDestColIx = -1;
+			if (copySourceColIx > -1)
+				copyDestColIx = step % numCols;
+			//DEBUG("Queue Paste Step (ParamId %d) = PASTING INTO Row %d, Col %d", stepParamId, copyDestRowIx, copyDestColIx);
+			this->queuePasteFromMenu();
+			success = true;
+		}
+	}
+	return success;
+}
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // paste(void)
 // Paste our current clipboard Pattern/Gate to the currently selected Pattern/Gate.
+// Also takes into account specified rows or columns (copySourceRowIx, copyDestinationRowIx and copySourceColIx, copyDestinationColIx).
 // @returns: True if the values were copied, false if not.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 bool TSSequencerModuleBase::paste()
 {
 	if (copySourcePatternIx < 0) // Nothing to copy
 		return false;
+
+	//DEBUG("Pasting Pattern %d, Channel %d - Row %d, Col %d", copySourcePatternIx, copySourceChannelIx, copySourceRowIx, copySourcePatternIx);
+
 	valuesChanging = true;
 	if (copySourceChannelIx == TROWA_SEQ_COPY_CHANNELIX_ALL)
 	{
-		// Paste entire pattern (all gates/triggers/voices)
-		for (int g = 0; g < TROWA_SEQ_NUM_CHNLS; g++)
+		//*************************************
+		// Paste all channels in pattern
+		//*************************************
+		if (copySourceRowIx < 0 && copySourceColIx < 0)
 		{
-			for (int s = 0; s < maxSteps; s++)
+			//
+			// Paste entire pattern (all gates/triggers/voices)
+			//
+			for (int g = 0; g < TROWA_SEQ_NUM_CHNLS; g++)
 			{
-				triggerState[currentPatternEditingIx][g][s] = copyBuffer[g][s];
+				for (int s = 0; s < maxSteps; s++)
+				{
+					triggerState[currentPatternEditingIx][g][s] = copyBuffer[g][s];
+				}
+			}
+		}
+		else if (copySourceRowIx > -1)
+		{
+			//
+			// Copy our source row to the desintation row (across all channels)
+			// 
+			// If no desintation row specified, use the same row as source.
+			int dRowIx = (copyDestRowIx < 0) ? copySourceRowIx : copyDestRowIx;
+			int srcStart = copySourceRowIx * numCols;
+			int srcEnd = srcStart + numCols;
+			int destStart = dRowIx * numCols;
+			for (int g = 0; g < TROWA_SEQ_NUM_CHNLS; g++)
+			{
+				int d = destStart;
+				for (int s = srcStart; s < srcEnd; s++)
+				{
+					triggerState[currentPatternEditingIx][g][d++] = copyBuffer[g][s];
+				}
+			}
+		}
+		else if (copySourceColIx > -1)
+		{
+			//
+			// Copy our source column to the desintation column (across all channels)
+			// 
+			// If no desintation column specified, use the same column as source.
+			int dColIx = (copyDestColIx < 0) ? copySourceColIx : copyDestColIx;
+			//int numRows = maxSteps / numCols;
+			int srcStart = copySourceColIx;
+			int destStart = dColIx;
+			for (int g = 0; g < TROWA_SEQ_NUM_CHNLS; g++)
+			{
+				int d = destStart;
+				for (int s = srcStart; s < maxSteps; s += numCols)
+				{
+					triggerState[currentPatternEditingIx][g][d] = copyBuffer[g][s];
+					d += numCols;
+				}
 			}
 		}
 	}
 	else
 	{
-		// Paste just the channel:
-		for (int s = 0; s < maxSteps; s++)
+		//*************************************
+		// Paste just the specified channel
+		//*************************************
+		if (copySourceRowIx < 0 && copySourceColIx < 0)
 		{
-			triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = copyBuffer[copySourceChannelIx][s];
+			//
+			// Paste entire channel
+			//
+			for (int s = 0; s < maxSteps; s++)
+			{
+				triggerState[currentPatternEditingIx][currentChannelEditingIx][s] = copyBuffer[copySourceChannelIx][s];
+			}
+		}
+		else if (copySourceRowIx > -1 && copySourceColIx > -1)
+		{
+			//
+			// Paste single value
+			//
+			// If no desintation row specified, use the same row as source.
+			int dRowIx = (copyDestRowIx < 0) ? copySourceRowIx : copyDestRowIx;
+			// If no desintation column specified, use the same column as source.
+			int dColIx = (copyDestColIx < 0) ? copySourceColIx : copyDestColIx;
+			int d = dRowIx * numCols + dColIx;
+			int s = copySourceRowIx * numCols + copySourceColIx;
+			triggerState[currentPatternEditingIx][currentChannelEditingIx][d] = copyBuffer[copySourceChannelIx][s];
+		}
+		else if (copySourceRowIx > -1)
+		{
+			//
+			// Copy our source row to the desintation row (single channel)
+			// 
+			// If no desintation row specified, use the same row as source.
+			int dRowIx = (copyDestRowIx < 0) ? copySourceRowIx : copyDestRowIx;
+			int srcStart = copySourceRowIx * numCols;
+			int srcEnd = srcStart + numCols;
+			int destStart = dRowIx * numCols;
+			int d = destStart;
+			for (int s = srcStart; s < srcEnd; s++)
+			{
+				triggerState[currentPatternEditingIx][currentChannelEditingIx][d++] = copyBuffer[copySourceChannelIx][s];
+			}
+		}
+		else if (copySourceColIx > -1)
+		{
+			//
+			// Copy our source column to the desintation column (across all channels)
+			// 
+			// If no desintation column specified, use the same column as source.
+			int dColIx = (copyDestColIx < 0) ? copySourceColIx : copyDestColIx;
+			//int numRows = maxSteps / numCols;
+			int srcStart = copySourceColIx;
+			int destStart = dColIx;
+			int d = destStart;
+			for (int s = srcStart; s < maxSteps; s += numCols)
+			{
+				triggerState[currentPatternEditingIx][currentChannelEditingIx][d] = copyBuffer[copySourceChannelIx][s];
+				d += numCols;
+			}
 		}
 	}
 	valuesChanging = false;
@@ -857,7 +1036,7 @@ void TSSequencerModuleBase::setStepValue(int step, float val, int channel, int p
 			oscTxSocket->Send(oscStream.Data(), oscStream.Size());
 
 		}
-		catch (const std::exception &e)
+		catch (const std::exception& e)
 		{
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_LOW
 			DEBUG("seStepValue - Error sending back msg: %s.", e.what());
@@ -874,7 +1053,7 @@ void TSSequencerModuleBase::setStepValue(int step, float val, int channel, int p
 // User changes the engine sampling rate. Adjust our internal sampling rate 
 // such that we run still at least every 0.5 ms (triggers should be 1 ms).
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
-void TSSequencerModuleBase::onSampleRateChange() 
+void TSSequencerModuleBase::onSampleRateChange()
 {
 	float sampleRate = APP->engine->getSampleRate();
 	IDLETHRESHOLD = 0.0005f * sampleRate;
@@ -898,7 +1077,7 @@ void TSSequencerModuleBase::onSampleRateChange()
 bool TSSequencerModuleBase::isNewStep(float sampleRate, float* clockTime)
 {
 	bool nextStep = false;
-	
+
 	// Run
 	if (runningTrigger.process(params[RUN_PARAM].getValue())) {
 		running = !running;
@@ -934,7 +1113,7 @@ bool TSSequencerModuleBase::isNewStep(float sampleRate, float* clockTime)
 				input = params[BPM_PARAM].getValue(); // -2 to 6
 			}
 			*clockTime = powf(2.0, input); // -2 to 6			
-			
+
 			lastStepWasExternalClock = false;
 			if (resetPaused)
 			{
@@ -945,14 +1124,14 @@ bool TSSequencerModuleBase::isNewStep(float sampleRate, float* clockTime)
 				nextIndex = TROWA_INDEX_UNDEFINED; // Reset our jump to index
 			}
 			else
-			{				
+			{
 				float dt = (*clockTime) / sampleRate; // Real dt
 				realPhase += dt; // Real Time no matter what
 				if (realPhase >= 1.0)
 				{
 					realPhase -= 1.0;
 					nextStep = true;
-				}				
+				}
 			}
 		}
 	} // end if running
@@ -970,7 +1149,7 @@ bool TSSequencerModuleBase::isNewStep(float sampleRate, float* clockTime)
 // @reloadMatrix: (OUT) If the edit matrix should be refreshed.
 // @valueModeChanged: (OUT) If the output value mode has changed.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
-void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool* pulse, /*out*/ bool* reloadMatrix, /*out*/ bool* valueModeChanged, bool nextStep, float clockTime)
+void TSSequencerModuleBase::getStepInputs(const ProcessArgs& args, /*out*/ bool* pulse, /*out*/ bool* reloadMatrix, /*out*/ bool* valueModeChanged, bool nextStep, float clockTime)
 {
 	// Track if we have changed these
 	bool editPatternChanged = false;
@@ -980,7 +1159,7 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 	bool lastRunning = running;
 	int lastBPMNoteIx = this->selectedBPMNoteIx;
 	int lastStepIndex = index;
-	
+
 	lastPatternSequencingOn = patternSequencingOn; // Save before we read it in
 
 	// // Run
@@ -1009,12 +1188,12 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 
 	// OSC is Enabled and Active light
 	lights[LightIds::OSC_ENABLED_LIGHT].value = (useOSC && oscInitialized) ? 1.0 : 0.0;
-	
+
 
 	// if (!firstLoad)
 		// lastPatternPlayingIx = currentPatternPlayingIx;
 
-	
+
 
 	//bool nextStep = false;
 	// Now calculate BPM even if we are paused:
@@ -1043,55 +1222,55 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 		// input = params[BPM_PARAM].getValue(); // -2 to 6
 	// }
 	// clockTime = powf(2.0, input); // -2 to 6
-		
+
 	// Calculate his all the time now instead of just on next step:
 	currentBPM = roundf(clockTime * BPMOptions[selectedBPMNoteIx]->multiplier);
 	playBPMChanged = lastBPM != currentBPM;
-	
-/*	if (running)
-	{
-		if (inputs[EXT_CLOCK_INPUT].isConnected())
+
+	/*	if (running)
 		{
-			// External clock input
-			if (clockTrigger.process(inputs[EXT_CLOCK_INPUT].getVoltage()))
+			if (inputs[EXT_CLOCK_INPUT].isConnected())
 			{
-				realPhase = 0.0;
-				nextStep = true;
-				lastStepWasExternalClock = true;
-			}
-		}
-		else
-		{
-			// Internal clock
-			lastStepWasExternalClock = false;
-			if (resetPaused)
-			{
-				realPhase = 0.0f;
-				nextStep = true;
-				resetPaused = false;
-				index = -1;
-				nextIndex = TROWA_INDEX_UNDEFINED; // Reset our jump to index
+				// External clock input
+				if (clockTrigger.process(inputs[EXT_CLOCK_INPUT].getVoltage()))
+				{
+					realPhase = 0.0;
+					nextStep = true;
+					lastStepWasExternalClock = true;
+				}
 			}
 			else
 			{
-				float dt = clockTime / args.sampleRate; // Real dt
-				realPhase += dt; // Real Time no matter what
-				if (realPhase >= 1.0)
+				// Internal clock
+				lastStepWasExternalClock = false;
+				if (resetPaused)
 				{
-					realPhase -= 1.0;
+					realPhase = 0.0f;
 					nextStep = true;
-				}				
+					resetPaused = false;
+					index = -1;
+					nextIndex = TROWA_INDEX_UNDEFINED; // Reset our jump to index
+				}
+				else
+				{
+					float dt = clockTime / args.sampleRate; // Real dt
+					realPhase += dt; // Real Time no matter what
+					if (realPhase >= 1.0)
+					{
+						realPhase -= 1.0;
+						nextStep = true;
+					}
+				}
+				//if (nextStep)
+				//{
+				//currentBPM = roundf(clockTime * BPMOptions[selectedBPMNoteIx]->multiplier);
+				//playBPMChanged = lastBPM != currentBPM;
+				//}
 			}
-			//if (nextStep)
-			//{	
-			//currentBPM = roundf(clockTime * BPMOptions[selectedBPMNoteIx]->multiplier);
-			//playBPMChanged = lastBPM != currentBPM;
-			//}
-		}
-	} // end if running
-*/	
+		} // end if running
+	*/
 
-	
+
 	//=======================================================
 	// Pattern Sequencing
 	//=======================================================		
@@ -1113,7 +1292,7 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 			}
 		} // end if configuratio is showing
 	} // end if we are doing Pattern Sequencing
-	
+
 
 	//=======================================================
 	// Current Playing Pattern
@@ -1132,13 +1311,13 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 		patternPlayingControlSource = ControlSource::CVInputSrc;
 		//currentPatternPlayingIx = VoltsToPattern(inputs[SELECTED_PATTERN_PLAY_INPUT].getVoltage() + volts2PatternAdj) - 1;
 		currentPatternPlayingIx = VoltsToPattern(inputs[SELECTED_PATTERN_PLAY_INPUT].getVoltage()) - 1;
-		
+
 #if DEBUG_PATT_SEQ
 
 		if (debugLastPatternInputVoltage != inputs[SELECTED_PATTERN_PLAY_INPUT].getVoltage())
 		{
-			DEBUG("IN PATT Voltage: %10.8f, PatternIx: %d, PATT #%d", inputs[SELECTED_PATTERN_PLAY_INPUT].getVoltage(), currentPatternPlayingIx, currentPatternPlayingIx + 1);		
-			debugLastPatternInputVoltage = inputs[SELECTED_PATTERN_PLAY_INPUT].getVoltage();			
+			DEBUG("IN PATT Voltage: %10.8f, PatternIx: %d, PATT #%d", inputs[SELECTED_PATTERN_PLAY_INPUT].getVoltage(), currentPatternPlayingIx, currentPatternPlayingIx + 1);
+			debugLastPatternInputVoltage = inputs[SELECTED_PATTERN_PLAY_INPUT].getVoltage();
 		}
 
 		// float range = (float)(TROWA_SEQ_PATTERN_MAX_V - TROWA_SEQ_PATTERN_MIN_V);
@@ -1161,14 +1340,14 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 			patternPlayHeadIx = 0;
 		else if (patternPlayHeadIx >= numPatternsInSequence)
 			patternPlayHeadIx = numPatternsInSequence - 1;
-		patternPlayingControlSource = ControlSource::AutoSrc;		
+		patternPlayingControlSource = ControlSource::AutoSrc;
 		currentPatternPlayingIx = patternData[patternPlayHeadIx];
 	}
 	else
 	{
 		// Otherwise read our knob parameter and use that
 		currentPatternPlayingIx = (int)clamp(static_cast<int>(roundf(params[SELECTED_PATTERN_PLAY_PARAM].getValue())), 0, TROWA_SEQ_NUM_PATTERNS - 1);
-		patternPlayingControlSource = ControlSource::UserParameterSrc;		
+		patternPlayingControlSource = ControlSource::UserParameterSrc;
 	}
 	if (currentPatternPlayingIx < 0)
 		currentPatternPlayingIx = 0;
@@ -1215,14 +1394,14 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 	else if (selectedOutputValueMode != channelValueModes[currentChannelEditingIx])
 	{
 		// If the channel changed, then set the selected output mode to this channel's
-		selectedOutputValueMode = channelValueModes[currentChannelEditingIx];		
+		selectedOutputValueMode = channelValueModes[currentChannelEditingIx];
 		// Find the index
 		selectedOutputValueModeIx = getSupportedValueModeIndex(selectedOutputValueMode);
 		if (selectedOutputValueModeIx < 0)
 		{
 			selectedOutputValueMode = defaultChannelValueMode;
 			selectedOutputValueModeIx = getSupportedValueModeIndex(defaultChannelValueMode);
-		}	
+		}
 		// Modify the knob 
 		// [v1.0.4] (now with the index not the mode value).
 		this->paramQuantities[ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM]->setValue(selectedOutputValueModeIx);
@@ -1354,7 +1533,7 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 			{
 				currentPatternPlayingIx = recvMsg.pattern;
 				playPatternSetFromExternalMsg = true;
-				patternPlayingControlSource = ControlSource::ExternalMsgSrc;				
+				patternPlayingControlSource = ControlSource::ExternalMsgSrc;
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 				DEBUG("Set Play Pattern: %d.", currentPatternPlayingIx);
 #endif
@@ -1616,7 +1795,7 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 			RandomizeEvent evt;
 			onRandomize(evt);
 		}
-			break;
+		break;
 		case TSExternalControlMessage::MessageType::InitializeEditModule:
 			onReset();
 			resetParamQuantities();	 // Reset the param quantities the parameters/knobs.
@@ -1648,6 +1827,11 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 	if (pasteTrigger.process(params[PASTE_PARAM].getValue()) || doPaste)
 	{
 		pasteCompleted = paste(); // Paste whatever we have if we have anything		
+		if (pasteFromContextMenuQueued)
+		{
+			// Set our param value back to 0
+			paramQuantities[ParamIds::PASTE_PARAM]->setValue(0.0f);
+		}
 	}
 	else
 	{
@@ -1690,7 +1874,7 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 	// Check value mode change after we have processed incoming messages.
 	*valueModeChanged = (lastOutputValueMode != selectedOutputValueMode);
 	lastOutputValueMode = selectedOutputValueMode;
-	
+
 	if (playPatternSetFromExternalMsg && allowPatternSequencing)
 	{
 		// Turn off our internal pattern sequencing.
@@ -1715,9 +1899,9 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 		}
 	} // end check for reset
 
-	if (resetQueued && nextStep) 
+	if (resetQueued && nextStep)
 	{
-		resetQueued = false; 
+		resetQueued = false;
 		realPhase = 0.0;
 		swingAdjustedPhase = 0; // Reset swing		
 		index = 999;
@@ -1745,9 +1929,9 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 #if DEBUG_PATT_SEQ
 			DEBUG("Pattern PlayHead Ix RESET to %d (out of %d).", patternPlayHeadIx, numPatternsInSequence);
 #endif // DEBUG_PATT_SEQ
-		}		
+		}
 	} // end if resetQueued and it's time to reset
-	
+
 
 	// Next Step
 	if (nextStep)
@@ -1761,25 +1945,25 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 			index = nextIndex; // Set to our 'jump to' value
 			nextIndex = TROWA_INDEX_UNDEFINED; // Reset our jump to index
 		}
-		if (index >= currentNumberSteps || index < 0) 
+		if (index >= currentNumberSteps || index < 0)
 		{
 			index = 0; // Reset (artifical limit)
 			if (allowPatternSequencing && patternSequencingOn)
 			{
 				// Go to the next pattern.
-				patternPlayHeadIx++;	
+				patternPlayHeadIx++;
 #if DEBUG_PATT_SEQ
 				DEBUG("Pattern PlayHead Ix Incremented to %d out of %d.", patternPlayHeadIx, numPatternsInSequence);
 #endif // DEBUG_PATT_SEQ
-			}			
+			}
 		}
-		
+
 		// Show which step we are on:
 		r = index / this->numCols;// TROWA_SEQ_STEP_NUM_COLS;
 		c = index % this->numCols; //TROWA_SEQ_STEP_NUM_COLS;
 		stepLights[r][c] = 1.0f;
 		gatePulse.trigger(TROWA_PULSE_WIDTH);
-		
+
 		// INTERNAL PATTERN SEQUENCING ///////
 		if (allowPatternSequencing && patternSequencingOn)
 		{
@@ -1818,17 +2002,17 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 	if (allowPatternSequencing)
 	{
 		// INTERNAL PATTERN SEQUENCING Enabled and Active Light
-		lights[LightIds::PATTERN_SEQ_ENABLED_LIGHT].value = (patternSequencingOn) ? 1.0 : 0.0;	
+		lights[LightIds::PATTERN_SEQ_ENABLED_LIGHT].value = (patternSequencingOn) ? 1.0 : 0.0;
 		// INTERNAL PATTERN SEQUENCING Configuration Showing
-		lights[LightIds::PATTERN_SEQ_CONFIGURE_LIGHT].value = (showPatternSequencingConfig) ? 1.0 : 0.0;		
+		lights[LightIds::PATTERN_SEQ_CONFIGURE_LIGHT].value = (showPatternSequencingConfig) ? 1.0 : 0.0;
 	}
-	
-	
+
+
 	// Reset light
 	lights[RESET_LIGHT].value -= lights[RESET_LIGHT].value / lightLambda / args.sampleRate;
 	// BPM Note Calc light:
 	lights[SELECTED_BPM_MULT_IX_LIGHT].value -= lights[SELECTED_BPM_MULT_IX_LIGHT].value / lightLambda / args.sampleRate;
-	*pulse =gatePulse.process(args.sampleTime);// (nextStep || realPhase < 0.5f);//  gatePulse.process(args.sampleTime);
+	*pulse = gatePulse.process(args.sampleTime);// (nextStep || realPhase < 0.5f);//  gatePulse.process(args.sampleTime);
 
 	editChannelChanged = currentChannelEditingIx != lastChannelIx;
 	editPatternChanged = currentPatternEditingIx != lastEditPatternIx;
@@ -2077,8 +2261,8 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs &args, /*out*/ bool*
 // dataToJson(void)
 // Save our junk to json.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-json_t *TSSequencerModuleBase::dataToJson() {
-	json_t *rootJ = json_object();
+json_t* TSSequencerModuleBase::dataToJson() {
+	json_t* rootJ = json_object();
 
 	// version
 	json_object_set_new(rootJ, "version", json_integer(TROWA_INTERNAL_VERSION_INT));
@@ -2091,10 +2275,10 @@ json_t *TSSequencerModuleBase::dataToJson() {
 	json_object_set_new(rootJ, "currentTriggerEditIx", json_integer((int)currentChannelEditingIx));
 	// The current output / knob mode.
 	json_object_set_new(rootJ, "selectedOutputValueMode", json_integer((int)selectedOutputValueMode));
-	
+
 	// Current BPM calculation note (i.e. 1/4, 1/8, 1/8T, 1/16)
 	json_object_set_new(rootJ, "selectedBPMNoteIx", json_integer((int)selectedBPMNoteIx));
-	
+
 	json_t* channelValModesJ = json_array();
 	for (int ch = 0; ch < TROWA_SEQ_NUM_CHNLS; ch++)
 	{
@@ -2104,14 +2288,14 @@ json_t *TSSequencerModuleBase::dataToJson() {
 	json_object_set_new(rootJ, "chValModes", channelValModesJ);
 
 	// triggers
-	json_t *triggersJ = json_array();
+	json_t* triggersJ = json_array();
 	for (int p = 0; p < TROWA_SEQ_NUM_PATTERNS; p++)
 	{
 		for (int t = 0; t < TROWA_SEQ_NUM_CHNLS; t++)
 		{
 			for (int s = 0; s < maxSteps; s++)
 			{
-				json_t *gateJ = json_real((float)triggerState[p][t][s]);
+				json_t* gateJ = json_real((float)triggerState[p][t][s]);
 				json_array_append_new(triggersJ, gateJ);
 			} // end for (steps)
 		} // end for (triggers)
@@ -2119,7 +2303,7 @@ json_t *TSSequencerModuleBase::dataToJson() {
 	json_object_set_new(rootJ, "triggers", triggersJ);
 
 	// gateMode
-	json_t *gateModeJ = json_integer((int)gateMode);
+	json_t* gateModeJ = json_integer((int)gateMode);
 	json_object_set_new(rootJ, "gateMode", gateModeJ);
 
 	// OSC Parameters
@@ -2136,16 +2320,16 @@ json_t *TSSequencerModuleBase::dataToJson() {
 	{
 		// Pattern Sequencing:
 		json_t* psJ = json_object();
-		json_object_set_new(psJ, "AutoPatternSequence", json_boolean(patternSequencingOn)); 
-		json_object_set_new(psJ, "PatternSequenceLength", json_integer(numPatternsInSequence)); 
+		json_object_set_new(psJ, "AutoPatternSequence", json_boolean(patternSequencingOn));
+		json_object_set_new(psJ, "PatternSequenceLength", json_integer(numPatternsInSequence));
 		if (patternData != NULL)
 		{
-			json_t * pStepsJ = json_array();
+			json_t* pStepsJ = json_array();
 			for (int p = 0; p < maxSteps; p++)
 			{
 				json_array_append_new(pStepsJ, json_integer(patternData[p]));
 			} // end for (patterns)
-			json_object_set_new(psJ, "Sequence", pStepsJ);			
+			json_object_set_new(psJ, "Sequence", pStepsJ);
 		}
 		json_object_set_new(rootJ, "patternSeq", psJ);
 	} // end if pattern sequencing
@@ -2155,16 +2339,16 @@ json_t *TSSequencerModuleBase::dataToJson() {
 // dataFromJson(void)
 // Read in our junk from json.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-	
-void TSSequencerModuleBase::dataFromJson(json_t *rootJ) 
+void TSSequencerModuleBase::dataFromJson(json_t* rootJ)
 {
-	DEBUG("TSSequencerModuleBase(%d): Loading from json!", oscId);
+	//DEBUG("TSSequencerModuleBase(%d): Loading from json!", oscId);
 	// running
-	json_t *runningJ = json_object_get(rootJ, "running");
+	json_t* runningJ = json_object_get(rootJ, "running");
 	if (runningJ)
 		running = json_is_true(runningJ);
 
 	// Current Items:
-	json_t *currJ = NULL;
+	json_t* currJ = NULL;
 	saveVersion = 0;
 	currJ = json_object_get(rootJ, "version");
 	if (currJ)
@@ -2177,16 +2361,16 @@ void TSSequencerModuleBase::dataFromJson(json_t *rootJ)
 	currJ = json_object_get(rootJ, "currentTriggerEditIx");
 	if (currJ)
 		currentChannelEditingIx = json_integer_value(currJ);
-	
-	
-	currJ = json_object_get(rootJ, "selectedOutputValueMode");	
+
+
+	currJ = json_object_get(rootJ, "selectedOutputValueMode");
 	int remapValueMode = 0;
 	if (currJ)
 	{
 		//18: 1.0.4 -- Sequencer change
 		// Now ValueMode has all modes with unique values (so we are not overriding/sharing TRIG = VOLT, RTRG = NOTE, GATE = PATT).
 		// Supported modes are in valueModesSupported array.
-		selectedOutputValueMode = static_cast<ValueMode>(json_integer_value(currJ));		
+		selectedOutputValueMode = static_cast<ValueMode>(json_integer_value(currJ));
 		if (saveVersion < 18)
 		{
 			// If this is a voltSeq we need to remap it.
@@ -2195,7 +2379,7 @@ void TSSequencerModuleBase::dataFromJson(json_t *rootJ)
 			{
 				// Most likely voltSeq so +3
 				remapValueMode = ValueMode::VALUE_VOLT;
-				selectedOutputValueMode = (ValueMode)((int)(selectedOutputValueMode) + remapValueMode);
+				selectedOutputValueMode = (ValueMode)((int)(selectedOutputValueMode)+remapValueMode);
 				mSupported = valueModeIsSupported(selectedOutputValueMode);
 				if (!mSupported)
 				{
@@ -2207,11 +2391,11 @@ void TSSequencerModuleBase::dataFromJson(json_t *rootJ)
 		}
 		selectedOutputValueModeIx = getSupportedValueModeIndex(selectedOutputValueMode);
 		modeString = modeStrings[selectedOutputValueMode];
-	}	
-		
+	}
+
 	json_t* channelValModesJ = json_object_get(rootJ, "chValModes");
 	if (channelValModesJ)
-	{ 
+	{
 		// v1.0.1 (16) or higher:
 		for (int ch = 0; ch < TROWA_SEQ_NUM_CHNLS; ch++)
 		{
@@ -2220,21 +2404,21 @@ void TSSequencerModuleBase::dataFromJson(json_t *rootJ)
 			{
 				if (remapValueMode == 0)
 				{
-					channelValueModes[ch] = static_cast<ValueMode>(json_integer_value(currJ));					
+					channelValueModes[ch] = static_cast<ValueMode>(json_integer_value(currJ));
 				}
 				else if (remapValueMode > 0)
 				{
-					channelValueModes[ch] = static_cast<ValueMode>(json_integer_value(currJ) + remapValueMode);					
+					channelValueModes[ch] = static_cast<ValueMode>(json_integer_value(currJ) + remapValueMode);
 				}
 				else
 				{
 					channelValueModes[ch] = valueModesSupported[0];
-				}	
+				}
 			}
 		}
 		modeString = modeStrings[channelValueModes[currentChannelEditingIx]]; // Mode string will be the channel we are currently showing/editing
 	}
-	else 
+	else
 	{
 		// Set them all to selectedOutputValueMode (this is from an older save where there was only one output mode).
 		for (int ch = 0; ch < TROWA_SEQ_NUM_CHNLS; ch++)
@@ -2242,14 +2426,14 @@ void TSSequencerModuleBase::dataFromJson(json_t *rootJ)
 			channelValueModes[ch] = selectedOutputValueMode;
 		}
 	}
-	
+
 	// Current BPM calculation note (i.e. 1/4, 1/8, 1/8T, 1/16)
 	currJ = json_object_get(rootJ, "selectedBPMNoteIx");
 	if (currJ)
 		selectedBPMNoteIx = json_integer_value(currJ);
 
 	// triggers
-	json_t *triggersJ = json_object_get(rootJ, "triggers");
+	json_t* triggersJ = json_object_get(rootJ, "triggers");
 	if (triggersJ)
 	{
 		int i = 0;
@@ -2259,7 +2443,7 @@ void TSSequencerModuleBase::dataFromJson(json_t *rootJ)
 			{
 				for (int s = 0; s < maxSteps; s++)
 				{
-					json_t *gateJ = json_array_get(triggersJ, i++);
+					json_t* gateJ = json_array_get(triggersJ, i++);
 					if (gateJ)
 						triggerState[p][t][s] = (float)json_number_value(gateJ);
 				} // end for (steps)
@@ -2267,7 +2451,7 @@ void TSSequencerModuleBase::dataFromJson(json_t *rootJ)
 		} // end for (patterns)			
 	}
 	// gateMode
-	json_t *gateModeJ = json_object_get(rootJ, "gateMode");
+	json_t* gateModeJ = json_object_get(rootJ, "gateMode");
 	if (gateModeJ)
 		gateMode = (GateMode)json_integer_value(gateModeJ);
 
@@ -2298,11 +2482,11 @@ void TSSequencerModuleBase::dataFromJson(json_t *rootJ)
 			}
 		}
 	} // end if osc
-		
+
 	// Pattern Sequencing:
 	if (allowPatternSequencing)
 	{
-		DEBUG("(json) Retreiving Pattern Json");		
+		//DEBUG("(json) Retreiving Pattern Json");
 		json_t* psJ = json_object_get(rootJ, "patternSeq");
 		if (psJ)
 		{
@@ -2312,19 +2496,19 @@ void TSSequencerModuleBase::dataFromJson(json_t *rootJ)
 			currJ = json_object_get(psJ, "PatternSequenceLength");
 			if (currJ)
 				numPatternsInSequence = (int)(json_integer_value(currJ));
-			
+
 			if (patternData != NULL)
 			{
-				json_t * pStepsJ = json_object_get(psJ, "Sequence");
+				json_t* pStepsJ = json_object_get(psJ, "Sequence");
 				for (int p = 0; p < maxSteps; p++)
 				{
 					currJ = json_array_get(pStepsJ, p);
 					patternData[p] = (short)(json_integer_value(currJ));
 				} // end for (patterns)			
 			}
-			
+
 			if (numPatternsInSequence < 1)
-				numPatternsInSequence = 1;			
+				numPatternsInSequence = 1;
 		} // end if patternSeq
 	}
 	firstLoad = true;
@@ -2350,7 +2534,7 @@ int TSSequencerModuleBase::getSupportedValueModeIndex(ValueMode mode)
 			{
 				ix = k - 1;
 			}
-		}		
+		}
 	}
 	return ix;
 } // end getSupportedValueModeIndex(()
@@ -2363,18 +2547,121 @@ void TSSequencerModuleBase::resetParamQuantities()
 {
 	// List of parameters that need to be reset when we get an external message.
 	const int numParamsToReset = 6;
-	int paramIdsToReset[numParamsToReset] = 
-	{ 
-		ParamIds::BPM_PARAM, ParamIds::STEPS_PARAM, ParamIds::SELECTED_PATTERN_PLAY_PARAM, 
+	int paramIdsToReset[numParamsToReset] =
+	{
+		ParamIds::BPM_PARAM, ParamIds::STEPS_PARAM, ParamIds::SELECTED_PATTERN_PLAY_PARAM,
 		ParamIds::SELECTED_PATTERN_EDIT_PARAM, ParamIds::SELECTED_CHANNEL_PARAM, ParamIds::SELECTED_OUTPUT_VALUE_MODE_PARAM
 	};
 	for (int i = 0; i < numParamsToReset; i++)
 	{
 		paramQuantities[paramIdsToReset[i]]->setValue(paramQuantities[paramIdsToReset[i]]->getDefaultValue());
-	}			
+	}
 	return;
 } // end resetParamQuantities()
 
+// Populate our labels.
+void TSSequencerModuleBase::populateNotesPatternsLabels()
+{
+	if (static_cast<int>(noteLabels.size()) < 1)
+	{
+		ParamQuantity* pQty = paramQuantities[ParamIds::CHANNEL_PARAM];
+		float minVal = pQty->getMinValue();
+		float maxVal = pQty->getMaxValue();
+		noteLabels.clear();
+		noteKnobValues.clear();
+
+		float dx = 1.0f / TROWA_SEQ_NUM_NOTES;
+		int n = static_cast<int>(maxVal - minVal); // Num of volts
+		float mult = 1.0f;
+		ValueSequencerMode* noteModePtr = NULL;
+		int ix = this->getSupportedValueModeIndex(ValueMode::VALUE_MIDINOTE);
+		if (ix > -1)
+		{
+			ValueSequencerMode** valModes = getValueSeqChannelModes();
+			if (valModes != NULL)
+			{
+				noteModePtr = valModes[ix];
+				float outMin = noteModePtr->outputVoltageMin;
+				float outMax = noteModePtr->outputVoltageMax;
+				mult = (maxVal - minVal) / (outMax - outMin); // 10 - -10 / 5 - -5 = 20 / 10  = 2
+				dx *= mult;
+				n = static_cast<int>(outMax - outMin); // Num of volts
+			}
+		}
+		n *= TROWA_SEQ_NUM_NOTES;
+		float voltage = minVal;
+#if DEBUG_VOLTAGE_TO_NOTE
+		int expectedOctave = -1;
+		int ocount = 0;
+#endif
+		for (int i = 0; i < n; i++)
+		{
+			float outVoltage = voltage / mult; // out voltage is -5 to 5
+#if DEBUG_VOLTAGE_TO_NOTE
+			int testOctave = VoltsToOctave(outVoltage);
+			//int altOctave = ((outVoltage < 0.f) ? -1 : 1) * static_cast<int>(abs(outVoltage)) + TROWA_SEQ_ZERO_OCTAVE;	
+			int altOctave = 0;
+			float altAdd = 0.10 / TROWA_SEQ_NUM_NOTES; // 0.5 / TROWA_SEQ_NUM_NOTES;
+			//if (outVoltage < 0.f)
+			//{
+			//	int v = static_cast<int>(abs(outVoltage) + altAdd);
+			//	altOctave = -1 * v + TROWA_SEQ_ZERO_OCTAVE;
+			//}
+			//else
+			//{
+			//	int v = static_cast<int>(abs(outVoltage) + altAdd);
+			//	altOctave = v + TROWA_SEQ_ZERO_OCTAVE;
+			//}
+			altOctave = (int)(floorf(outVoltage + altAdd + TROWA_SEQ_ZERO_OCTAVE));
+			if (testOctave != expectedOctave)
+			{
+				DEBUG("*** EXPECTED OCTAVE IS %d, Calculated %d for voltage %f", expectedOctave, testOctave, outVoltage);
+				DEBUG("*** Alt Octave is %d. Abs Static Int Voltage = %d", altOctave, static_cast<int>(abs(outVoltage)));
+			}
+#endif
+
+			if (noteModePtr)
+				noteLabels.push_back(noteModePtr->GetDisplayString(outVoltage));
+			else
+			{
+				int octave = VoltsToOctave(outVoltage);
+				int noteIx = VoltsToNoteIx(outVoltage);
+				if (noteIx > TROWA_SEQ_NUM_NOTES - 1)
+					noteIx = TROWA_SEQ_NUM_NOTES - 1;
+				else if (noteIx < 0)
+					noteIx = 0;
+				noteLabels.push_back(rack::string::f("%s%d", TROWA_NOTES[noteIx], octave));
+			}
+			noteKnobValues.push_back(voltage); // Knob voltage is -10 to 10
+#if DEBUG_VOLTAGE_TO_NOTE
+			DEBUG("[%d] %s (Alt Octave = %d) = %.5f (output %.5f V) - Int Voltage: %d and Floor Int: %d", i, noteLabels[i].c_str(), 
+				altOctave, noteKnobValues[i], 
+				outVoltage, static_cast<int>(outVoltage), static_cast<int>(floorf(outVoltage)));
+			ocount++;
+			if (ocount >= TROWA_SEQ_NUM_NOTES)
+			{
+				DEBUG("------------------------");
+				ocount = 0;
+				expectedOctave++;
+			}
+#endif
+			voltage += dx;
+		}
+	}
+
+	if (static_cast<int>(patternLabels.size()) != TROWA_SEQ_NUM_PATTERNS)
+	{
+		//ParamQuantity* pQty = paramQuantities[ParamIds::CHANNEL_PARAM];
+		patternLabels.clear();
+		patternKnobValues.clear();
+		for (int i = 0; i < TROWA_SEQ_NUM_PATTERNS; i++)
+		{
+			patternLabels.push_back(rack::string::f("Pattern %d", i + 1));
+			patternKnobValues.push_back(PatternToVolts(i));
+		}
+	}
+	return;
+}
 
 
 //=======================================================================================================================================
@@ -2393,7 +2680,7 @@ std::string TS_ValueSequencerParamQuantity::getDisplayValueString()
 		valueMode->GetDisplayString(val, buffer);
 		str = std::string(buffer);
 	}
-	else 
+	else
 	{
 		str = ParamQuantity::getDisplayValueString();
 	}
@@ -2408,11 +2695,11 @@ void TS_ValueSequencerParamQuantity::setDisplayValueString(std::string s)
 		val = valueMode->GetKnobValueFromString(s);
 		this->setDisplayValue(val);
 	}
-	else 
+	else
 	{
 		ParamQuantity::setDisplayValueString(s);
 	}
-	return;	
+	return;
 }
 void TS_ValueSequencerParamQuantity::setValueMode(ValueSequencerMode* vMode)
 {
@@ -2420,10 +2707,11 @@ void TS_ValueSequencerParamQuantity::setValueMode(ValueSequencerMode* vMode)
 	minValue = valueMode->voltageMin;
 	maxValue = valueMode->voltageMax;
 	defaultValue = valueMode->zeroValue;
+	//snapToValue = valueMode->snapValue;
 	//DEBUG("Setting valueMode = %s", valueMode->displayName);
 	if (valueMode->unit && std::strlen(valueMode->unit) > 0)
 	{
-		unit = std::string(" ") + std::string(valueMode->unit);		
+		unit = std::string(" ") + std::string(valueMode->unit);
 	}
 	else
 	{
@@ -2433,4 +2721,205 @@ void TS_ValueSequencerParamQuantity::setValueMode(ValueSequencerMode* vMode)
 	return;
 }
 
+// Append select options to a step control context menu.
+void controlAppendContextMenuSelect(Menu* menu, ParamWidget* paramControl, TSSequencerModuleBase* seqModule, bool addDivider, int overrideValueMode, bool useIndexAsValue)
+{
+	if (seqModule == NULL || paramControl == NULL)
+		return;
+	ParamQuantity* pq = paramControl->getParamQuantity();
+	if (pq == NULL)
+		return;
 
+	int valMode = (overrideValueMode > -1) ? overrideValueMode : seqModule->selectedOutputValueMode;
+
+	if (valMode != TSSequencerModuleBase::ValueMode::VALUE_VOLT)
+	{
+		if (addDivider)
+			menu->addChild(new ui::MenuSeparator);
+
+		MenuLabel* label = new MenuLabel();
+		label->text = rack::string::f("Set %s Value", pq->name.c_str());
+		menu->addChild(label);
+
+		if (valMode == TSSequencerModuleBase::ValueMode::VALUE_PATTERN)
+		{
+			menu->addChild(createSubmenuItem("Pattern", "",
+				[=](Menu* menu) {
+					float currentVal = pq->getDisplayValue();
+					for (int i = 0; i < static_cast<int>(seqModule->patternLabels.size()); i++)
+					{
+						bool checked = seqModule->patternKnobValues[i] == currentVal;
+						TS_ParamValueItem* paramValueItem = createMenuItem<TS_ParamValueItem>(seqModule->patternLabels[i], CHECKMARK(checked));
+						paramValueItem->paramWidget = paramControl;
+						if (useIndexAsValue)
+							paramValueItem->value = i;
+						else
+							paramValueItem->value = seqModule->patternKnobValues[i];
+						menu->addChild(paramValueItem);
+					}
+				}
+			));
+		}
+		else if (valMode == TSSequencerModuleBase::ValueMode::VALUE_MIDINOTE)
+		{
+			// NOTE is just too huge, break it up
+			int ix = seqModule->getSupportedValueModeIndex(TSSequencerModuleBase::ValueMode::VALUE_MIDINOTE);
+			ValueSequencerMode* mode = seqModule->getValueSeqChannelModes()[ix];
+			int octave = VoltsToOctave(mode->outputVoltageMin); // Starting octave
+			int n = static_cast<int>(seqModule->noteLabels.size());
+			int rows = n / TROWA_SEQ_NUM_NOTES;
+			for (int r = 0; r < rows; r++)
+			{
+				menu->addChild(createSubmenuItem(rack::string::f("Note (Oct %d)", octave), "",
+					[=](Menu* menu) {
+						float currentVal = pq->getDisplayValue();
+						for (int i = 0; i < TROWA_SEQ_NUM_NOTES; i++)
+						{
+							bool checked = seqModule->noteKnobValues[r * TROWA_SEQ_NUM_NOTES + i] == currentVal;
+							TS_ParamValueItem* paramValueItem = createMenuItem<TS_ParamValueItem>(seqModule->noteLabels[r * TROWA_SEQ_NUM_NOTES + i], CHECKMARK(checked));
+							paramValueItem->paramWidget = paramControl;
+							paramValueItem->value = seqModule->noteKnobValues[r * TROWA_SEQ_NUM_NOTES + i];
+							menu->addChild(paramValueItem);
+						}
+					}
+				));
+				octave++;
+			}
+
+
+			//menu->addChild(createSubmenuItem(pq->name + " Note", "",
+			//	[=](Menu* menu) {
+			//		float currentVal = pq->getDisplayValue();
+			//		for (int i = 0; i < static_cast<int>(seqModule->noteLabels.size()); i++)
+			//		{
+			//			bool checked = seqModule->noteKnobValues[i] == currentVal;
+			//			TS_ParamValueItem* paramValueItem = createMenuItem<TS_ParamValueItem>(seqModule->noteLabels[i], CHECKMARK(checked));
+			//			paramValueItem->paramWidget = this;
+			//			paramValueItem->value = seqModule->noteKnobValues[i];
+			//			menu->addChild(paramValueItem);
+			//		}
+			//	}
+			//));
+		}
+		else
+		{
+			menu->addChild(createSubmenuItem(pq->name, "",
+				[=](Menu* menu) {
+					float currentVal = pq->getDisplayValue();
+					bool checked = currentVal < 1.0f;
+					TS_ParamValueItem* paramValueItem = createMenuItem<TS_ParamValueItem>("Off", CHECKMARK(checked));
+					paramValueItem->paramWidget = paramControl;
+					paramValueItem->value = 0.0f;
+					menu->addChild(paramValueItem);
+
+					checked = currentVal > 0.f;
+					paramValueItem = createMenuItem<TS_ParamValueItem>("On", CHECKMARK(checked));
+					paramValueItem->paramWidget = paramControl;
+					paramValueItem->value = 10.0f;
+					menu->addChild(paramValueItem);
+				}
+			));
+		}
+	}
+	return;
+}
+
+// Append copy row and copy column options
+void controlAppendContextMenuCopyRowCol(Menu* menu, ParamWidget* paramControl, TSSequencerModuleBase* seqModule, bool addDivider)
+{
+	if (seqModule == NULL || paramControl == NULL)
+		return;
+	ParamQuantity* pq = paramControl->getParamQuantity();
+	if (pq == NULL)
+		return;
+
+	if (addDivider)
+		menu->addChild(new ui::MenuSeparator);
+
+	MenuLabel* modeLabel = new MenuLabel();
+	modeLabel->text = "Copy Options";
+	menu->addChild(modeLabel);
+
+	int startId = seqModule->ParamIds::NUM_PARAMS;
+	int thisStep = pq->paramId - startId;
+	int row = thisStep / seqModule->numCols;
+	int col = thisStep % seqModule->numCols;
+
+	//rack::string::f("(Step %d) ", thisStep + 1)
+	menu->addChild(createMenuItem("Copy Step", RACK_MOD_CTRL_NAME "+C", [=]() {
+		seqModule->clearClipboard();
+		seqModule->copy(seqModule->currentPatternEditingIx, seqModule->currentChannelEditingIx, row, col);
+	}));
+	menu->addChild(createMenuItem("Copy Row", rack::string::f("(Row %d)", row + 1), [=]() {
+		seqModule->clearClipboard();
+		seqModule->copy(seqModule->currentPatternEditingIx, seqModule->currentChannelEditingIx, row, -1);
+	}));
+	menu->addChild(createMenuItem("Copy Column", rack::string::f("(Col %d)", col + 1), [=]() {
+		seqModule->clearClipboard();
+		seqModule->copy(seqModule->currentPatternEditingIx, seqModule->currentChannelEditingIx, -1, col);
+	}));
+
+	if (seqModule->copySourceRowIx > -1 || seqModule->copySourceColIx > -1)
+	{
+		modeLabel = new MenuLabel();
+		modeLabel->text = "Paste / Clipboard";
+		menu->addChild(modeLabel);
+
+		if (seqModule->copySourceRowIx > -1 && seqModule->copySourceColIx > -1)
+		{
+			menu->addChild(createMenuItem("Paste Step", RACK_MOD_CTRL_NAME "+V", [=]() {
+				seqModule->copyDestRowIx = row;
+				seqModule->copyDestColIx = col;
+				seqModule->queuePasteFromMenu(); // Signal to module to paste the clipboard
+				}));
+		}
+		else if (seqModule->copySourceRowIx > -1)
+		{
+			menu->addChild(createMenuItem("Paste Row", RACK_MOD_CTRL_NAME "+V", [=]() {
+				seqModule->copyDestRowIx = row;
+				seqModule->copyDestColIx = -1;
+				seqModule->queuePasteFromMenu(); // Signal to module to paste the clipboard
+				}));
+		}
+		else if (seqModule->copySourceColIx > -1)
+		{
+			menu->addChild(createMenuItem("Paste Column", RACK_MOD_CTRL_NAME "+V", [=]() {
+				seqModule->copyDestRowIx = -1;
+				seqModule->copyDestColIx = col;
+				seqModule->queuePasteFromMenu(); // Signal to module to paste the clipboard
+			}));
+		}
+
+		if (seqModule->copySourceRowIx > -1 || seqModule->copySourceColIx > -1)
+		{
+			menu->addChild(createMenuItem("Clear Clipboard", "", [=]() {
+				seqModule->clearClipboard();
+			}));
+		}
+	}
+	return;
+}
+
+
+// Do copy/paste of a single step control
+void controlSeqHandleStepKeyboardInput(const rack::widget::Widget::HoverKeyEvent& e, ParamWidget* paramControl, TSSequencerModuleBase* seqModule)
+{
+	if ((e.action == GLFW_PRESS || e.action == GLFW_REPEAT) && (e.mods & RACK_MOD_MASK) == RACK_MOD_CTRL) 
+	{
+		if (seqModule != NULL)
+		{
+			if (e.key == GLFW_KEY_C) {
+				// Copy this single step
+				seqModule->copyStepByParamId(paramControl->paramId);
+				e.consume(paramControl);
+			}
+			else if (e.key == GLFW_KEY_V) {
+				// Paste what have on the clipboard if it is a row or column or single step 
+				// (Maybe paste an entire channel???)
+				seqModule->pasteByParamId(paramControl->paramId);
+				e.consume(paramControl);
+			}
+		}
+	}
+	return;
+}

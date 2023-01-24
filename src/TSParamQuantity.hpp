@@ -14,8 +14,11 @@ using namespace rack;
 
 // ParamQuantity with settable precision
 struct TS_ParamQuantity : ParamQuantity {
+	// If snap is on, what value to snap to.
+	//float snapToValue = 0.0f;
+
 	// Default in Quantity is 5.
-	int displayPrecision = 5;
+	//int displayPrecision = 5;
 	// Get the number of total decimal places for generating the display value string
 	int getDisplayPrecision() override{
 		return displayPrecision;
@@ -25,6 +28,38 @@ struct TS_ParamQuantity : ParamQuantity {
 		displayPrecision = prec;
 	}
 }; // end struct TS_ParamQuantity
+
+// Act like a switch quantity if labels have items and snap is enabled. Otherwise, act like a normal param quantity.
+struct TS_SwitchQuantity : ParamQuantity {
+	std::vector<std::string> labels;
+
+	std::string getDisplayValueString() override {
+		if (snapEnabled && labels.size() > 0) {
+			int index = (int)std::floor(getValue() - getMinValue());
+			if (!(0 <= index && index < (int)labels.size()))
+				return "";
+			return labels[index];
+		}
+		else {
+			return this->ParamQuantity::getDisplayValueString();
+		}
+	}
+	void setDisplayValueString(std::string s) override {
+		if (snapEnabled && labels.size() > 0) {
+			// Find label that matches string, case insensitive.
+			auto it = std::find_if(labels.begin(), labels.end(), [&](const std::string& a) {
+				return string::lowercase(a) == string::lowercase(s);
+				});
+			if (it == labels.end())
+				return;
+			int index = std::distance(labels.begin(), it);
+			setValue(getMinValue() + index);
+		}
+		else {
+			return this->ParamQuantity::setDisplayValueString(s);
+		}
+	}
+};
 
 // Enumeration param quantity
 struct TS_ParamQuantityEnum : TS_ParamQuantity {
@@ -115,7 +150,7 @@ struct TS_ParamQuantityEnum : TS_ParamQuantity {
 	// Sets the value based on the display string.
 	void setDisplayValueString(std::string str) override {
 		//Quantity::setDisplayValueString(str);
-DEBUG("TS_ParamQuantityEnum::setDisplayValueString(\"%s\") - Starting...", str.c_str());
+//DEBUG("TS_ParamQuantityEnum::setDisplayValueString(\"%s\") - Starting...", str.c_str());
 		float displayVal = 0.0f;		
 		if (enumOn) 
 		{
@@ -123,7 +158,7 @@ DEBUG("TS_ParamQuantityEnum::setDisplayValueString(\"%s\") - Starting...", str.c
 			std::transform(strKey.begin(), strKey.end(), strKey.begin(), ::tolower);
 			trim(strKey);
 			bool found = false;
-DEBUG("TS_ParamQuantityEnum::setDisplayValueString(\"%s\") - Key is %s.", str.c_str(), strKey.c_str());		
+//DEBUG("TS_ParamQuantityEnum::setDisplayValueString(\"%s\") - Key is %s.", str.c_str(), strKey.c_str());		
 			
 			if (enumString2Val.find(strKey) == enumString2Val.end()) {
 				// Search for first pair that is less than this lookup
@@ -132,7 +167,7 @@ DEBUG("TS_ParamQuantityEnum::setDisplayValueString(\"%s\") - Key is %s.", str.c_
 				{
 					std::string key =  iter->first;
 					int keySize = key.size();
-DEBUG("TS_ParamQuantityEnum::setDisplayValueString(\"%s\") -    Search %s = %s result is %d", str.c_str(), key.c_str(), strKey.c_str(), key.compare(strKey));	
+//DEBUG("TS_ParamQuantityEnum::setDisplayValueString(\"%s\") -    Search %s = %s result is %d", str.c_str(), key.c_str(), strKey.c_str(), key.compare(strKey));	
 					if (keySize <= lookupSize && key.compare(strKey) < 0) {
 						displayVal = iter->second;
 						found = true;
@@ -148,12 +183,12 @@ DEBUG("TS_ParamQuantityEnum::setDisplayValueString(\"%s\") -    Search %s = %s r
 						displayVal = iter->second; // Should go to the last one
 					}
 				} // end iterate through vals
-DEBUG("TS_ParamQuantityEnum::setDisplayValueString(\"%s\") - Key is %s. Found CLOSEST match - %7.5f", str.c_str(), strKey.c_str(), displayVal);														
+//DEBUG("TS_ParamQuantityEnum::setDisplayValueString(\"%s\") - Key is %s. Found CLOSEST match - %7.5f", str.c_str(), strKey.c_str(), displayVal);														
 			}
 			else {
 				// Exact match
 				displayVal = enumString2Val[strKey]; 
-DEBUG("TS_ParamQuantityEnum::setDisplayValueString(\"%s\") - Key is %s. Found exact match - %7.5f", str.c_str(), strKey.c_str(), displayVal);
+//DEBUG("TS_ParamQuantityEnum::setDisplayValueString(\"%s\") - Key is %s. Found exact match - %7.5f", str.c_str(), strKey.c_str(), displayVal);
 				found = true;				
 			}
 			this->setDisplayValue(displayVal);

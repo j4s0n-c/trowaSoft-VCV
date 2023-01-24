@@ -51,6 +51,8 @@ struct oscCVWidget : TSSModuleWidgetBase {
 	// -- EXPANDERS --
 	int showConfigIndex = 0;
 	int showConfigColumnIndex = 0;
+	//// If we are in advanced configuration, the channel index (module's channel index, so it can exceeed 8 for the 8 spaces we have on screen).
+	//int showConfigChannelIndex = -1;
 	ColorValueLight* prevLight = NULL;
 	ColorValueLight* nextLight = NULL;	
 	NVGcolor showConfigColor = TSColors::COLOR_WHITE;
@@ -83,13 +85,10 @@ struct oscCVWidget : TSSModuleWidgetBase {
 	{
 		try
 		{
-			oscConfigurationScreen->module = NULL;
 			oscConfigurationScreen = NULL;
 			display = NULL;
 			middleDisplay = NULL;
 			oscChannelConfigScreen = NULL;
-			//btnDrawInputAdvChConfig.clear();
-			//btnDrawOutputAdvChConfig.clear();
 		}
 		catch (std::exception& ex)
 		{

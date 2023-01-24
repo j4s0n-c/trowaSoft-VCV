@@ -71,15 +71,30 @@ struct TSSequencerWidgetBase : TSSModuleWidgetBase {
 	// Step
 	void step() override;
 	// Add base controls.
-	void addBaseControls() { addBaseControls(false); }
-	// Add base controls.
-	void addBaseControls(bool addGridLines);
+	void addBaseControls(bool addGridLines = false);
 	// Create context menu with common adds to sequencers.
 	/** 
 	Override to add context menu entries to your subclass.
 	It is recommended to add a blank ui::MenuEntry first for spacing.
 	*/
 	virtual void appendContextMenu(ui::Menu *menu) override;	
+
+	// Allow children to consume this first (at least copy and paste short cut keys)
+	void onHoverKey(const HoverKeyEvent& e) override {
+		// Let children at least try to get copy and paste
+		if (e.action == GLFW_PRESS || e.action == GLFW_REPEAT) {
+			if ((e.mods & RACK_MOD_MASK) == RACK_MOD_CTRL && (e.key == GLFW_KEY_C || e.key == GLFW_KEY_V))
+			{
+				// Let children have a chance
+				this->OpaqueWidget::onHoverKey(e);
+			}
+		}
+		if (!e.isConsumed()) {
+			// Now our greedy selves can have the event
+			this->ModuleWidget::onHoverKey(e);
+		}
+		return;
+	}
 };
 
 //===============================================================================

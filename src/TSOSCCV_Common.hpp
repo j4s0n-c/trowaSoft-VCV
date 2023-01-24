@@ -156,14 +156,16 @@ struct TSOSCCVChannel {
 		this->val = 0.0;
 		this->translatedVal = getValOSC2CV();
 		this->dataType = ArgDataType::OscFloat;
-		// Min Rack input or output voltage
-		minVoltage = TROWA_OSCCV_MIDI_VALUE_MIN_V;
+		// v2.0.7 - Change default to Rack Voltages to -5 to +5 V. Default OSC values 0 to 1.
+		// Min Rack input or output voltage 
+		minVoltage = -5.0f; // TROWA_OSCCV_MIDI_VALUE_MIN_V;
 		// Max Rack input or output voltage
-		maxVoltage = TROWA_OSCCV_MIDI_VALUE_MAX_V;
+		maxVoltage =  5.0f; // TROWA_OSCCV_MIDI_VALUE_MAX_V;
 		// Min OSC input or output value.
 		minOscVal = 0;
 		// Max OSC input or output value.
-		maxOscVal = 127;
+		maxOscVal = 1; // 127;
+
 		if (storeHistory)
 		{
 			if (valBuffer == NULL)

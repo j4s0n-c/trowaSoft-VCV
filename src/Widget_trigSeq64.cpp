@@ -63,17 +63,10 @@ trigSeq64Widget::trigSeq64Widget(trigSeq* seqModule) : TSSequencerWidgetBase(seq
 			TS_PadSwitch* pad = dynamic_cast<TS_PadSwitch*>(createParam<TS_PadSwitch>(Vec(x,y), seqModule, TSSequencerModuleBase::CHANNEL_PARAM + id));
 			pad->box.size = padSize;
 			pad->momentary = false;
-			//pad->box.pos = Vec(x, y);
+			pad->initParamQuantity();
 			pad->btnId = id;
 			pad->groupId = groupId;
-			if (pad->getParamQuantity())
-			{
-				ParamQuantity* pQty = pad->getParamQuantity();
-				pQty->minValue = 0;
-				pQty->maxValue = 1;
-				pQty->defaultValue = 0;
-				pQty->setValue(0);			
-			}
+			pad->isSequencerStep = true;
 			addParam(pad);
 
 			// Lights:

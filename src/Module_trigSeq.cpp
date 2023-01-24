@@ -374,6 +374,7 @@ trigSeqWidget::trigSeqWidget(trigSeq* seqModule) : TSSequencerWidgetBase(seqModu
 			TS_PadSquare* padBtn = dynamic_cast<TS_PadSquare*>(createParam<TS_PadSquare>(Vec(x, y), seqModule, TSSequencerModuleBase::CHANNEL_PARAM + id));//, 0.0, 1.0, 0.0));
 			padBtn->groupId = groupId;
 			padBtn->btnId = id;
+			padBtn->isSequencerStep = true;
 			addParam(padBtn);
 
 			// Lights:

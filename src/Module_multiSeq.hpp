@@ -246,6 +246,7 @@ struct TSSwitchKnob : TS_BaseKnob
 	TSSequencerModuleBase* seqModule = NULL;
 	
 	bool allowRandomize = true;
+
 	
 	
 	enum FunctionType : uint8_t
@@ -500,6 +501,37 @@ struct TSSwitchKnob : TS_BaseKnob
 		}
 		return;
 	}	
+	virtual void appendContextMenu(ui::Menu* menu) override {
+		if (this->module == NULL)
+			return;
+		if (seqModule != NULL)
+		{
+			if (isStepValue)
+			{
+				controlAppendContextMenuSelect(menu, this, seqModule);
+				controlAppendContextMenuCopyRowCol(menu, this, seqModule);
+			}
+			else
+			{
+				controlAppendContextMenuSelect(menu, this, seqModule, true, TSSequencerModuleBase::ValueMode::VALUE_PATTERN, true);
+			}
+		}
+		return;
+	}
+	// If sequencer step, handle CTRL-C, CTRL-V
+	void onHoverKey(const HoverKeyEvent& e) override {
+		if (this->module == NULL)
+			return;
+		if (seqModule != NULL && isStepValue)
+			controlSeqHandleStepKeyboardInput(e, this, seqModule);
+		if (!e.isConsumed())
+		{
+			// Base method
+			this->ParamWidget::onHoverKey(e);
+		}
+		return;
+	}
+
 };
 
 struct TSContainerWidget : OpaqueWidget

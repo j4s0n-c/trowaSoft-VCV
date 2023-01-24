@@ -181,16 +181,16 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 		// Trigger Input:
 		x = xStart;
 		if (colorizeChannels)
-			addInput(TS_createInput<TS_Port>(Vec(x, y), oscModule, oscCV::InputIds::CH_INPUT_START + r * 2, !plugLightsEnabled, CHANNEL_COLORS[r]));
+			addInput(TS_createInput<TS_DEFAULT_PORT_INPUT>(Vec(x, y), oscModule, oscCV::InputIds::CH_INPUT_START + r * 2, !plugLightsEnabled, CHANNEL_COLORS[r]));
 		else
-			addInput(TS_createInput<TS_Port>(Vec(x, y), oscModule, oscCV::InputIds::CH_INPUT_START + r * 2, !plugLightsEnabled));
+			addInput(TS_createInput<TS_DEFAULT_PORT_INPUT>(Vec(x, y), oscModule, oscCV::InputIds::CH_INPUT_START + r * 2, !plugLightsEnabled));
 
 		// Value input:
 		x += dx;
 		if (colorizeChannels)
-			addInput(TS_createInput<TS_Port>(Vec(x, y), oscModule, oscCV::InputIds::CH_INPUT_START + r * 2 + 1, !plugLightsEnabled, CHANNEL_COLORS[r]));
+			addInput(TS_createInput<TS_DEFAULT_PORT_INPUT>(Vec(x, y), oscModule, oscCV::InputIds::CH_INPUT_START + r * 2 + 1, !plugLightsEnabled, CHANNEL_COLORS[r]));
 		else
-			addInput(TS_createInput<TS_Port>(Vec(x, y), oscModule, oscCV::InputIds::CH_INPUT_START + r * 2 + 1, !plugLightsEnabled));
+			addInput(TS_createInput<TS_DEFAULT_PORT_INPUT>(Vec(x, y), oscModule, oscCV::InputIds::CH_INPUT_START + r * 2 + 1, !plugLightsEnabled));
 
 
 		//---* OSC Channel Configuration *---
@@ -277,16 +277,16 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 		// Trigger Input:
 		x = xStart;
 		if (colorizeChannels)
-			addOutput(TS_createOutput<TS_Port>(Vec(x, y), oscModule, oscCV::OutputIds::CH_OUTPUT_START + r * 2, !plugLightsEnabled, CHANNEL_COLORS[r]));
+			addOutput(TS_createOutput<TS_DEFAULT_PORT_OUTPUT>(Vec(x, y), oscModule, oscCV::OutputIds::CH_OUTPUT_START + r * 2, !plugLightsEnabled, CHANNEL_COLORS[r]));
 		else
-			addOutput(TS_createOutput<TS_Port>(Vec(x, y), oscModule, oscCV::OutputIds::CH_OUTPUT_START + r * 2, !plugLightsEnabled));
+			addOutput(TS_createOutput<TS_DEFAULT_PORT_OUTPUT>(Vec(x, y), oscModule, oscCV::OutputIds::CH_OUTPUT_START + r * 2, !plugLightsEnabled));
 
 		// Value input:
 		x += dx;
 		if (colorizeChannels)
-			addOutput(TS_createOutput<TS_Port>(Vec(x, y), oscModule, oscCV::OutputIds::CH_OUTPUT_START + r * 2 + 1, !plugLightsEnabled, CHANNEL_COLORS[r]));
+			addOutput(TS_createOutput<TS_DEFAULT_PORT_OUTPUT>(Vec(x, y), oscModule, oscCV::OutputIds::CH_OUTPUT_START + r * 2 + 1, !plugLightsEnabled, CHANNEL_COLORS[r]));
 		else
-			addOutput(TS_createOutput<TS_Port>(Vec(x, y), oscModule, oscCV::OutputIds::CH_OUTPUT_START + r * 2 + 1, !plugLightsEnabled));
+			addOutput(TS_createOutput<TS_DEFAULT_PORT_OUTPUT>(Vec(x, y), oscModule, oscCV::OutputIds::CH_OUTPUT_START + r * 2 + 1, !plugLightsEnabled));
 
 		// Light (to indicate when we receive OSC)
 		addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + dx + ledSize.x/2.0, y + ledYOffset), oscModule, oscCV::LightIds::CH_LIGHT_START + r * TROWA_OSCCV_NUM_LIGHTS_PER_CHANNEL + 1, ledSize, CHANNEL_COLORS[r]));
@@ -363,10 +363,7 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 	
 	
 	// Screws:
-	addChild(createWidget<ScrewBlack>(Vec(0, 0)));
-	addChild(createWidget<ScrewBlack>(Vec(box.size.x - 15, 0)));
-	addChild(createWidget<ScrewBlack>(Vec(0, box.size.y - 15)));
-	addChild(createWidget<ScrewBlack>(Vec(box.size.x - 15, box.size.y - 15)));
+	this->TSSModuleWidgetBase::addScrews();
 
 	if (oscModule != NULL)
 	{
@@ -399,6 +396,7 @@ void oscCVWidget::step()
 
 			// Set our expander edit page to page 0.
 			thisModule->setExpansionEditPageCol(0);
+			thisModule->expCurrentEditChannelIx = -1;
 
 			// State change
 			if (thisModule->oscShowConfigurationScreen)
@@ -507,6 +505,7 @@ void oscCVWidget::step()
 				// Now set to page 0
 				thisModule->setExpansionEditPageCol(0);
 				this->showConfigColumnIndex = 0;
+				thisModule->expCurrentEditChannelIx = -1;
 			}
 			else if (thisModule->expCurrentEditExpanderIx != 0 && 
 				this->showConfigColumnIndex != thisModule->expCurrentEditPageCol)
@@ -526,6 +525,7 @@ void oscCVWidget::step()
 				readChannelPathConfig(showConfigIndex, this->showConfigColumnIndex);
 
 				this->showConfigColumnIndex = thisModule->expCurrentEditPageCol;
+				thisModule->expCurrentEditChannelIx = -1;
 			}
 		}
 
@@ -589,7 +589,7 @@ void oscCVWidget::step()
 			//------------------------------------------
 			TSOSCCVChannel* editChannelPtr = NULL;
 			bool isInput = false;
-			/// TODO: Accomodate if Expanders ever have more or less # channels than the main module.
+			// Now can handle if expanders if have more channels than the main module. We still only show N at a time (N = # main module's channels).
 			for (int c = 0; c < thisModule->numberChannels; c++) {
 				// Input Channel:
 				int paramId = oscCV::ParamIds::CH_PARAM_START
@@ -601,7 +601,10 @@ void oscCVWidget::step()
 					// Read any changes that may have happened. (we don't have room for a save button) on the previous screen
 					readChannelPathConfig(showConfigIndex, this->showConfigColumnIndex);
 					if (masterConfigLoaded)
+					{
 						editChannelPtr = &(thisModule->inputChannels[c]);
+						thisModule->expCurrentEditChannelIx = c; // This is the module's channel index though.
+					}
 					else if (thisModule->expCurrentEditExpander != NULL)
 					{
 						int chIx = showConfigColumnIndex * thisModule->numberChannels + c;
@@ -611,6 +614,7 @@ void oscCVWidget::step()
 							DEBUG("[ADV] btnClick: Input Expander %d, Column Ix %d, Channel %d (Expander's Ch %d).", showConfigIndex, showConfigColumnIndex, c, chIx);
 #endif
 							editChannelPtr = &(thisModule->expCurrentEditExpander->inputChannels[chIx]);
+							thisModule->expCurrentEditChannelIx = chIx;
 						}
 						catch (const std::exception& expanderNull)
 						{
@@ -630,7 +634,10 @@ void oscCVWidget::step()
 					// Read any changes that may have happened. (we don't have room for a save button) on the previous screen
 					readChannelPathConfig(showConfigIndex, this->showConfigColumnIndex);
 					if (masterConfigLoaded)
+					{
 						editChannelPtr = &(thisModule->outputChannels[c]);
+						thisModule->expCurrentEditChannelIx = c; // This is the main module's channel index.
+					}
 					else if (thisModule->expCurrentEditExpander != NULL)
 					{
 						int chIx = showConfigColumnIndex * thisModule->numberChannels + c;
@@ -640,6 +647,7 @@ void oscCVWidget::step()
 							DEBUG("[ADV] btnClick: Output Expander %d, Column Ix %d, Channel %d (Expander's Ch %d).", showConfigIndex, showConfigColumnIndex, c, chIx);
 #endif
 							editChannelPtr = &(thisModule->expCurrentEditExpander->outputChannels[chIx]);
+							thisModule->expCurrentEditChannelIx = chIx;
 						}
 						catch (const std::exception& expanderNull)
 						{
@@ -678,6 +686,7 @@ void oscCVWidget::step()
 					this->toggleChannelPathConfig(thisModule->expCurrentEditExpanderIx <= 0, thisModule->expCurrentEditExpanderIx >= 0); // Show paths again
 					configNameLeft = thisModule->expCurrentEditExpanderIx > 0;
 					this->middleDisplay->setDisplayMode(TSOscCVMiddleDisplay::DisplayMode::ConfigNameAndLabel);
+					thisModule->expCurrentEditChannelIx = -1; // Reset the channel index of the one we are editing
 				}
 			}
 

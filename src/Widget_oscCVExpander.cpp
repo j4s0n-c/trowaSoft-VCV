@@ -18,12 +18,8 @@ using namespace rack;
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSCCVExpanderDirection expanderDirection, int numChannels) : TSSModuleWidgetBase(oscExpanderModule, false)
 {
-	const int screwSize = 15;
+	//const int screwSize = 15;
 	bool isPreview = this->module == NULL; // If this is null, then this isn't a real module instance but a 'Preview'?	
-	//if (!isPreview && oscExpanderModule == NULL)
-	//{
-	//	oscExpanderModule = dynamic_cast<oscCVExpander*>(this->module);
-	//}
 	if (isPreview)
 	{
 		this->numberChannels = numChannels;
@@ -45,10 +41,21 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 	{
 		SvgPanel *panel = new SvgPanel();
 		panel->box.size = box.size;
-		if (expanderDirection == TSOSCCVExpanderDirection::Input)
-			panel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/cvOSC.svg")));
-		else
-			panel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/OSCcv.svg")));			
+
+		std::string fPath = (expanderDirection == TSOSCCVExpanderDirection::Input) ? asset::plugin(pluginInstance, "res/cvOSC") : asset::plugin(pluginInstance, "res/OSCcv");
+		if (this->numberChannels > TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS)
+		{
+			// Look for one with the # channels appended to the name. 
+			// If it exists, use that one, otherwise just use the generic one.
+			if (system::exists(rack::string::f("%s%d.svg", fPath.c_str(), this->numberChannels)))
+				fPath = rack::string::f("%s%d", fPath.c_str(), this->numberChannels);
+		}
+		fPath = rack::string::f("%s%s", fPath.c_str(), ".svg"); // Add the extension
+		panel->setBackground(APP->window->loadSvg(fPath));
+		//if (expanderDirection == TSOSCCVExpanderDirection::Input)
+		//	panel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/cvOSC.svg")));
+		//else
+		//	panel->setBackground(APP->window->loadSvg(asset::plugin(pluginInstance, "res/OSCcv.svg")));			
 		addChild(panel);
 	}
 
@@ -59,13 +66,12 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 	fbw = new FramebufferWidget();
 	fbw->box.size = box.size;
 	addChild(fbw);
-		
+	
 	//////////////////////////////////////////////
 	// Indicator - For when we are being configured.
 	//////////////////////////////////////////////		
 	oscCVExpanderSideIndicator* indicator = new oscCVExpanderSideIndicator(this, Vec(box.size.x, box.size.y - screwSize*2));
 	indicator->box.pos = Vec(0, screwSize);
-	//addChild(indicator);
 	fbw->addChild(indicator);
 
 	//////////////////////////////////////////////
@@ -160,9 +166,9 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 		// Trigger Input:
 		x = xStart;
 		if (colorizeChannels)
-			port = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2, !plugLightsEnabled, chColor));
+			port = dynamic_cast<TS_Port*>(TS_createInput<TS_DEFAULT_PORT_INPUT>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2, !plugLightsEnabled, chColor));
 		else
-			port = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2, !plugLightsEnabled));				
+			port = dynamic_cast<TS_Port*>(TS_createInput<TS_DEFAULT_PORT_INPUT>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2, !plugLightsEnabled));				
 		if (expanderType == TSOSCCVExpanderDirection::Input)
 		{
 			addInput(port);			
@@ -177,9 +183,9 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 		// Value input:
 		x += dx;
 		if (colorizeChannels)
-			port = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2 + 1, !plugLightsEnabled, chColor));
+			port = dynamic_cast<TS_Port*>(TS_createInput<TS_DEFAULT_PORT_INPUT>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2 + 1, !plugLightsEnabled, chColor));
 		else
-			port = dynamic_cast<TS_Port*>(TS_createInput<TS_Port>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2 + 1, !plugLightsEnabled));					
+			port = dynamic_cast<TS_Port*>(TS_createInput<TS_DEFAULT_PORT_INPUT>(Vec(x, y), oscExpanderModule, oscCVExpander::InputIds::CH_INPUT_START + r * 2 + 1, !plugLightsEnabled));					
 		if (expanderType == TSOSCCVExpanderDirection::Input)
 		{
 			addInput(port);			
@@ -197,11 +203,9 @@ oscCVExpanderWidget::oscCVExpanderWidget(oscCVExpander* oscExpanderModule, TSOSC
 		y += dy;
 	} // end ports
 	
-	addChild(createWidget<ScrewBlack>(Vec(0, 0)));
-	addChild(createWidget<ScrewBlack>(Vec(box.size.x - screwSize, 0)));
-	addChild(createWidget<ScrewBlack>(Vec(0, box.size.y - screwSize)));
-	addChild(createWidget<ScrewBlack>(Vec(box.size.x - screwSize, box.size.y - screwSize)));
-	
+	// Screws:
+	this->TSSModuleWidgetBase::addScrews();
+
 	return;
 }
 
@@ -260,11 +264,13 @@ void oscCVExpanderWidget::step()
 					if (thisModule->beingConfigured)
 					{
 						this->configColumnIx = thisModule->configureColIx;
+						this->configAdvChannelIx = thisModule->configureChannelIx;
 						/// TODO: Add check for which channel is being configured.
 					}
 					else
 					{
 						this->configColumnIx = -1; // Not being configured.
+						this->configAdvChannelIx = -1;
 					}
 					if (dir)
 					{
@@ -290,8 +296,15 @@ void oscCVExpanderWidget::step()
 			{
 				// We have a Module, but no master.
 				expanderColor = defaultExpanderColor;
-				lastConfigStatus = false;
+				this->configColumnIx = -1; // Not being configured.
+				this->configAdvChannelIx = -1;
 				dir = false;
+				if (lastConfigStatus != thisModule->beingConfigured)
+				{
+					fbw->setDirty();
+				}
+				lastConfigStatus = false;
+				lastConfigA = 0.f;
 			}
 		} // end if master
 		else
@@ -349,19 +362,51 @@ void oscCVExpanderSideIndicator::draw(/*in*/ const DrawArgs &args)
 			nvgStroke(args.vg);
 
 			int configColIx = parent->configColumnIx;
-			if (parent->numberColumns > 1 && configColIx > -1)
+			int configAdvChIx = parent->configAdvChannelIx;
+
+			int colDx;
+			float margin = 0.f;
+			const int screwSize = 15;
+			float x = 0.0f;
+			float y = 0.0f;
+			if (configColIx > -1 || configAdvChIx > -1)
 			{
-				// Highlight the column being edited
+				colDx = COL_RACK_GRID_WIDTH * RACK_GRID_WIDTH;
+				x = configColIx * colDx + 1.0f; 	// Actually just fill put the entire column (minus the column divider line)
+				y = parent->colStartPos.y - margin - screwSize + 1.0f;// +2.0f;
+			}
+
+			if (configColIx > -1 && configAdvChIx > -1)
+			{
+				// Highlight the channel that is being configured in ADV channel config screen
+				NVGcolor chColor = TSColors::CHANNEL_COLORS[configAdvChIx % TSColors::NUM_CHANNEL_COLORS];
+				int numRows = parent->numberChannels / parent->numberColumns;
+				int localRow = configAdvChIx % numRows;
+
+				Vec cSize = Vec(colDx - 2.0f, parent->rowDy + margin * 2.f);
+				y += (parent->rowDy * localRow - margin);
+				// Make room for the module side indicator (going around the whole module):
+				if (configColIx == 0)
+				{
+					// First column
+					x += 3.0f;
+					cSize.x -= 3.0f;
+				}
+				if (configColIx == parent->numberColumns - 1)
+				{
+					// Last column
+					cSize.x -= 3.0f; 
+				}
+
+				nvgBeginPath(args.vg);
+				nvgRect(args.vg, x, y, cSize.x, cSize.y);
+				nvgFillColor(args.vg, chColor);
+				nvgFill(args.vg);
+			}
+			else if (parent->numberColumns > 1 && configColIx > -1)
+			{
+				// Highlight the column being edited only if there is more than one column
 				color.a = 0.6;
-				int colDx = COL_RACK_GRID_WIDTH * RACK_GRID_WIDTH;
-				float margin = 0.f;
-				//const int dx = 28;
-				const int screwSize = 15;
-				//float x = parent->colStartPos.x + configColIx * colDx - margin - screwSize + strokeWidth;
-				float x = configColIx * colDx + 1.0f; 	// Actually just fill put the entire column (minus the column divider line)
-				float y = parent->colStartPos.y - margin - screwSize + 1.0f;// +2.0f;
-				//float colWidth = dx * 3.0f - strokeWidth;
-				//Vec cSize = Vec(colWidth + margin * 2.f, parent->rowDy * parent->channelsPerColumn + margin * 2.f);
 				// Actually just fill put the entire column
 				Vec cSize = Vec(colDx - 2.0f, parent->rowDy * parent->channelsPerColumn + margin * 2.f);
 				nvgBeginPath(args.vg);
@@ -369,7 +414,6 @@ void oscCVExpanderSideIndicator::draw(/*in*/ const DrawArgs &args)
 				nvgFillColor(args.vg, color);
 				nvgFill(args.vg);
 			}
-
 
 			nvgRestore(args.vg);			
 		}

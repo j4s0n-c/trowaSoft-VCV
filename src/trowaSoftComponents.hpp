@@ -41,6 +41,51 @@ extern Plugin* pluginInstance;
 
 
 
+struct TS_ParamValueItem : ui::MenuItem {
+	ParamWidget* paramWidget;
+	float value;
+	// If this is selected, the right text.
+	std::string checkedStr = std::string("");
+	TS_ParamValueItem()
+	{
+		checkedStr = CHECKMARK(true);
+	}
+
+	void step() override {
+		if (paramWidget != NULL) {
+			engine::ParamQuantity* pq = paramWidget->getParamQuantity();
+			if (value == pq->getValue()) {
+				rightText = checkedStr;
+			}
+		}
+		this->MenuItem::step();
+		return;
+	}
+
+	void onAction(const ActionEvent& e) override {
+		engine::ParamQuantity* pq = paramWidget->getParamQuantity();
+		if (pq) {
+			float oldValue = pq->getValue();
+			pq->setValue(value);
+			float newValue = pq->getValue();
+
+			//DEBUG("Set %s to %f [%s]", pq->name.c_str(), value, pq->getDisplayValueString().c_str());
+			//DEBUG("-- Old val is %f.  Final is %f.", oldValue, newValue);
+
+			if (oldValue != newValue) {
+				// Push ParamChange history action
+				history::ParamChange* h = new history::ParamChange;
+				h->name = "set parameter";
+				h->moduleId = paramWidget->module->id;
+				h->paramId = paramWidget->paramId;
+				h->oldValue = oldValue;
+				h->newValue = newValue;
+				APP->history->push(h);
+			}
+		}
+	}
+}; // end struct TS_ParamValueItem
+
 //------------------------------------------------------------------------------------------------
 // TS_Label : Label with the trowaSoft default label font.
 //------------------------------------------------------------------------------------------------
@@ -174,6 +219,67 @@ struct TS_Label : Label {
 
 };
 
+//
+// Rotated SVG.
+// Base SVG component that should be randomly rotated.
+//
+struct TS_SvgWidgetRotated : SvgWidget {
+	// Rotation angle in degrees
+	float rotateAngle_deg = 0.0f;
+	// Flag if these should be rotated or not.
+	// Completely circular widgets with no shading do not need to be rotated.
+	bool doRotate = false;
+
+	// If this should be drawn in the dark or not.
+	bool drawInDark = false;
+
+	TS_SvgWidgetRotated() {
+		doRotate = false;
+		rotateAngle_deg = 0.0f;
+		return;
+	}
+
+	void setRotationAngle(bool rotateSvg, float angle_deg) {
+		doRotate = rotateSvg;
+		rotateAngle_deg = angle_deg;
+	}
+
+	void draw(const DrawArgs& args) override {
+		if (!svg)
+			return;
+
+		bool needsRotatation = doRotate && (rotateAngle_deg > 0.0f || rotateAngle_deg < 0.f);
+		if (needsRotatation) {
+			nvgSave(args.vg);
+			Vec center = Vec(box.size.x / 2.0f, box.size.y / 2.0f);
+			// Translate to center
+			nvgTranslate(args.vg, center.x, center.y);
+			// Rotate
+			float angle_rad = rotateAngle_deg / 180.f * NVG_PI;
+			nvgRotate(args.vg, angle_rad);
+			// Translate back
+			nvgTranslate(args.vg, -center.x, -center.y);
+		}
+
+		this->SvgWidget::draw(args);
+		//window::svgDraw(args.vg, svg->handle);
+
+		if (needsRotatation) {
+			nvgRestore(args.vg);
+		}
+	}
+
+	void drawLayer(const DrawArgs& args, int layer) override
+	{
+		if (!visible)
+			return;
+		if (drawInDark && layer == 1) // Layer 1 is 'light layer'
+		{
+			this->draw(args);
+		}
+	}
+};
+
 //--------------------------------------------------------------
 // TS_PadSwitch
 // Empty momentary switch of given size.
@@ -182,6 +288,8 @@ struct TS_PadSwitch : Switch {
 	int btnId = -1;
 	// Group id (to match guys that should respond to mouse down drag).
 	int groupId = -1;
+
+	bool isSequencerStep = false;
 	
 	TS_PadSwitch() : Switch() {
 		momentary = true;
@@ -271,6 +379,10 @@ struct TS_PadSwitch : Switch {
 			createTooltip(); // Only show the tool tip if this control is actually visible.
 		return;
 	}	
+	// If sequencer step, handle CTRL-C, CTRL-V
+	virtual void onHoverKey(const HoverKeyEvent& e) override;
+	// If sequencer step, handle extra context menu items.
+	virtual void appendContextMenu(ui::Menu* menu) override;
 };
 
 //--------------------------------------------------------------
@@ -280,6 +392,9 @@ struct TS_PadSvgSwitch : SvgSwitch {
 	int btnId = -1;
 	// Group id (to match guys that should respond to mouse down drag).
 	int groupId = -1;
+
+	bool isSequencerStep = false;
+
 	TS_PadSvgSwitch() : SvgSwitch() {
 		momentary = false;
 		this->shadow->opacity = 0.0f; // Turn off the circular shadows that are everywhere.
@@ -353,7 +468,7 @@ struct TS_PadSvgSwitch : SvgSwitch {
 		if (origin && origin != this && origin->groupId == this->groupId && pQuantity) 
 		{
 			float newVal = (pQuantity->getValue() < pQuantity->maxValue) ? pQuantity->maxValue : pQuantity->minValue;
-			DEBUG("onDragEnter(%d) - Set Value to %3.1f.", btnId, newVal);				
+			//DEBUG("onDragEnter(%d) - Set Value to %3.1f.", btnId, newVal);				
 			pQuantity->setValue(newVal); // Toggle Value
 		}		
 		return;
@@ -373,6 +488,10 @@ struct TS_PadSvgSwitch : SvgSwitch {
 			createTooltip(); // Only show the tool tip if this control is actually visible.
 		return;
 	}	
+	// If sequencer step, handle CTRL-C, CTRL-V
+	virtual void onHoverKey(const HoverKeyEvent& e) override;
+	// If sequencer step, handle extra context menu items.
+	virtual void appendContextMenu(ui::Menu* menu) override;
 };
 
 
@@ -907,14 +1026,15 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 				float x, y;
 				NVGalign nvgAlign;
 				y = box.size.y / 2.0f;
+				int txtPadding = 2; // Add some extra space between box and text
 				switch (textAlign) {
 				case TextAlignment::Left:
 					nvgAlign = NVG_ALIGN_LEFT;
-					x = checkBoxWidth + padding;
+					x = checkBoxWidth + padding + txtPadding;
 					break;
 				case TextAlignment::Right:
 					nvgAlign = NVG_ALIGN_RIGHT;
-					x = box.size.x - padding;
+					x = box.size.x - padding - txtPadding;
 					break;
 				case TextAlignment::Center:
 				default:
@@ -929,7 +1049,7 @@ struct TS_ScreenCheckBox : TS_ScreenBtn {
 				nvgResetScissor(args.vg);
 
 				// Check box ::::::::::::::::::::::::::::::::::::::::::::::
-				float boxX = txtBounds[0] - checkBoxWidth - padding;
+				float boxX = txtBounds[0] - checkBoxWidth - padding - txtPadding;
 				float boxY = y - checkBoxHeight / 2.0 - padding;
 				nvgBeginPath(args.vg);
 				nvgRoundedRect(args.vg, boxX, boxY, checkBoxWidth, checkBoxHeight, 3);
@@ -1403,6 +1523,10 @@ struct TS_Knob : RoundKnob {
 		shadow->visible = showShadow;
 		return;
 	}	
+
+	void setBackground(const char* svgPath) {
+		bg->setSvg(APP->window->loadSvg(asset::plugin(pluginInstance, svgPath)));
+	}
 	
 	void setShadow(bool showShadow)
 	{
@@ -1459,15 +1583,8 @@ struct TS_Knob : RoundKnob {
 			return 0;
 		}
 	}
-	// [2021-12-22] Now v2 has this built-in with randomizeEnabled flag on ParamQuantity.
-	// // Override randomize. Only do randomize if set to true.
-	// void randomize() override
-	// {
-		// if (allowRandomize) {
-			// this->ParamWidget::randomize();
-		// }
-		// return;
-	// }	
+	// Append switch quantity stuff if it's in switch mode
+	virtual void appendContextMenu(ui::Menu* menu) override;
 };
 //--------------------------------------------------------------
 // TS_RoundBlackKnob - 30x30 RoundBlackKnob
@@ -1541,9 +1658,12 @@ struct TS_RoundBlackKnob : RoundBlackKnob {
 
 //--------------------------------------------------------------
 // TS_TinyBlackKnob - 20x20 RoundBlackKnob
+// Basically Rack's SmallBlackKnob but smaller.
+// "res/ComponentLibrary/TS_RoundBlackKnob_20.svg"
 //--------------------------------------------------------------
 struct TS_TinyBlackKnob : TS_Knob {
-	 TS_TinyBlackKnob() : TS_Knob(20, "res/ComponentLibrary/TS_RoundBlackKnob_20.svg") {
+	 TS_TinyBlackKnob() : TS_Knob(20, "res/ComponentLibrary/RoundSmallBlackKnob_20.svg") {
+		 this->setBackground("res/ComponentLibrary/RoundSmallBlackKnob_20_bg.svg");
 		 return;
 	 }
  };
@@ -1557,77 +1677,77 @@ struct TS_15_BlackKnob : TS_Knob {
 	 }
  };
  
-//--------------------------------------------------------------
-// 14x14 (Small) or 28x28 (Large) Knob
-//--------------------------------------------------------------
-struct TS_KnobColored : TS_Knob 
-{	
-	enum KnobColor : uint8_t
-	{
-		Black,
-		Blue,
-		DarkGray,
-		Green,
-		MedGray,
-		Red,
-		White
-	};	
-	// The color
-	KnobColor knobColor = KnobColor::Black;
-	
-	enum SizeType : uint8_t
-	{
-		// Small (size 14 default)
-		Small = 0,
-		// Make this 28
-		Medium, // Doesn't exist yet
-		// Big (size 28 default). Make this 44.
-		Big,
-		NumKnobSizes
-	};	
-	// Size
-	SizeType sizeCategory = SizeType::Small;
-	
-	const uint8_t sizes[NumKnobSizes] = { 14, 28, 44 };
-	
-	TS_KnobColored() 
-	{
-		return;
-	}
-	TS_KnobColored(int s, SizeType sizeType, KnobColor color)
-	{
-		init(s, sizeType, color);
-		return;
-	}
-	void init(SizeType sizeType, KnobColor color)
-	{
-		size = sizes[sizeType]; // (sizeType == SizeType::Small) ? 14 : 28;
-		init(size, sizeType, color);		
-		return;
-	}
-	void init(int s, SizeType sizeType, KnobColor color)
-	{
-		size = s;
-		knobColor = color;
-		char svgPath[2048];
-		std::string colorNames[] = { "Black", "Blue", "DarkGray", "Green", "MedGray", "Red", "White"};
-		std::string sizeNames[] = { "Small", "Medium", "Big"};
-		
-		// Size, Color
-		sprintf(svgPath, "res/ComponentLibrary/TS_FlatKnob_%s_%s.svg", sizeNames[sizeType].c_str(), colorNames[color].c_str());		
-		this->SvgKnob::setSvg(APP->window->loadSvg(asset::plugin(pluginInstance, svgPath)));
-		box.size = Vec(size, size);	
-
-		this->setShadow(false); // Turn off shadow on our flat knobs
-		return;
-	}
-};
- 
- struct TS_BigKnobBlack : TS_Knob {
-	 TS_BigKnobBlack() : TS_Knob(28, "res/ComponentLibrary/TS_FlatKnob_Big_Black.svg", false){
-		 return;
-	 }	
- };
+////--------------------------------------------------------------
+//// 14x14 (Small) or 28x28 (Large) Knob
+////--------------------------------------------------------------
+//struct TS_KnobColored : TS_Knob 
+//{	
+//	enum KnobColor : uint8_t
+//	{
+//		Black,
+//		Blue,
+//		DarkGray,
+//		Green,
+//		MedGray,
+//		Red,
+//		White
+//	};	
+//	// The color
+//	KnobColor knobColor = KnobColor::Black;
+//	
+//	enum SizeType : uint8_t
+//	{
+//		// Small (size 14 default)
+//		Small = 0,
+//		// Make this 28
+//		Medium, // Doesn't exist yet
+//		// Big (size 28 default). Make this 44.
+//		Big,
+//		NumKnobSizes
+//	};	
+//	// Size
+//	SizeType sizeCategory = SizeType::Small;
+//	
+//	const uint8_t sizes[NumKnobSizes] = { 14, 28, 44 };
+//	
+//	TS_KnobColored() 
+//	{
+//		return;
+//	}
+//	TS_KnobColored(int s, SizeType sizeType, KnobColor color)
+//	{
+//		init(s, sizeType, color);
+//		return;
+//	}
+//	void init(SizeType sizeType, KnobColor color)
+//	{
+//		size = sizes[sizeType]; // (sizeType == SizeType::Small) ? 14 : 28;
+//		init(size, sizeType, color);		
+//		return;
+//	}
+//	void init(int s, SizeType sizeType, KnobColor color)
+//	{
+//		size = s;
+//		knobColor = color;
+//		char svgPath[2048];
+//		std::string colorNames[] = { "Black", "Blue", "DarkGray", "Green", "MedGray", "Red", "White"};
+//		std::string sizeNames[] = { "Small", "Medium", "Big"};
+//		
+//		// Size, Color
+//		sprintf(svgPath, "res/ComponentLibrary/TS_FlatKnob_%s_%s.svg", sizeNames[sizeType].c_str(), colorNames[color].c_str());		
+//		this->SvgKnob::setSvg(APP->window->loadSvg(asset::plugin(pluginInstance, svgPath)));
+//		box.size = Vec(size, size);	
+//
+//		this->setShadow(false); // Turn off shadow on our flat knobs
+//		return;
+//	}
+//};
+// 
+// struct TS_BigKnobBlack : TS_Knob {
+//	 TS_BigKnobBlack() : TS_Knob(28, "res/ComponentLibrary/TS_FlatKnob_Big_Black.svg", false){
+//		 return;
+//	 }	
+// };
  
 //--------------------------------------------------------------
 // TS_20_BlackEncoder - 20x20 Encoder
@@ -1644,8 +1764,8 @@ struct TS_20_BlackEncoder : TS_Knob { //RoundKnob {
 	float oldValue = 0.0f;  // This has been removed from Knob v2
 
 	TS_20_BlackEncoder() : TS_Knob(20, "res/ComponentLibrary/TS_RoundBlackEncoder_20.svg") {
-		// box.size = Vec(size, size);
-		// setSvg(APP->window->loadSvg(asset::plugin(pluginInstance, "res/ComponentLibrary/TS_RoundBlackEncoder_20.svg")));
+		// Make like Rack's RoundBlackKnob
+		this->setBackground("res/ComponentLibrary/RoundSmallBlackKnob_20_bg.svg");
 		minAngle = 0;
 		maxAngle = 2 * M_PI;
 		return;
@@ -1770,65 +1890,119 @@ struct TS_LightedKnob : TS_BaseKnob { // SvgKnob
 }; // end TS_LightedKnob
 
 
+
 //--------------------------------------------------------------
 // TS_Port - Smaller port with set light color and light disable
 // (by just making the lights transparent... TODO: get rid of light completely.)
 //--------------------------------------------------------------
-struct TS_Port : SvgPort {
+struct TS_Port_Base : SvgPort {
 	NVGcolor negColor;
 	NVGcolor posColor;
-	
-	TS_Port() : SvgPort() {
-		//background->svg = APP->window->loadSvg(asset::plugin(pluginInstance, "res/ComponentLibrary/TS_Port.svg"));
-		//background->wrap();
-		setSvg(APP->window->loadSvg(asset::plugin(pluginInstance, "res/ComponentLibrary/TS_Port.svg")));
+	// Rotation angle in degrees
+	float rotateAngle_deg = 0.0f;
+	// Flag if these should be rotated or not.
+	// Completely circular widgets with no shading do not need to be rotated.
+	bool doRotate = false;
+
+	TS_Port_Base(const char* portSvg = "res/ComponentLibrary/TS_Port.svg") : SvgPort() {
+		// Remove the standard sw
+		fb->removeChild(sw);
+
+		// Add our own that can be rotated
+		sw = new TS_SvgWidgetRotated();
+		fb->addChild(sw);
+
+		setSvg(APP->window->loadSvg(asset::plugin(pluginInstance, portSvg)));
 		box.size = sw->box.size;
 		this->shadow->opacity = 0.0f;
-		//if (plugLight)
-		{
-			// negColor = plugLight->baseColors[1];
-			// posColor = plugLight->baseColors[0];
+	}
+	void setRotation(bool rotate, float angle_degrees) {
+		this->rotateAngle_deg = angle_degrees;
+		this->doRotate = rotate;
+
+		// Set the child
+		TS_SvgWidgetRotated* svgWidget = dynamic_cast<TS_SvgWidgetRotated*>(this->sw);
+		if (svgWidget != NULL) {
+			svgWidget->setRotationAngle(doRotate, rotateAngle_deg);
+
+			fb->dirty = true;
 		}
 	}
-	void disableLights()
+
+	// Enable random rotation (call once).
+	// It will randomly rotate the the port.
+	void enableRandomRotation(bool randRotation = true, float minAmt = -180.f, float maxAmt = 180.f) {
+		doRotate = randRotation;
+		if (doRotate) {
+			float range = maxAmt - minAmt;
+			this->rotateAngle_deg = minAmt + static_cast<int>(random::uniform() * range);
+		}
+		setRotation(doRotate, rotateAngle_deg);
+		return;
+	}
+	//void disableLights()
+	//{
+	//	// Save our colors:
+	//	//if (plugLight)
+	//	{
+	//		// negColor = plugLight->baseColors[1];
+	//		// posColor = plugLight->baseColors[0];		
+	//		// plugLight->baseColors[0] = nvgRGBAf(0,0,0,0);
+	//		// plugLight->baseColors[1] = nvgRGBAf(0,0,0,0);		
+	//	}
+	//}
+	//void enableLights()
+	//{
+	//	//if (plugLight)
+	//	{
+	//		// plugLight->baseColors[1] = negColor;
+	//		// plugLight->baseColors[0] = posColor;		
+	//	}
+	//}
+	//void setLightColor(NVGcolor color)
+	//{		
+	//	negColor = color;
+	//	posColor = color;
+	//	//if (plugLight)
+	//	{
+	//		// plugLight->baseColors[0] = color;
+	//		// plugLight->baseColors[1] = color;
+	//	}
+	//}
+	//void setLightColor(NVGcolor negativeColor, NVGcolor positiveColor)
+	//{
+	//	negColor = negativeColor;
+	//	posColor = positiveColor;
+	//	//if (plugLight)
+	//	{
+	//		// plugLight->baseColors[1] = negativeColor;
+	//		// plugLight->baseColors[2] = positiveColor;			
+	//	}
+	//}	
+};
+// trowaSoft hex port, rotated.
+struct TS_Port : TS_Port_Base {
+
+	TS_Port(const char* portSvg = "res/ComponentLibrary/TS_Port_Hex_Dark.svg") : TS_Port_Base(portSvg)
 	{
-		// Save our colors:
-		//if (plugLight)
-		{
-			// negColor = plugLight->baseColors[1];
-			// posColor = plugLight->baseColors[0];		
-			// plugLight->baseColors[0] = nvgRGBAf(0,0,0,0);
-			// plugLight->baseColors[1] = nvgRGBAf(0,0,0,0);		
-		}
+		enableRandomRotation(true, -15.0f, 15.f);
+		return;
 	}
-	void enableLights()
+};
+// trowaSoft hex port, rotated. SILVER.
+struct TS_Port_Hex_Silver : TS_Port {
+
+	TS_Port_Hex_Silver() : TS_Port("res/ComponentLibrary/TS_Port_Hex_Silver.svg")
 	{
-		//if (plugLight)
-		{
-			// plugLight->baseColors[1] = negColor;
-			// plugLight->baseColors[0] = posColor;		
-		}
+		return;
 	}
-	void setLightColor(NVGcolor color)
-	{		
-		negColor = color;
-		posColor = color;
-		//if (plugLight)
-		{
-			// plugLight->baseColors[0] = color;
-			// plugLight->baseColors[1] = color;
-		}
-	}
-	void setLightColor(NVGcolor negativeColor, NVGcolor positiveColor)
+};
+// trowaSoft hex port, rotated. DARK.
+struct TS_Port_Hex_Dark : TS_Port {
+	TS_Port_Hex_Dark() : TS_Port("res/ComponentLibrary/TS_Port_Hex_Dark.svg")
 	{
-		negColor = negativeColor;
-		posColor = positiveColor;
-		//if (plugLight)
-		{
-			// plugLight->baseColors[1] = negativeColor;
-			// plugLight->baseColors[2] = positiveColor;			
-		}
-	}	
+		return;
+	}
 };
 
 //--------------------------------------------------------------
@@ -2211,6 +2385,7 @@ struct TS_ScreenSlider : SliderKnob {
 	NVGcolor fillToValueColorPos;
 	NVGcolor fillToValueColorNeg;
 	
+	float handleCornerRadius = 5.f;
 	
 		
 	enum SliderDirection : uint8_t {
@@ -2367,7 +2542,7 @@ struct TS_ScreenSlider : SliderKnob {
 	
 		// Draw handle
 		nvgBeginPath(args.vg);
-		nvgRoundedRect(args.vg, handleX, handleY, handleWidth, handleHeight, 5);
+		nvgRoundedRect(args.vg, handleX, handleY, handleWidth, handleHeight, handleCornerRadius);
 		nvgFillColor(args.vg, handleColor);
 		nvgFill(args.vg);
 		nvgStrokeWidth(args.vg, 1.0);
@@ -2390,9 +2565,64 @@ struct TS_ScreenSlider : SliderKnob {
 }; // end TS_ScreenSlider
 
 
+
+// Base SVG screw (no SVG is set though).
+struct TS_SvgScrewBase : SvgScrew {
+	// Rotation angle in degrees
+	float rotateAngle_deg = 0.0f;
+	// Flag if these should be rotated or not.
+	// Completely circular widgets with no shading do not need to be rotated.
+	bool doRotate = false;
+	TS_SvgScrewBase() : SvgScrew()
+	{
+		// Remove the standard sw
+		fb->removeChild(sw);
+
+		// Add our own that can be rotated
+		//sw = new widget::SvgWidget;
+		sw = new TS_SvgWidgetRotated();
+		fb->addChild(sw);
+
+		return;
+	}
+	void setRotation(bool rotate, float angle_degrees) {
+		this->rotateAngle_deg = angle_degrees;
+		this->doRotate = rotate;
+
+		// Set the child
+		TS_SvgWidgetRotated* svgWidget = dynamic_cast<TS_SvgWidgetRotated*>(this->sw);
+		if (svgWidget != NULL) {
+			svgWidget->setRotationAngle(doRotate, rotateAngle_deg);
+
+			fb->dirty = true;
+		}
+	}
+
+	// Enable random rotation (call once).
+	// It will randomly rotate the the port.
+	void enableRandomRotation(bool randRotation = true, float minAmt = -180.f, float maxAmt = 180.f) {
+		doRotate = randRotation;
+		if (doRotate) {
+			float range = maxAmt - minAmt;
+			this->rotateAngle_deg = minAmt + static_cast<int>(random::uniform() * range);
+		}
+		setRotation(doRotate, rotateAngle_deg);
+		return;
+	}
+};
+
+// Just the basic Rack black screw but randomly rotated.
+struct TS_ScrewBlack : TS_SvgScrewBase {
+	TS_ScrewBlack() : TS_SvgScrewBase() {
+		setSvg(Svg::load(asset::system("res/ComponentLibrary/ScrewBlack.svg")));
+		enableRandomRotation(true, -45.0f, 45.0f);
+	}
+};
+
 /////////////////////////////////////////////
 //:::-:::-:::-:::- Helpers -:::-:::-:::-::://
 /////////////////////////////////////////////
+// v2 - We can't control the plug lights anymore from the port. Leave here though in case one day we can again?
 template <class TPort>
 TS_Port* TS_createInput(Vec pos, Module *module, int inputId) {
 	TS_Port *port = new TPort();
@@ -2400,7 +2630,7 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId) {
 	port->module = module;
 	port->type = engine::Port::INPUT;
 	port->portId = inputId;
-	port->disableLights();
+	//port->disableLights();
 	return port;
 }
 template <class TPort>
@@ -2410,8 +2640,8 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId, NVGcolor lightColo
 	port->module = module;
 	port->type = engine::Port::INPUT;
 	port->portId = inputId;
-	port->setLightColor(lightColor);
-	port->enableLights();
+	//port->setLightColor(lightColor);
+	//port->enableLights();
 	return port;
 }
 template <class TPort>
@@ -2421,8 +2651,8 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId, NVGcolor negColor,
 	port->module = module;
 	port->type = engine::Port::INPUT;
 	port->portId = inputId;
-	port->setLightColor(negColor, posColor);
-	port->enableLights();
+	//port->setLightColor(negColor, posColor);
+	//port->enableLights();
 	return port;
 }
 template <class TPort>
@@ -2432,10 +2662,10 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId, bool disableLight)
 	port->module = module;
 	port->type = engine::Port::INPUT;
 	port->portId = inputId;
-	if (disableLight)
-		port->disableLights();
-	else
-		port->enableLights();
+	//if (disableLight)
+	//	port->disableLights();
+	//else
+	//	port->enableLights();
 	return port;
 }
 template <class TPort>
@@ -2445,11 +2675,11 @@ TS_Port* TS_createInput(Vec pos, Module *module, int inputId, bool disableLight,
 	port->module = module;
 	port->type = engine::Port::INPUT;
 	port->portId = inputId;
-	port->setLightColor(lightColor);
-	if (disableLight)
-		port->disableLights();
-	else
-		port->enableLights();
+	//port->setLightColor(lightColor);
+	//if (disableLight)
+	//	port->disableLights();
+	//else
+	//	port->enableLights();
 	return port;
 }
 
@@ -2461,7 +2691,7 @@ TS_Port* TS_createOutput(Vec pos, Module *module, int inputId) {
 	port->module = module;
 	port->type = engine::Port::OUTPUT;
 	port->portId = inputId;
-	port->disableLights();
+	//port->disableLights();
 	return port;
 }
 template <class TPort>
@@ -2471,8 +2701,8 @@ TS_Port* TS_createOutput(Vec pos, Module *module, int inputId, NVGcolor lightCol
 	port->module = module;
 	port->type = engine::Port::OUTPUT;
 	port->portId = inputId;
-	port->setLightColor(lightColor);
-	port->enableLights();
+	//port->setLightColor(lightColor);
+	//port->enableLights();
 	return port;
 }
 template <class TPort>
@@ -2482,8 +2712,8 @@ TS_Port* TS_createOutput(Vec pos, Module *module, int inputId, NVGcolor negColor
 	port->module = module;
 	port->type = engine::Port::OUTPUT;
 	port->portId = inputId;
-	port->setLightColor(negColor, posColor);
-	port->enableLights();
+	//port->setLightColor(negColor, posColor);
+	//port->enableLights();
 	return port;
 }
 template <class TPort>
@@ -2493,10 +2723,10 @@ TS_Port* TS_createOutput(Vec pos, Module *module, int inputId, bool disableLight
 	port->module = module;
 	port->type = engine::Port::OUTPUT;
 	port->portId = inputId;
-	if (disableLight)
-		port->disableLights();
-	else
-		port->enableLights();
+	//if (disableLight)
+	//	port->disableLights();
+	//else
+	//	port->enableLights();
 	return port;
 }
 template <class TPort>
@@ -2506,11 +2736,11 @@ TS_Port* TS_createOutput(Vec pos, Module *module, int inputId, bool disableLight
 	port->module = module;
 	port->type = engine::Port::OUTPUT;
 	port->portId = inputId;
-	port->setLightColor(lightColor);
-	if (disableLight)
-		port->disableLights();
-	else
-		port->enableLights();
+	//port->setLightColor(lightColor);
+	//if (disableLight)
+	//	port->disableLights();
+	//else
+	//	port->enableLights();
 	return port;
 }
 

@@ -187,6 +187,8 @@ struct voltSeqWidget : TSSequencerWidgetBase
 	// Current value mode pointer.
 	ValueSequencerMode* currValueModePtr = NULL;
 	ValueSequencerMode* lastValueModePtr = NULL;	
+
+
 	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// voltSeqWidget()
@@ -208,6 +210,16 @@ struct voltSeqWidget : TSSequencerWidgetBase
 	*/
 	void appendContextMenu(ui::Menu *menu) override;
 };
+
+struct TS_VoltSeqLightKnob : TS_LightedKnob {
+	TSSequencerModuleBase* seqModule = NULL;
+	ValueSequencerMode* lastModePtr = NULL;
+	// If sequencer step, handle CTRL-C, CTRL-V
+	void onHoverKey(const HoverKeyEvent& e) override;
+	// Add enumeration menu if needed and copy/paste row.
+	void appendContextMenu(ui::Menu* menu) override;
+};
+
 
 
 #endif // end if not defined

@@ -11,8 +11,6 @@ using namespace rack;
 // Model for trowa OSC2CV
 Model* modelOscCV = createModel<oscCV, oscCVWidget>(/*slug*/ "cvOSCcv");
 
-
-
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // oscCV()
 // Create a module with numChannels.

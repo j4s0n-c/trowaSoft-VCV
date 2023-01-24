@@ -95,6 +95,9 @@ multiSeq::multiSeq(int numSteps, int numRows, int numCols) : TSSequencerModuleBa
 	
 	this->reconfigureValueModeParamQty();	
 	this->configValueModeParam();		
+
+	// Populate labels.
+	this->populateNotesPatternsLabels();
 	return;
 }
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -1002,8 +1005,9 @@ void multiSeqWidget::appendContextMenu(ui::Menu *menu)
 	TSSequencerWidgetBase::appendContextMenu(menu);
 	
 	// Add voltSeq specific options:
-	MenuLabel *spacerLabel = new MenuLabel();
-	menu->addChild(spacerLabel); //menu->pushChild(spacerLabel);
+	//MenuLabel *spacerLabel = new MenuLabel();
+	//menu->addChild(spacerLabel); //menu->pushChild(spacerLabel);
+	menu->addChild(new ui::MenuSeparator);
 
 	multiSeq* sequencerModule = dynamic_cast<multiSeq*>(module);
 	assert(sequencerModule);

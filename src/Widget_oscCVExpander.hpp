@@ -42,6 +42,8 @@ struct oscCVExpanderWidget : TSSModuleWidgetBase {
 	bool dir = false;
 	// The column being configured.
 	int configColumnIx = 0;
+	// If we are in advanced configuration, the channel index (0-32 or whatever) of the channel being configured.
+	int configAdvChannelIx = -1;
 	// Starting position of the first column.
 	Vec colStartPos;
 	// Row height (for each channel).
