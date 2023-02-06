@@ -184,6 +184,7 @@ namespace trowaSoft
 	void TSColorToHSL(NVGcolor color, TSColorHSL* hsv);
 }
 
+
 struct GlobalEffect {
 	NVGcompositeOperation compositeOperation = NVG_SOURCE_OVER;
 	const char* label;

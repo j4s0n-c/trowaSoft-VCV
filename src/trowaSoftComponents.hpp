@@ -16,6 +16,8 @@ using namespace rack;
 
 extern Plugin* pluginInstance;
 
+#define DEBUG_COLOR_SLIDER	0 // Doesn't work in v2. I broke it in conversion somehow.
+
 //=======================================================
 // trowaSoft - TurtleMonkey Components 
 //=======================================================
@@ -2185,9 +2187,9 @@ struct TS_SvgPanel : SvgPanel
 // TS_ColorSlider - Horizontal color slider control 'knob'.
 // Meant for picking colors via Hue, Saturation, Lightness.
 //--------------------------------------------------------------
-struct TS_ColorSlider : Knob {
+struct TS_ColorSlider : SliderKnob {
 	// If this control should be rendered
-	bool visible = true;
+	//bool visible = true;
 	// Starting color.
 	TSColorHSL startColorHSL;
 	// Ending color.
@@ -2200,8 +2202,19 @@ struct TS_ColorSlider : Knob {
 	int numStops = 24;
 	float handleWidth = 15.0;
 	float handleMargin = 3.0;
-	TS_ColorSlider() : Knob()
+#if DEBUG_COLOR_SLIDER
+	int debugId = 0;
+#endif
+	TS_ColorSlider() : SliderKnob()
 	{
+#if DEBUG_COLOR_SLIDER
+		static int sliderId = 0;
+		sliderId++;
+		debugId = sliderId;
+		DEBUG("*COLOR SLIDER ID %d", debugId);
+#endif
+
+
 		this->horizontal = true;
 		this->snap = false;
 		startColorHSL.h = 0.0;
@@ -2251,12 +2264,12 @@ struct TS_ColorSlider : Knob {
 	}
 	void onDragStart(const event::DragStart &e) override {
 		if (visible)
-			this->Knob::onDragStart(e);
+			this->SliderKnob::onDragStart(e);
 	}
 	
 	void onDragMove(const event::DragMove &e) override {
 		if (visible) {
-			this->Knob::onDragMove(e);
+			this->SliderKnob::onDragMove(e);
 		}
 		// if (visible && paramQuantity)
 		// {
@@ -2282,11 +2295,11 @@ struct TS_ColorSlider : Knob {
 	}
 	void onDragEnd(const event::DragEnd &e) override {
 		if (visible)
-			this->Knob::onDragEnd(e);
+			this->SliderKnob::onDragEnd(e);
 	}
 	void onChange(const event::Change &e) override {
 		if (visible)
-			this->Knob::onChange(e);
+			this->SliderKnob::onChange(e);
 	}
 	void drawControl(const DrawArgs &args)
 	{
@@ -2355,7 +2368,7 @@ struct TS_ColorSlider : Knob {
 			{
 				drawControl(args);
 			}
-			this->Knob::drawLayer(args, layer);			
+			this->SliderKnob::drawLayer(args, layer);
 		}
 	}	
 }; // end TS_ColorSlider

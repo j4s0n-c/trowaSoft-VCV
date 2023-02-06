@@ -185,7 +185,11 @@ struct multiScopeWidget : TSSModuleWidgetBase {
 	ColorValueLight* fillColorLEDs[TROWA_SCOPE_NUM_WAVEFORMS];
 	bool sizeLoaded = false;
 	int lastWidth;
-
+	NVGcolor* lastEditColorPtr;
+	TSColorHSL _lastBgColor;
+#if DEBUG_COLOR_SLIDER
+	int debugCount = 0;
+#endif
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// multiScopeWidget()
 	// Instantiate a multiScope widget. v0.60 must have module as param.

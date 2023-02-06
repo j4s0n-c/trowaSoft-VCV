@@ -119,6 +119,7 @@ multiScopeWidget::multiScopeWidget(multiScope *scopeModule) : TSSModuleWidgetBas
 		screenBg->box.size = Vec(screenContainer->box.size.x - RACK_GRID_WIDTH, screenContainer->box.size.y - 2 * RACK_GRID_WIDTH);
 		screenBg->emitLight = true; // Added to act like screen
 		screenContainer->addChild(screenBg);
+		trowaSoft::TSColorToHSL(screenBg->backgroundColor, &_lastBgColor); // Save our last guy
 		addChild(screenContainer);
 	}
 
@@ -400,8 +401,6 @@ void multiScopeWidget::step() {
 		return;
 	multiScope* scopeModule = dynamic_cast<multiScope*>(module);
 
-	static NVGcolor* lastEditColorPtr;
-	
 	if (scopeModule->initialized)
 	{
 		if (!sizeLoaded)
@@ -416,6 +415,8 @@ void multiScopeWidget::step() {
 		}
 		scopeModule->lights[multiScope::INFO_DISPLAY_TOGGLE_LED].value = (scopeInfoDisplay->visible) ? 1.0 : 0.0;
 
+		TS_Panel* screenBg = screenContainer->getFirstDescendantOfType<TS_Panel>();
+
 #if ENABLE_BG_COLOR_PICKER
 		// Color Picker (On-Screen)
 		for (int i = 0; i < 3; i++)
@@ -426,6 +427,10 @@ void multiScopeWidget::step() {
 		{
 			if (lastEditColorPtr == NULL || lastEditColorPtr != scopeModule->editColorPointer)
 			{
+#if DEBUG_COLOR_SLIDER
+				debugCount = 0;
+				DEBUG("* Setting up colors on sliders.");
+#endif
 				if (scopeModule->editColorPointer != NULL)
 				{
 					TSColorHSL selectedColor;
@@ -443,6 +448,12 @@ void multiScopeWidget::step() {
 			} // end if
 			else
 			{
+#if DEBUG_COLOR_SLIDER
+				if (debugCount % 100 == 0)
+				{
+					DEBUG("* Read in color *");
+				}
+#endif
 				// Read in color
 				TSColorHSL selectedColor;
 				for (int i = 0; i < 3; i++)
@@ -454,14 +465,42 @@ void multiScopeWidget::step() {
 					}
 				}
 				// Set our color
+				NVGcolor color = HueToColor(selectedColor.h, selectedColor.s, selectedColor.lum);
 				if (scopeModule->editColorPointer != NULL)
 				{
-					*(scopeModule->editColorPointer) = HueToColor(selectedColor.h, selectedColor.s, selectedColor.lum);//nvgHSL(selectedColor.h, selectedColor.s, selectedColor.lum);
+					*(scopeModule->editColorPointer) = color;//nvgHSL(selectedColor.h, selectedColor.s, selectedColor.lum);
+				}
+				if (screenBg && (_lastBgColor.h != selectedColor.h || _lastBgColor.s != selectedColor.s || _lastBgColor.lum != selectedColor.lum))
+				{
+#if DEBUG_COLOR_SLIDER
+					if (debugCount % 100 == 0)
+					{
+						DEBUG("Color has changed!===============================");
+						for (int i = 0; i < 3; i++)
+						{
+							DEBUG("slider[%d] (Id %d) = %f --- OLD Val = %f", i, colorSliders[i]->debugId, colorSliders[i]->getValue(), _lastBgColor.hsl[i]);
+						}
+					}
+#endif
+					if (scopeModule->negativeImage)
+					{
+						screenBg->backgroundColor = ColorInvertToNegative(color);
+					}
+					else
+					{
+						screenBg->backgroundColor = color;
+					}
+					_lastBgColor.h = selectedColor.h;
+					_lastBgColor.s = selectedColor.s;
+					_lastBgColor.lum = selectedColor.lum;
 				}
 			} // end else
 			lastEditColorPtr = scopeModule->editColorPointer;
 			
 		} // end if we're showing the color picker
+#if DEBUG_COLOR_SLIDER
+		debugCount = (debugCount + 1) % 100;
+#endif
 #endif
 
 		// Resizing ///////////////////////////////
@@ -470,7 +509,7 @@ void multiScopeWidget::step() {
 		screenContainer->box.size.x = box.size.x - inputAreaWidth;
 		if (sizeChange)
 		{
-			TS_Panel* screenBg = screenContainer->getFirstDescendantOfType<TS_Panel>();
+			
 			if (screenBg)
 			{
 				screenBg->box.size.x = screenContainer->box.size.x - RACK_GRID_WIDTH;
