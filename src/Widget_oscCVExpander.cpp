@@ -1,6 +1,9 @@
+#include <vector>
 
 #include "Widget_oscCVExpander.hpp"
+#include <rack.hpp>
 using namespace rack;
+
 #include "trowaSoft.hpp"
 #include "trowaSoftComponents.hpp"
 #include "trowaSoftUtilities.hpp"
@@ -620,3 +623,6 @@ void TSOscCVExpanderLabels::draw(/*in*/ const DrawArgs &args) {
 	nvgText(args.vg, x, y, labelType, NULL);
 	return;
 } // end TSOscCVExpanderLabels::draw()
+
+
+

@@ -4,6 +4,9 @@
 // Add in some frequencies to match up with FPS.
 const int TROWA_OSCCV_Send_Freq_Opts_Hz[TROWA_OSCCV_NUM_SEND_HZ_OPTS] = { 100, 120, 240, 300, 500, 1000 };
 
+// Available options for change threshold (V or whatever the translated value is).
+const float TROWA_OSCCV_Change_Threshold_Opts[TROWA_OSCCV_NUM_CHANGE_OPTS] = { 0.0001f, 0.0005f, 0.001f, 0.005f, 0.01f, 0.05f };
+
 //--------------------------------------------------------
 // addValToBuffer()
 // Add a value to the buffer.

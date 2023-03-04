@@ -28,6 +28,7 @@ using namespace rack;
 
 #define TROWA_OSCCV_VECTOR_MAX_SIZE			engine::PORT_MAX_CHANNELS // Now with polyphonic cables, there can be 16 channels sent in one CV input/output
 
+
 //=== DEBUG MacOS ====
 // for cvOSCcv
 #define DEBUG_MAC_OS_POINTER					 0
@@ -39,6 +40,13 @@ using namespace rack;
 // Available options for send frequency (Hz)
 #define TROWA_OSCCV_NUM_SEND_HZ_OPTS		    6  // Number of send options in our simple array. Add quick & dirty simple run-time config of sending frequency.
 extern const int TROWA_OSCCV_Send_Freq_Opts_Hz[TROWA_OSCCV_NUM_SEND_HZ_OPTS];
+
+
+#define TROWA_OSCCV_DEFAULT_CHANGE_THRESHOLD		0.05f // Default change threshold for sending when no trigger is present
+#define TROWA_OSCCV_NUM_CHANGE_OPTS				6
+// Options for change threshold.
+extern const float TROWA_OSCCV_Change_Threshold_Opts[TROWA_OSCCV_NUM_CHANGE_OPTS];
+#define TROWA_OSCCV_CHANGE_THRESHHOLD_USE_PARENT	-100.f // Value to signal to use the parent's (master's) change threshold for cvOSC expanders.
 
 // A channel for OSC.
 struct TSOSCCVChannel {
@@ -328,9 +336,10 @@ struct TSOSCCVInputChannel : TSOSCCVChannel {
 	std::vector<float> lastVals;
 	// The last translated value we SENT over OSC (for tracking changes).
 	std::vector<float> lastTranslatedVals;
-	
+
 	// If trigger is not set up (input type channel), how much input change is needed to send a message out.
-	float channelSensitivity = 0.05f;
+	float channelSensitivity = TROWA_OSCCV_DEFAULT_CHANGE_THRESHOLD;
+
 	// If we should send. Working value for module.
 	bool doSend = false;
 
@@ -353,7 +362,7 @@ struct TSOSCCVInputChannel : TSOSCCVChannel {
 	}	
 	void initialize() override {
 		initLastVals();
-		channelSensitivity = 0.05f;
+		channelSensitivity = TROWA_OSCCV_DEFAULT_CHANGE_THRESHOLD;
 		TSOSCCVChannel::initialize();
 		doSend = false;
 		return;
@@ -386,7 +395,26 @@ struct TSOSCCVInputChannel : TSOSCCVChannel {
 		}
 		return sendVal;
 	}
-	
+	// Checks to see if vals have changed enough to send a value.
+	bool valChanged(float threshold)
+	{
+		bool sendVal = false;
+		int i = 0;
+		while (i < numVals && !sendVal)
+		{
+			if (convertVals)
+			{
+				sendVal = std::abs(translatedVals[i] - lastTranslatedVals[i]) > threshold;
+			}
+			else
+			{
+				sendVal = std::abs(vals[i] - lastVals[i]) > threshold;
+			}
+			i++;
+		}
+		return sendVal;
+	}
+
 	void storeLastValues()
 	{
 		for (int i = 0; i < TROWA_OSCCV_VECTOR_MAX_SIZE; i++)

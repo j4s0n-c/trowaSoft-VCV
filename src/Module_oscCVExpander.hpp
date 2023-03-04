@@ -130,6 +130,13 @@ struct oscCVExpander : Module
 	// // Left message. If this is OUTPUT, then a master should be on the left.
 	// TSOSCCVExpanderMessage* leftMessage[2];
 
+
+	// Change sensitivity for this module. Only applies to expanders that send, but
+	// maybe we'll have an expander with both inputs & outputs one day, so we'll throw it in the base class for now.
+	// If TROWA_OSCCV_CHANGE_THRESHHOLD_USE_PARENT ( a negative value), then use the parent's.
+	float sendChangeSensitivity = TROWA_OSCCV_CHANGE_THRESHHOLD_USE_PARENT;
+
+
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// oscCVExpander()
 	// Create a module with numChannels.
@@ -224,6 +231,43 @@ struct oscCVExpander : Module
 		int baseChannels = 0;
 		this->lvlFromMaster = findMaster(0, baseChannels, masterModuleId);
 	}
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getSendChangeThresholdIx()
+	// Gets the index into the global TROWA_OSCCV_Change_Threshold_Opts array that matches the 
+	// send change frequency.
+	// (QUICK and dirty: Options list instead of making a text box).
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-			
+	int getSendChangeThresholdIx() {
+		int ix = -1;
+		int i = 0;
+		while (i < TROWA_OSCCV_NUM_CHANGE_OPTS) {
+			if (sendChangeSensitivity == TROWA_OSCCV_Change_Threshold_Opts[i])
+			{
+				ix = i;
+				i = TROWA_OSCCV_NUM_CHANGE_OPTS;
+			}
+			i++;
+		}
+		if (ix < 0)
+			ix = 0; // Just pick first option
+		return ix;
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// setSendChangeThresholdIx()
+	// @ix: (IN) Index into the TROWA_OSCCV_Change_Threshold_Opts array of the threshold to use. 
+	// Sets the send change threshold based off the given index into the global TROWA_OSCCV_Change_Threshold_Opts 
+	// array. 
+	// (QUICK and dirty: Options list instead of making a text box).
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-			
+	void setSendChangeThresholdIx(int ix) {
+		if (ix < 0)
+			ix = 0;
+		else if (ix > TROWA_OSCCV_NUM_CHANGE_OPTS - 1)
+			ix = TROWA_OSCCV_NUM_CHANGE_OPTS - 1;
+		sendChangeSensitivity = TROWA_OSCCV_Change_Threshold_Opts[ix];
+		return;
+	}
 	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// process()
@@ -233,7 +277,7 @@ struct oscCVExpander : Module
 	// processInputs()
 	// Process CV->OSC.
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
-	void processInputs(std::string oscNamespace, bool oscInitialized, bool sendTime, bool& packetOpened, std::mutex& sendMutex, osc::OutboundPacketStream& oscStream);
+	void processInputs(std::string oscNamespace, bool oscInitialized, bool sendTime, float changeSensitivity, bool& packetOpened, std::mutex& sendMutex, osc::OutboundPacketStream& oscStream);
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 	// processOutputs()
 	// Process OSC->CV (from msg queue).

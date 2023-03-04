@@ -29,4 +29,5 @@ extern Plugin *pluginInstance;
 //19: 2.0.5
 //20: 2.0.6 -- Fix bug where fonts not always loaded before drawing.
 //21: 2.0.7 -- Add 16 and 32-channel OSC expanders. Add copy/paste of rows to sequencers. Add polyGen to this plugin finally.
+//22: 2.0.8 -- Small changes.
 #endif

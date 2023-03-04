@@ -142,6 +142,7 @@ struct oscCV : Module {
 
 	float sendDt = 0.0f;
 	int sendFrequency_Hz = TROWA_OSCCV_DEFAULT_SEND_HZ;
+	float sendChangeSensitivity = TROWA_OSCCV_DEFAULT_CHANGE_THRESHOLD;
 
 	// Flag to reconnect at load. IFF true and oscInitialized is also true.
 	bool oscReconnectAtLoad = false;
@@ -427,6 +428,44 @@ struct oscCV : Module {
 		sendFrequency_Hz = TROWA_OSCCV_Send_Freq_Opts_Hz[ix];
 		return;
 	}
+
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// getSendChangeThresholdIx()
+	// Gets the index into the global TROWA_OSCCV_Change_Threshold_Opts array that matches the 
+	// send change frequency.
+	// (QUICK and dirty: Options list instead of making a text box).
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-			
+	int getSendChangeThresholdIx() {
+		int ix = -1;
+		int i = 0;
+		while (i < TROWA_OSCCV_NUM_CHANGE_OPTS) {
+			if (sendChangeSensitivity == TROWA_OSCCV_Change_Threshold_Opts[i])
+			{
+				ix = i;
+				i = TROWA_OSCCV_NUM_CHANGE_OPTS;
+			}
+			i++;
+		}
+		if (ix < 0)
+			ix = 0; // Just pick first option
+		return ix;
+	}
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+	// setSendChangeThresholdIx()
+	// @ix: (IN) Index into the TROWA_OSCCV_Change_Threshold_Opts array of the threshold to use. 
+	// Sets the send change threshold based off the given index into the global TROWA_OSCCV_Change_Threshold_Opts 
+	// array. 
+	// (QUICK and dirty: Options list instead of making a text box).
+	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-			
+	void setSendChangeThresholdIx(int ix) {
+		if (ix < 0)
+			ix = 0;
+		else if (ix > TROWA_OSCCV_NUM_CHANGE_OPTS - 1)
+			ix = TROWA_OSCCV_NUM_CHANGE_OPTS - 1;
+		sendChangeSensitivity = TROWA_OSCCV_Change_Threshold_Opts[ix];
+		return;
+	}
+
 	
 #if USE_MODULE_STATIC_RX	
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

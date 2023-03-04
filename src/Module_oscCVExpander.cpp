@@ -197,6 +197,7 @@ void oscCVExpander::onReset() {
 	this->lvlFromMaster = findMaster(0, baseChannels, masterModuleId);
 	if (lvlFromMaster == -1)
 		baseChannels = TROWA_OSCCV_DEFAULT_NUM_CHANNELS; // Master probably has this many channels.
+	this->sendChangeSensitivity = TROWA_OSCCV_CHANGE_THRESHHOLD_USE_PARENT;
 	oscMutex.lock();
 	initChannels(baseChannels);
 	oscMutex.unlock();
@@ -393,7 +394,7 @@ void oscCVExpander::process(const ProcessArgs &args)
 // processInputs()
 // Process CV->OSC.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-		
-void oscCVExpander::processInputs(std::string oscNamespace, bool oscInitialized, bool sendTime, bool& packetOpened, std::mutex& sendMutex, osc::OutboundPacketStream& oscStream)
+void oscCVExpander::processInputs(std::string oscNamespace, bool oscInitialized, bool sendTime, float changeSensitivity, bool& packetOpened, std::mutex& sendMutex, osc::OutboundPacketStream& oscStream)
 {
 	/// TODO: If we make some osc base class, this could be built-in for oscCV and these expanders.
 	try
@@ -402,6 +403,10 @@ void oscCVExpander::processInputs(std::string oscNamespace, bool oscInitialized,
 		{
 			// Read the channels and output to OSC
 			char addressBuffer[512];
+
+			// Use the parent/master change sensitivity given to us if we are set to negative.
+			float changeThreshold = (this->sendChangeSensitivity < 0.0f) ? changeSensitivity : this->sendChangeSensitivity;
+
 			for (int c = 0; c < this->numberChannels; c++)
 			{		
 				bool sendVal = false;
@@ -431,7 +436,8 @@ void oscCVExpander::processInputs(std::string oscNamespace, bool oscInitialized,
 						if (!inputChannels[c].doSend) {
 							// Only send if changed enough. Maybe about 0.01 V? Defined on channel.
 							// 1. Check for change:
-							sendVal = inputChannels[c].valChanged();
+							// Currently all channels have the same sensitivity, one day maybe we have this settable by channel.
+							sendVal = inputChannels[c].valChanged(changeThreshold);
 							// 2. Mark channel as needing to output
 							if (sendVal) {
 								inputChannels[c].doSend = true;
@@ -648,6 +654,7 @@ json_t *oscCVExpander::dataToJson() {
 	json_object_set_new(rootJ, "type", json_integer((int)expanderType));
 	json_object_set_new(rootJ, "expId", json_string(this->_expID.c_str()));
 	json_object_set_new(rootJ, "displayName", json_string(this->displayName.c_str()));
+	json_object_set_new(rootJ, "sendChangeSensitivity", json_real(sendChangeSensitivity)); // [v22: 2.0.8] Users can change the channel sensitivity now.
 
 
 	// Channels
@@ -681,6 +688,14 @@ void oscCVExpander::dataFromJson(json_t *rootJ) {
 	currJ = json_object_get(rootJ, "displayName");
 	if (currJ)
 		this->displayName = json_string_value(currJ);
+	// [v22: 2.0.8] Users can change the channel sensitivity now.
+	// If users do not have a trigger, then the change needed to send.
+	currJ = json_object_get(rootJ, "sendChangeSensitivity");
+	if (currJ)
+		this->sendChangeSensitivity = (float)(json_real_value(currJ));
+	else
+		this->sendChangeSensitivity = TROWA_OSCCV_CHANGE_THRESHHOLD_USE_PARENT;
+
 	
 	// Channels
 	int nChannels = numberChannels;

@@ -91,6 +91,35 @@ struct oscCVExpanderInputWidget : oscCVExpanderWidget {
 	{
 		return;
 	}
+
+	// Append custom context menu options (for the send threshold).
+	void appendContextMenu(ui::Menu* menu) override {
+		oscCVExpander* thisModule = dynamic_cast<oscCVExpander*>(this->module);
+		if (thisModule)
+		{
+			menu->addChild(new MenuSeparator);
+
+			std::vector<std::string> optLabels2;
+			optLabels2.push_back(std::string("Match Master"));
+			for (int i = 0; i < TROWA_OSCCV_NUM_CHANGE_OPTS; i++) {
+				optLabels2.push_back(rack::string::f("%.4f", TROWA_OSCCV_Change_Threshold_Opts[i]));
+			}
+			menu->addChild(createIndexSubmenuItem("Change Threshold",
+				optLabels2,
+				[=]() {
+					// Extra one for the use parent option
+					return (thisModule->sendChangeSensitivity < 0.f) ? 0 : thisModule->getSendChangeThresholdIx() + 1;
+				},
+				[=](int ix) {
+					if (ix > 0)
+						thisModule->setSendChangeThresholdIx(ix - 1);
+					else
+						thisModule->sendChangeSensitivity = TROWA_OSCCV_CHANGE_THRESHHOLD_USE_PARENT;
+				}
+			));
+		}
+		return;
+	}
 };
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // oscCVExpanderOutputWidget

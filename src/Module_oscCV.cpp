@@ -209,6 +209,7 @@ void oscCV::onReset() {
 
 	sendDt = 0.0f;
 	sendFrequency_Hz = TROWA_OSCCV_DEFAULT_SEND_HZ;
+	sendChangeSensitivity = TROWA_OSCCV_DEFAULT_CHANGE_THRESHOLD;
 	return;
 } // end reset()
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
@@ -351,7 +352,8 @@ json_t *oscCV::dataToJson() {
 	json_object_set_new(oscJ, "Namespace", json_string(this->oscNamespace.c_str()));
 	json_object_set_new(oscJ, "AutoReconnectAtLoad", json_boolean(oscReconnectAtLoad)); // [v11, v0.6.3]
 	json_object_set_new(oscJ, "Initialized", json_boolean(oscInitialized)); // [v11, v0.6.3] We know the settings are good at least at the time of save		
-	json_object_set_new(oscJ, "SendFrequency", json_integer(sendFrequency_Hz)); // [v19: 2.0.5] Users can change the Send Frequency now		
+	json_object_set_new(oscJ, "SendFrequency", json_integer(sendFrequency_Hz)); // [v19: 2.0.5] Users can change the Send Frequency now
+	json_object_set_new(oscJ, "SendChangeSensitivity", json_real(sendChangeSensitivity)); // [v22: 2.0.8] Users can change the channel sensitivity now.
 	json_object_set_new(rootJ, "osc", oscJ);
 
 	// Channels
@@ -405,6 +407,14 @@ void oscCV::dataFromJson(json_t *rootJ) {
 		currJ = json_object_get(oscJ, "SendFrequency");
 		if (currJ)
 			this->sendFrequency_Hz = (int)(json_integer_value(currJ));
+
+		// [v22: 2.0.8] Users can change the channel sensitivity now.
+		// If users do not have a trigger, then the change needed to send.
+		currJ = json_object_get(oscJ, "SendChangeSensitivity");
+		if (currJ)
+			this->sendChangeSensitivity = (float)(json_real_value(currJ));
+		else
+			this->sendChangeSensitivity = TROWA_OSCCV_DEFAULT_CHANGE_THRESHOLD;
 	} // end if OSC node
 
 	// Channels
@@ -632,7 +642,8 @@ void oscCV::process(const ProcessArgs &args)
 					if (!inputChannels[c].doSend) {
 						// Only send if changed enough. Maybe about 0.01 V? Defined on channel.
 						// 1. Check for change:
-						sendVal = inputChannels[c].valChanged();
+						// Currently all channels have the same sensitivity, one day maybe we have this settable by channel.
+						sendVal = inputChannels[c].valChanged(this->sendChangeSensitivity);
 						// 2. Mark channel as needing to output
 						if (sendVal) {
 							inputChannels[c].doSend = true;
@@ -724,8 +735,8 @@ void oscCV::process(const ProcessArgs &args)
 			Expander* exp = &(this->leftExpander);
 			while (exp != NULL && exp->module 
 				&& CVOSCCV_IS_EXPANDER_INPUT_MODEL(exp->module->model)) // == modelOscCVExpanderInput)
-			{				
-				dynamic_cast<oscCVExpander*>(exp->module)->processInputs(oscNamespace, oscInitialized, sendTime, packetOpened, oscMutex, oscStream);			
+			{
+				dynamic_cast<oscCVExpander*>(exp->module)->processInputs(oscNamespace, oscInitialized, sendTime, sendChangeSensitivity, packetOpened, oscMutex, oscStream);			
 				exp = &(exp->module->leftExpander); // Go to next so we can see if that's another expander.
 			}
 		}

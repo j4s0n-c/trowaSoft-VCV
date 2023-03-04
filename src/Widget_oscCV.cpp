@@ -1115,6 +1115,21 @@ void oscCVWidget::appendContextMenu(ui::Menu *menu)
 		}
 	));	
 
+	std::vector<std::string> optLabels2;
+	for (int i = 0; i < TROWA_OSCCV_NUM_CHANGE_OPTS; i++) {
+		optLabels2.push_back(rack::string::f("%.4f", TROWA_OSCCV_Change_Threshold_Opts[i]));
+	}
+	menu->addChild(createIndexSubmenuItem("Change Threshold",
+		optLabels2,
+		[=]() {
+			return thisModule->getSendChangeThresholdIx();
+		},
+		[=](int ix) {
+			thisModule->setSendChangeThresholdIx(ix);
+		}
+	));
+
+
 	return;
 }
 
