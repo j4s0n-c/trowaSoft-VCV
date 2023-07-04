@@ -8,7 +8,7 @@ using namespace rack;
 extern Plugin *pluginInstance;
 
 // An internal version number (integer) value. Simple int value for quick/dirty easy comparison.
-#define TROWA_INTERNAL_VERSION_INT		21  //21: 2.0.7
+#define TROWA_INTERNAL_VERSION_INT		22  //22: 2.0.8
 
 //After Rack v1.0 https://github.com/VCVRack/Rack/issues/266
 //In the vMAJOR.MINOR.REVISION scheme, vMAJOR is the compatibility verison with Rack and MINOR.REVISION is the revision of your plugin. 

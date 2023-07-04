@@ -2,6 +2,12 @@
 
 NOTE: The change log is only started v2.0.7. Any previous changes were generally noted in the release notes (refer to the [Github Releases page](https://github.com/j4s0n-c/trowaSoft-VCV/releases)).
 
+## v2.0.8
+- Release [v2.0.8](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v2.0.8)
+- **multiScope** - Fixed broken color picker (broke in v2 conversion).
+- **cvOSCcv**, **cvOSC** - Added option in the context menu to set the value change threshold for when a send trigger is not present.
+
+
 ## v2.0.7 
 - Release [v2.0.7](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v2.0.7)
 - **cvOSCcv**
