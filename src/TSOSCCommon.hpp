@@ -2,6 +2,9 @@
 #define TSOSCCOMMON_HPP
 
 #include <string>
+#if defined ARCH_WIN
+#include <cstdint>
+#endif
 
 //--- OSC defines --
 // Default OSC outgoing address (Tx). 127.0.0.1.
