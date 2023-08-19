@@ -2,6 +2,7 @@
 #define TSOSCCOMMON_HPP
 
 #include <string>
+#include <stdint.h>
 
 //--- OSC defines --
 // Default OSC outgoing address (Tx). 127.0.0.1.
