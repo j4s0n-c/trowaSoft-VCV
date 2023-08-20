@@ -207,8 +207,9 @@ bool TSOSCConnector::clearPorts(int id, uint16_t txPort, uint16_t rxPort)
 		if (_portMap[port]->ids.size() < 1)
 		{
 			// No more registered, remove.
-			delete it->second; // Delete port info
-			_portMap.erase(it);			
+			// error: Memory pointed to by 'second' is freed twice. [doubleFree]. Don't delete here.
+			//delete it->second; // Delete port info
+			_portMap.erase(it);
 		}
 		nErased++;
 	}	
@@ -226,7 +227,8 @@ bool TSOSCConnector::clearPorts(int id, uint16_t txPort, uint16_t rxPort)
 		if (_portMap[port]->ids.size() < 1)
 		{
 			// No more registered, remove.
-			delete it->second; // Delete port info
+			// error: Memory pointed to by 'second' is freed twice. [doubleFree]. Don't delete here.
+			//delete it->second; // Delete port info
 			_portMap.erase(it);			
 		}
 		nErased++;
@@ -251,8 +253,9 @@ bool TSOSCConnector::clearPort(int id, uint16_t port)
 		if (_portMap[port]->ids.size() < 1)
 		{
 			// No more registered, remove.
-			delete it->second; // Delete port info
-			_portMap.erase(it);			
+			// error: Memory pointed to by 'second' is freed twice. [doubleFree]. Don't delete here.
+			//delete it->second; // Delete port info
+			_portMap.erase(it);
 		}
 		return true;
 	}

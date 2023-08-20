@@ -134,6 +134,7 @@ void trigSeq::process(const ProcessArgs &args)
 	// Only send OSC if it is enabled, initialized, and we are in EDIT mode.
 	sendOSC = useOSC && oscInitialized; //&& currentCtlMode == ExternalControllerMode::EditMode
 	char addrBuff[TROWA_SEQ_BUFF_SIZE] = { 0 };
+	char colorAddrBuff[TROWA_SEQ_BUFF_SIZE] = { 0 }; // 2nd buffer to remove my lazy re-using of buffers (technically undefined behavior)
 	//-- * Load the trigger we are editing into our button matrix for display:
 	// This is what we are showing not what we playing
 	int gridRow, gridCol; // for touchOSC grids
@@ -187,8 +188,8 @@ void trigSeq::process(const ProcessArgs &args)
 				{
 					// LED Color (current step LED):
 					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], s + 1);
-					sprintf(addrBuff, OSC_TOUCH_OSC_CHANGE_COLOR_FS, addrBuff);
-					oscStream << osc::BeginMessage(addrBuff)
+					sprintf(colorAddrBuff, OSC_TOUCH_OSC_CHANGE_COLOR_FS, addrBuff);
+					oscStream << osc::BeginMessage(colorAddrBuff)
 						<< touchOSC::ChannelColors[currentChannelEditingIx]
 						<< osc::EndMessage;
 					// Step:

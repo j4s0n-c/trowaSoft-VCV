@@ -1,10 +1,13 @@
 #ifndef TSEXTERNALCONTROLMESSAGE_HPP
 #define TSEXTERNALCONTROLMESSAGE_HPP
 
+#include "trowaSoftUtilities.hpp"
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // External (from Rack) Control message.
 // Currently this will be for OSC but may be from MIDI or anything else in the future.
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
+// Init all members here so we can get rid of warnings about members not set in static analysis (cppcheck) from inline helper functions (Issue #72)
 struct TSExternalControlMessage {
 	// External source of a control message (i.e. OSC).
 	// Currently only OSC
@@ -132,17 +135,17 @@ struct TSExternalControlMessage {
 	// The message type / action.
 	MessageType messageType;
 	// The message source (i.e. OSC).
-	MessageSource messageSource;
+	MessageSource messageSource = MessageSource::OSC;
 	// Pattern number 0-63
-	int pattern;
+	int pattern = TROWA_INDEX_UNDEFINED;
 	// Channel 0-15
-	int channel;
+	int channel = TROWA_INDEX_UNDEFINED;
 	// Step number 0-(MaxSteps-1)
-	int step;
+	int step = TROWA_INDEX_UNDEFINED;
 	// The mode (or BPM)
-	int mode;
+	int mode = TROWA_INDEX_UNDEFINED;
 	// The value / mode.
-	float val;
+	float val = 0.0f;
 };
 
 

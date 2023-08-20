@@ -1178,7 +1178,7 @@ struct TS_ScreenDial : SliderKnob {
 		if (isAdj) {
 			ParamQuantity* pq = getParamQuantity();
 			if (pq) {
-				float oldValue = pq->getSmoothValue();
+				float oldValue = pq->getValue(); // DEPRECATED pq->getSmoothValue();
 				float newValue = oldValue + ((isIncr) ? changeAmount : -changeAmount);
 				pq->setValue(newValue);
 
@@ -1483,7 +1483,8 @@ struct TS_BaseKnob : Knob {
 				paramQuantity->setValue(snapValue);
 			}
 			else if (smooth) {
-				paramQuantity->setSmoothValue(paramQuantity->getSmoothValue() + delta);
+				paramQuantity->setValue(paramQuantity->getValue() + delta);
+				//paramQuantity->setSmoothValue(paramQuantity->getSmoothValue() + delta);
 			}
 			else {
 				paramQuantity->setValue(paramQuantity->getValue() + delta);
@@ -1785,7 +1786,7 @@ struct TS_20_BlackEncoder : TS_Knob { //RoundKnob {
 		ParamQuantity* paramQuantity = getParamQuantity();		
 		if (paramQuantity)
 		{
-			oldValue = paramQuantity->getSmoothValue();
+			oldValue = paramQuantity->getValue(); //getSmoothValue();
 			//if (snap) {
 				snapValue = paramQuantity->getValue();
 			//}
