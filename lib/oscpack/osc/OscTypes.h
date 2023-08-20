@@ -55,14 +55,17 @@ typedef int64_t int64;
 typedef uint64_t uint64;
 
 #else
-
+    // https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms
+    // long long should be OK for 64-bit per link above. No change?
 typedef long long int64;
 typedef unsigned long long uint64;
 
 #endif
 
-#if defined(__x86_64__) || defined(_M_X64)
-
+#if defined(__x86_64__) || defined(_M_X64) || defined(ARCH_ARM64) // Add for Mac ARM64 ('int' is still 32 bits)
+    // Issue #73 - Mac Arm crashy crashy cause osc:int32 was becoming a long (64-bit) instead of 32-bit.
+    // https://developer.apple.com/documentation/xcode/writing-arm64-code-for-apple-platforms
+    // int should be OK for 32-bit per link above.
 typedef signed int int32;
 typedef unsigned int uint32;
 
