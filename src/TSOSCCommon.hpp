@@ -4,6 +4,7 @@
 #include <string>
 #include <stdint.h>
 
+
 //--- OSC defines --
 // Default OSC outgoing address (Tx). 127.0.0.1.
 #define OSC_ADDRESS_DEF		"127.0.0.1"
@@ -14,7 +15,7 @@
 // Default namespace for OSC
 #define OSC_DEFAULT_NS				"/tsseq"
 #define OSC_OUTPUT_BUFFER_SIZE		(1024*64)
-#define OSC_ADDRESS_BUFFER_SIZE		50
+#define OSC_ADDRESS_BUFFER_SIZE		50 // For sequencer addresses
 
 // What client are we talking to. touchOSC and Lemur are a little limited, so they need special treatment.
 enum OSCClient : uint8_t {

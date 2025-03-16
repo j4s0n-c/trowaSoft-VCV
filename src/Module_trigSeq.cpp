@@ -187,19 +187,19 @@ void trigSeq::process(const ProcessArgs &args)
 				if (this->oscCurrentClient == OSCClient::touchOSCClient)
 				{
 					// LED Color (current step LED):
-					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], s + 1);
-					sprintf(colorAddrBuff, OSC_TOUCH_OSC_CHANGE_COLOR_FS, addrBuff);
+					snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], s + 1);
+					snprintf(colorAddrBuff, TROWA_SEQ_BUFF_SIZE, OSC_TOUCH_OSC_CHANGE_COLOR_FS, addrBuff);
 					oscStream << osc::BeginMessage(colorAddrBuff)
 						<< touchOSC::ChannelColors[currentChannelEditingIx]
 						<< osc::EndMessage;
 					// Step:
 					touchOSC::stepIndex_to_mcRowCol(s, numRows, numCols, &gridRow, &gridCol);
-					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditTOSC_GridStep], gridRow, gridCol); // Grid's /<row>/<col> to accomodate touchOSC's lack of multi-parameter support.
+					snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::EditTOSC_GridStep], gridRow, gridCol); // Grid's /<row>/<col> to accomodate touchOSC's lack of multi-parameter support.
 				}
 				else
 				{
 					// Step
-					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s + 1); // Changed to /<step> to accomodate touchOSC's lack of multi-parameter support.
+					snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s + 1); // Changed to /<step> to accomodate touchOSC's lack of multi-parameter support.
 				}
 				oscStream << osc::BeginMessage(addrBuff)
 					<< triggerState[currentPatternEditingIx][currentChannelEditingIx][s]
@@ -217,7 +217,7 @@ void trigSeq::process(const ProcessArgs &args)
 					<< touchOSC::ChannelColors[currentChannelEditingIx]
 					<< osc::EndMessage;
 				// Also change color on the Channel control:
-				sprintf(addrBuff, OSC_TOUCH_OSC_CHANGE_COLOR_FS, oscAddrBuffer[SeqOSCOutputMsg::EditChannel]);
+				snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, OSC_TOUCH_OSC_CHANGE_COLOR_FS, oscAddrBuffer[SeqOSCOutputMsg::EditChannel]);
 				oscStream << osc::BeginMessage(addrBuff)
 					<< touchOSC::ChannelColors[currentChannelEditingIx]
 					<< osc::EndMessage;
@@ -266,11 +266,11 @@ void trigSeq::process(const ProcessArgs &args)
 				if (this->oscCurrentClient == OSCClient::touchOSCClient)
 				{
 					touchOSC::stepIndex_to_mcRowCol(s, numRows, numCols, &gridRow, &gridCol);
-					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditTOSC_GridStep], gridRow, gridCol); // Grid's /<row>/<col> to accomodate touchOSC's lack of multi-parameter support.
+					snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::EditTOSC_GridStep], gridRow, gridCol); // Grid's /<row>/<col> to accomodate touchOSC's lack of multi-parameter support.
 				}
 				else
 				{
-					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s + 1); // Changed to /<step> to accomodate touchOSC's lack of multi-parameter support.
+					snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s + 1); // Changed to /<step> to accomodate touchOSC's lack of multi-parameter support.
 				}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 				DEBUG("Step changed %d (new val is %.2f), sending OSC %s", s, triggerState[currentPatternEditingIx][currentChannelEditingIx][s], addrBuff);

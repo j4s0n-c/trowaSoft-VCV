@@ -9,10 +9,16 @@
 #include <rack.hpp>
 using namespace rack;
 #include "TSExternalControlMessage.hpp"
-#include "../lib/oscpack/osc/OscOutboundPacketStream.h"
-#include "../lib/oscpack/ip/UdpSocket.h"
-#include "../lib/oscpack/osc/OscReceivedElements.h"
-#include "../lib/oscpack/osc/OscPacketListener.h"
+// #include "../lib/oscpack/osc/OscOutboundPacketStream.h"
+// #include "../lib/oscpack/ip/UdpSocket.h"
+// #include "../lib/oscpack/osc/OscReceivedElements.h"
+// #include "../lib/oscpack/osc/OscPacketListener.h"
+
+#include "OscOutboundPacketStream.h"
+#include "UdpSocket.h"
+#include "OscReceivedElements.h"
+#include "OscPacketListener.h"
+
 
 struct TSSequencerModuleBase;
 

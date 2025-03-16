@@ -275,10 +275,11 @@ TSSequencerModuleBase::TSSequencerModuleBase(/*in*/ int numSteps, /*in*/ int num
 	configInput(InputIds::STEPS_INPUT, "Pattern (Step) Length");
 	configInput(InputIds::SELECTED_PATTERN_PLAY_INPUT, "Play Pattern");
 
-	char buffer[50];
+	const int buffSize = 50;
+	char buffer[buffSize];
 	for (int ch = 0; ch < TROWA_SEQ_NUM_CHNLS; ch++)
 	{
-		sprintf(buffer, "Channel %d", ch + 1);
+		snprintf(buffer, buffSize, "Channel %d", ch + 1);
 		configOutput(OutputIds::CHANNELS_OUTPUT + ch, buffer);
 	}
 
@@ -603,7 +604,7 @@ void TSSequencerModuleBase::setOSCNamespace(const char* oscNs)
 	for (int i = 0; i < SeqOSCOutputMsg::NUM_OSC_OUTPUT_MSGS; i++)
 	{
 		// Create our array of output addresses based on the base format and the osc name space.
-		sprintf(this->oscAddrBuffer[i], TSSeqOSCOutputFormats[i], oscNamespace.c_str());
+		snprintf(this->oscAddrBuffer[i], OSC_ADDRESS_BUFFER_SIZE, TSSeqOSCOutputFormats[i], oscNamespace.c_str());
 	}
 	// Add %d (all this was changed for touchOSC's limitations)
 	std::strcat(oscAddrBuffer[SeqOSCOutputMsg::EditStepString], "%d");
@@ -1016,11 +1017,11 @@ void TSSequencerModuleBase::setStepValue(int step, float val, int channel, int p
 			{
 				int gridRow, gridCol;
 				touchOSC::stepIndex_to_mcRowCol(step, numRows, numCols, &gridRow, &gridCol);
-				sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditTOSC_GridStep], gridRow, gridCol); // Grid's /<row>/<col> to accomodate touchOSC's lack of multi-parameter support.
+				snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::EditTOSC_GridStep], gridRow, gridCol); // Grid's /<row>/<col> to accomodate touchOSC's lack of multi-parameter support.
 			}
 			else
 			{
-				sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], step + 1); // Changed to /<step> to accomodate touchOSC's lack of multi-parameter support.
+				snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::EditStep], step + 1); // Changed to /<step> to accomodate touchOSC's lack of multi-parameter support.
 			}
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED
 			DEBUG("setStepValue() - Received a msg (s=%d, v=%0.2f, c=%d, p=%d), sending back (%s).",
@@ -2231,12 +2232,12 @@ void TSSequencerModuleBase::getStepInputs(const ProcessArgs& args, /*out*/ bool*
 			}
 			char addrBuff[TROWA_SEQ_BUFF_SIZE] = { 0 };
 			// Prev step should turn off:
-			sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], lastStepIndex + 1);
+			snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], lastStepIndex + 1);
 			oscStream << osc::BeginMessage(addrBuff)
 				<< 0
 				<< osc::EndMessage;
 			// Current step should turn on:
-			sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], index + 1);
+			snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], index + 1);
 			oscStream << osc::BeginMessage(addrBuff)
 				<< 1
 				<< osc::EndMessage;

@@ -179,13 +179,13 @@ void voltSeq::setStepValue(int step, float val, int channel, int pattern)
 		ValueSequencerMode* tmpMode = ValueModes[selectedOutputValueMode - ValueMode::VALUE_VOLT];
 		tmpMode->GetDisplayString(tmpMode->GetOutputValue(triggerState[pattern][channel][step]), valOutputBuffer);
 
-		sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], step + 1);
+		snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::EditStep], step + 1);
 		osc::OutboundPacketStream oscStream(oscBuffer, OSC_OUTPUT_BUFFER_SIZE);
 		oscStream << osc::BeginBundleImmediate
 			<< osc::BeginMessage(addrBuff)
 			<< val // Rounded value for touchOSC
 			<< osc::EndMessage;
-		sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStepString], step + 1);
+		snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::EditStepString], step + 1);
 		oscStream << osc::BeginMessage( addrBuff )
 			<< valOutputBuffer // String version of the value (touchOSC needs this)
 			<< osc::EndMessage
@@ -393,26 +393,26 @@ void voltSeq::process(const ProcessArgs &args)
 				oscLastSentVals[s] = roundValForOSC(triggerState[currentPatternEditingIx][currentChannelEditingIx][s]);
 				currOutputValueMode->GetDisplayString(currOutputValueMode->GetOutputValue(triggerState[currentPatternEditingIx][currentChannelEditingIx][s]), valOutputBuffer);
 				// Step value:
-				sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s+1);
+				snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s+1);
 				oscStream << osc::BeginMessage(addrBuff)
 					<< oscLastSentVals[s]
 					<< osc::EndMessage;
 				if (oscCurrentClient == OSCClient::touchOSCClient)
 				{
 					// Change color
-					sprintf(colorAddrBuff, OSC_TOUCH_OSC_CHANGE_COLOR_FS, addrBuff);
+					snprintf(colorAddrBuff, TROWA_SEQ_BUFF_SIZE, OSC_TOUCH_OSC_CHANGE_COLOR_FS, addrBuff);
 					oscStream << osc::BeginMessage(colorAddrBuff)
 						<< touchOSC::ChannelColors[currentChannelEditingIx]
 						<< osc::EndMessage;
 					// LED Color (current step LED):
-					sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], s + 1);
-					sprintf(colorAddrBuff, OSC_TOUCH_OSC_CHANGE_COLOR_FS, addrBuff);
+					snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::PlayStepLed], s + 1);
+					snprintf(colorAddrBuff, TROWA_SEQ_BUFF_SIZE, OSC_TOUCH_OSC_CHANGE_COLOR_FS, addrBuff);
 					oscStream << osc::BeginMessage(colorAddrBuff)
 						<< touchOSC::ChannelColors[currentChannelEditingIx]
 						<< osc::EndMessage;
 				}
 				// Step String
-				sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStepString], s+1);
+				snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::EditStepString], s+1);
 				oscStream << osc::BeginMessage( addrBuff )
 					<< valOutputBuffer // String version of the value (touchOSC needs this)
 					<< osc::EndMessage;
@@ -425,7 +425,7 @@ void voltSeq::process(const ProcessArgs &args)
 			if (oscCurrentClient == OSCClient::touchOSCClient)
 			{
 				// Also change color on the Channel control:
-				sprintf(addrBuff, OSC_TOUCH_OSC_CHANGE_COLOR_FS, oscAddrBuffer[SeqOSCOutputMsg::EditChannel]);
+				snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, OSC_TOUCH_OSC_CHANGE_COLOR_FS, oscAddrBuffer[SeqOSCOutputMsg::EditChannel]);
 				oscStream << osc::BeginMessage(addrBuff)
 					<< touchOSC::ChannelColors[currentChannelEditingIx]
 					<< osc::EndMessage;
@@ -477,14 +477,14 @@ void voltSeq::process(const ProcessArgs &args)
 #endif
 				// Now also send the equivalent string:
 				currOutputValueMode->GetDisplayString(currOutputValueMode->GetOutputValue( triggerState[currentPatternEditingIx][currentChannelEditingIx][s] ), valOutputBuffer);
-				sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s + 1);
+				snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::EditStep], s + 1);
 #if TROWA_DEBUG_MSGS >= TROWA_DEBUG_LVL_MED				
 				DEBUG("Send: %s -> %s : %s", oscAddrBuffer[SeqOSCOutputMsg::EditStepString], addrBuff, valOutputBuffer);
 #endif				
 				oscStream << osc::BeginMessage(addrBuff)
 					<< oscLastSentVals[s]
 					<< osc::EndMessage;
-				sprintf(addrBuff, oscAddrBuffer[SeqOSCOutputMsg::EditStepString], s + 1);
+				snprintf(addrBuff, TROWA_SEQ_BUFF_SIZE, oscAddrBuffer[SeqOSCOutputMsg::EditStepString], s + 1);
 				oscStream << osc::BeginMessage(addrBuff)
 					<< valOutputBuffer // String version of the value (touchOSC needs this)
 					<< osc::EndMessage;
@@ -547,7 +547,7 @@ voltSeqWidget::voltSeqWidget(voltSeq* seqModule) : TSSequencerWidgetBase(seqModu
 	int dx = 0;
 	//int lightSize = 50 - 2*dx;
 	Vec lSize = Vec(50, 50);
-	int v = 0;
+	//int v = 0;
 	numCols = 4;
 	numRows = 4;
 	NVGcolor lightColor = TSColors::COLOR_TS_RED;
@@ -601,7 +601,7 @@ voltSeqWidget::voltSeqWidget(voltSeq* seqModule) : TSSequencerWidgetBase(seqModu
 			addChild( lightPtr );
 			
 			x+= 59;
-			v++;
+			//v++;
 		}		
 		y += 59; // Next row
 		x = 79;

@@ -169,7 +169,7 @@ struct TSOscCVExpanderTopDisplay : TransparentWidget {
 	bool showDisplay = true;
 	std::string displayName;
 	std::string directionName;
-	char scrollingMsg[200];
+	char scrollingMsg[TROWA_SCROLLING_MSG_TOTAL_SIZE];
 	int scrollIx = 0;
 	float dt = 0.0f;
 	float scrollTime_sec = 0.05f;

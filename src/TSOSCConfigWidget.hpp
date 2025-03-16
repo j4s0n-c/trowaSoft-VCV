@@ -71,7 +71,8 @@ struct TSOSCConfigWidget : OpaqueWidget
 	// Reference to module.
 	Module* module;
 	// Save (Enable/Disable) button
-	TS_PadBtn* btnSave;
+	//TS_PadBtn* btnSave;
+	TS_ScreenBtn* btnSave;
 	// If the btn should be Enable (true) or Disable (false).
 	bool btnActionEnable = true;
 	// Auto-reconnect toggle (auto-reconnect on loading).

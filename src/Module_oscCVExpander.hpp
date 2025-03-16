@@ -6,10 +6,15 @@
 #include <rack.hpp>
 using namespace rack;
 
-#include "../lib/oscpack/osc/OscOutboundPacketStream.h"
-#include "../lib/oscpack/ip/UdpSocket.h"
-#include "../lib/oscpack/osc/OscReceivedElements.h"
-#include "../lib/oscpack/osc/OscPacketListener.h"
+// #include "../lib/oscpack/osc/OscOutboundPacketStream.h"
+// #include "../lib/oscpack/ip/UdpSocket.h"
+// #include "../lib/oscpack/osc/OscReceivedElements.h"
+// #include "../lib/oscpack/osc/OscPacketListener.h"
+#include "OscOutboundPacketStream.h"
+#include "UdpSocket.h"
+#include "OscReceivedElements.h"
+#include "OscPacketListener.h"
+
 #include <mutex>
 #include <queue>
 
@@ -135,6 +140,9 @@ struct oscCVExpander : Module
 	// maybe we'll have an expander with both inputs & outputs one day, so we'll throw it in the base class for now.
 	// If TROWA_OSCCV_CHANGE_THRESHHOLD_USE_PARENT ( a negative value), then use the parent's.
 	float sendChangeSensitivity = TROWA_OSCCV_CHANGE_THRESHHOLD_USE_PARENT;
+
+	// Buffer size for strings
+	const int _bufferSize = 100;
 
 
 	//-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-

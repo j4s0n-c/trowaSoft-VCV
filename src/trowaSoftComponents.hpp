@@ -648,19 +648,82 @@ struct TS_Pad_Reset : SvgSwitch { // MomentarySwitch
 	}	
 };
 
-struct TS_LEDButton : LEDButton {
-	TS_LEDButton() : LEDButton() {
-		this->shadow->opacity = 0.0f; // Turn off the circular shadows that are everywhere.	
+// Just a draw a button background
+struct TS_LEDBtn0Bg : TransparentWidget {
+
+	void draw(const DrawArgs &args) override {
+		// Outside, Linear Gradient (top to bottom):
+		// 807c7eff
+		// 0a0a0aff
+		NVGcolor colors1[2] = { nvgRGB(0x80, 0x7c, 0x7e), nvgRGB(0x0a, 0x0a, 0x0a)};
+
+		// Inside, Linear Gradient (top to bottom):
+		// 4a4747ff
+		// 1f1f1fff
+		NVGcolor colors2[2] = { nvgRGB(0x4a, 0x47, 0x47), nvgRGB(0x1f, 0x1f, 0x1f)};
+
+		NVGpaint gradColor;
+
+		// Background
+		float x = box.size.x / 2.0f;
+		float y = box.size.y / 2.0f;
+		float r = ((box.size.x <= box.size.y) ? box.size.x : box.size.y) / 2.0f;
+		nvgBeginPath(args.vg);
+
+		// Outter Circle
+		nvgCircle(args.vg, x, y, r);
+		gradColor = nvgLinearGradient(args.vg, x, 0.0, x, r, colors1[0], colors1[1]);
+		nvgFillPaint(args.vg, gradColor);
+		nvgFill(args.vg);
+
+		// Inner Circle
+		const float thickness = 2.0f;
+		nvgCircle(args.vg, x, y, r - thickness);
+		gradColor = nvgLinearGradient(args.vg, x, thickness, x, r - thickness, colors2[0], colors2[1]);
+		nvgFillPaint(args.vg, gradColor);
+		nvgFill(args.vg);
+
+		// Background - border.
+		nvgBeginPath(args.vg);
+		nvgCircle(args.vg, x, y, r - 1.0f);
+		nvgStrokeWidth(args.vg, 1.0);
+		nvgStrokeColor(args.vg, TSColors::COLOR_BLACK);
+		nvgStroke(args.vg);
+		return;
 	}
+
+};
+
+// Own LED button without offset
+struct TS_LEDButton : Switch {
+	FramebufferWidget* fb = NULL; 
+	TS_LEDBtn0Bg* bg0 = NULL;
+	TS_LEDButton() : TS_LEDButton(Vec(15.0f, 15.0f)) {
+		return;
+	}
+	TS_LEDButton(Vec size) : Switch() {
+		momentary = true;
+		fb = new FramebufferWidget;
+		addChild(fb);
+		bg0 = new TS_LEDBtn0Bg();
+		fb->addChild(bg0);
+		box.size = size;
+		this->setSize(box.size);
+		//this->shadow->opacity = 0.0f; // Turn off the circular shadows that are everywhere.	
+	}
+
 	void setSize(Vec newSize)
 	{
 		box.size = newSize;
+		bg0->box.size = newSize;
 		fb->box.size = newSize;
-		shadow->box.size = Vec(0, 0);
-		sw->box.size = newSize;
+		//shadow->box.size = Vec(0, 0);
+		//sw->box.size = newSize;
 		fb->dirty = true;
 	}
+
 };
+
 
 
 struct HideableLEDButton : LEDButton
@@ -763,6 +826,13 @@ struct TS_ScreenBtn : Switch {
 	};
 
 	TextAlignment textAlign = TextAlignment::Center;
+
+	TS_ScreenBtn()
+	{
+		fontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT); // Rack v2 store font path
+		fontSize = 10;
+		return;
+	}
 
 	TS_ScreenBtn(Vec size, Module* module, int paramId, std::string text) : Switch()
 	{

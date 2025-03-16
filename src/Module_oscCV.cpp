@@ -28,7 +28,7 @@ oscCV::oscCV(int numChannels, bool cv2osc, bool osc2cv) // : Module(NUM_PARAMS +
 	this->doCVPort2OSC = cv2osc;
 
 	this->numberChannels = numChannels;
-	char buffer[100];	
+	char buffer[_bufferSize];	
 	if (doCVPort2OSC)
 	{
 		inputTriggers = new dsp::SchmittTrigger[numberChannels];
@@ -40,12 +40,12 @@ oscCV::oscCV(int numChannels, bool cv2osc, bool osc2cv) // : Module(NUM_PARAMS +
 		{
 			inputChannels[i].setStoreHistory(true); // Track the historic values for charts.
 			portId = i * 2;
-			sprintf(buffer, "Ch %d Trigger Send", i + 1);
+			snprintf(buffer, _bufferSize, "Ch %d Trigger Send", i + 1);
 			configInput(InputIds::CH_INPUT_START + portId, buffer);
-			sprintf(buffer, "Ch %d Value", i + 1);
+			snprintf(buffer, _bufferSize, "Ch %d Value", i + 1);
 			configInput(InputIds::CH_INPUT_START + portId + 1, buffer);
 			// Configure the Light Also:
-			sprintf(buffer, "Ch %d Message Sent", i + 1);			
+			snprintf(buffer, _bufferSize, "Ch %d Message Sent", i + 1);			
 			configLight(LightIds::CH_LIGHT_START + portId, buffer);
 		}		
 	}
@@ -59,12 +59,12 @@ oscCV::oscCV(int numChannels, bool cv2osc, bool osc2cv) // : Module(NUM_PARAMS +
 		{
 			outputChannels[i].setStoreHistory(true); // Track the historic values for charts.
 			portId = i * 2;
-			sprintf(buffer, "Ch %d Received Trigger", i + 1);
+			snprintf(buffer, _bufferSize, "Ch %d Received Trigger", i + 1);
 			configOutput(OutputIds::CH_OUTPUT_START + portId, buffer);
-			sprintf(buffer, "Ch %d Value Received", i + 1);
+			snprintf(buffer, _bufferSize, "Ch %d Value Received", i + 1);
 			configOutput(OutputIds::CH_OUTPUT_START + portId + 1, buffer);
 			// Configure the Light Also:			
-			sprintf(buffer, "Ch %d Message Received", i + 1);
+			snprintf(buffer, _bufferSize, "Ch %d Message Received", i + 1);
 			configLight(LightIds::CH_LIGHT_START + portId + 1, buffer);
 		}
 	}
@@ -491,6 +491,12 @@ void oscCV::process(const ProcessArgs &args)
 		break;
 	}
 	this->oscCurrentAction = OSCAction::None;
+
+	// Check if Connect/Save connection has clicked
+	if (oscConnectTrigger.process(params[oscCV::ParamIds::OSC_SAVE_CONF_PARAM].getValue()))
+	{
+		this->oscConnectTriggered = true; // Signal to widget that this has happened.
+	}
 	
 	// Handle inputs:
 	int numExpandersLeft = getNumExpansionModulesInput();
@@ -608,7 +614,7 @@ void oscCV::process(const ProcessArgs &args)
 		//------------------------------------------------------------
 		bool packetOpened = false;
 		osc::OutboundPacketStream oscStream(oscBuffer, OSC_CV_OUTPUT_BUFFER_SIZE);
-		char addressBuffer[512];
+		char addressBuffer[OSC_ADDRESS_BUFFER_SIZE];
 		// ### Our own channels ###
 		for (int c = 0; c < this->numberChannels; c++)
 		{			
@@ -666,11 +672,11 @@ void oscCV::process(const ProcessArgs &args)
 						}
 						if (oscNamespace.empty()) // Allow empty namespaces
 						{
-							sprintf(addressBuffer, "%s", inputChannels[c].getPath().c_str());														
+							snprintf(addressBuffer, OSC_ADDRESS_BUFFER_SIZE, "%s", inputChannels[c].getPath().c_str());														
 						}
 						else
 						{
-							sprintf(addressBuffer, "/%s%s", oscNamespace.c_str(), inputChannels[c].getPath().c_str());							
+							snprintf(addressBuffer, OSC_ADDRESS_BUFFER_SIZE, "/%s%s", oscNamespace.c_str(), inputChannels[c].getPath().c_str());							
 						}
 						oscStream << osc::BeginMessage(addressBuffer);
 						

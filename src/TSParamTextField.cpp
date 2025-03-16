@@ -28,7 +28,8 @@ TSParamTextField::TSParamTextField(TextType textType, int maxLength, ParamWidget
 void TSParamTextField::saveValue()
 {
 	isEditing = 2; // Wait 2 cycles before setting knob -> text again in step()
-	char buffer[50] = { 0 };
+	const int buffSize = 50;
+	char buffer[buffSize] = { 0 };
 	if (control != NULL && control->getParamQuantity() != NULL)
 	{
 		ParamQuantity* cParamQty = control->getParamQuantity();
@@ -57,10 +58,7 @@ void TSParamTextField::saveValue()
 			}
 		}
 		lastControlVal = controlVal;
-		if (knob2TextVal != NULL)
-			sprintf(buffer, formatString, knob2TextVal(controlVal));
-		else
-			sprintf(buffer, formatString, controlVal);
+		snprintf(buffer, buffSize, formatString, (knob2TextVal == NULL) ? controlVal : knob2TextVal(controlVal) );		
 		text = buffer;
 	}
 	return;
@@ -108,12 +106,10 @@ void TSParamTextField::step()
 		float val = control->getParamQuantity()->getValue();
 		if (val != lastControlVal)
 		{
-			char buffer[50] = { 0 };
+			const int buffSize = 50;
+			char buffer[buffSize] = { 0 };
 
-			if (knob2TextVal != NULL)
-				sprintf(buffer, formatString, knob2TextVal(val));
-			else
-				sprintf(buffer, formatString, val);
+			snprintf(buffer, buffSize, formatString, (knob2TextVal == NULL) ? val : knob2TextVal(val) );
 			text = buffer;
 
 			lastControlVal = val;
@@ -130,7 +126,8 @@ void TSParamTextField::step()
 //-----------------------------------------------------------------------------------------------
 void TSParamTextField::setText(float val)
 {
-	char buffer[50] = { 0 };
+	const int buffSize = 50;
+	char buffer[buffSize] = { 0 };
 	float controlVal = val;
 	if (control != NULL && control->getParamQuantity() != NULL)
 	{
@@ -145,7 +142,7 @@ void TSParamTextField::setText(float val)
 			val = (knob2TextVal == NULL) ? cParamQty->getMaxValue() : knob2TextVal(cParamQty->getMaxValue());
 	}
 	// Format the text
-	sprintf(buffer, formatString, val);
+	snprintf(buffer, buffSize, formatString, val);
 	text = buffer;
 	return;
 }

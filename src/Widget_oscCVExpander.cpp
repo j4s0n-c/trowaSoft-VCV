@@ -12,6 +12,9 @@ using namespace rack;
 
 #define COL_RACK_GRID_WIDTH		6	// Number of RACK_GRID_WIDTH a single column of channel ports are.
 
+#define STR_MASTER_FOUND	"MASTER FOUND" // "Master Found"
+#define STR_NO_CONNECTION	"NO CONNECTION"//"No Connection"
+
 //-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-
 // oscCVExpanderWidget()
 // Instantiate a oscCVExpander widget. 
@@ -445,12 +448,12 @@ void TSOscCVExpanderTopDisplay::step() {
 		if (parentWidget->numberChannels > 16)
 		{
 			// We have more room, repeat it here.
-			sprintf(scrollingMsg, "%s  -  %s  -  %s  -  %s  -  ",
-				displayName.c_str(), (connectedToMaster) ? "Master Found" : "No Connection",
-				displayName.c_str(), (connectedToMaster) ? "Master Found" : "No Connection");
+			snprintf(scrollingMsg, TROWA_SCROLLING_MSG_TOTAL_SIZE, "%s  -  %s  -  %s  -  %s  -  ",
+				displayName.c_str(), (connectedToMaster) ? STR_MASTER_FOUND : STR_NO_CONNECTION,
+				displayName.c_str(), (connectedToMaster) ? STR_MASTER_FOUND : STR_NO_CONNECTION);
 		}
 		else
-			sprintf(scrollingMsg, "%s  -  %s  -  ", displayName.c_str(), (connectedToMaster) ? "Master Found" : "No Connection");
+			snprintf(scrollingMsg, TROWA_SCROLLING_MSG_TOTAL_SIZE, "%s  -  %s  -  ", displayName.c_str(), (connectedToMaster) ? STR_MASTER_FOUND : STR_NO_CONNECTION);
 	}
 
 	dt += 100.0 / APP->engine->getSampleRate();

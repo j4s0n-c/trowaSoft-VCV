@@ -7,10 +7,15 @@
 #include <map>
 #include <vector>
 
-#include "../lib/oscpack/osc/OscOutboundPacketStream.h"
-#include "../lib/oscpack/ip/UdpSocket.h"
-#include "../lib/oscpack/osc/OscReceivedElements.h"
-#include "../lib/oscpack/osc/OscPacketListener.h"
+// #include "../lib/oscpack/osc/OscOutboundPacketStream.h"
+// #include "../lib/oscpack/ip/UdpSocket.h"
+// #include "../lib/oscpack/osc/OscReceivedElements.h"
+// #include "../lib/oscpack/osc/OscPacketListener.h"
+#include "OscOutboundPacketStream.h"
+#include "UdpSocket.h"
+#include "OscReceivedElements.h"
+#include "OscPacketListener.h"
+
 
 #include "TSOSCSequencerListener.hpp"
 

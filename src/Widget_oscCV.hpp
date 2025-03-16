@@ -4,13 +4,15 @@
 #include "TSSModuleWidgetBase.hpp"
 #include "TSOSCConfigWidget.hpp"
 #include "Module_oscCV.hpp"
+#include "TSOSCCV_Common.hpp"
 #include <rack.hpp>
 #include <vector>
 using namespace rack;
 
-#define TROWA_SCROLLING_MSG_TOTAL_SIZE		256
+
 #define TROWA_OSCCV_NUM_COLORS				  8
 #define TROWA_OSCCV_OSC_PATH_SIZE		    256 // Max path size (was hard coded for TSTextBoxes to 50)
+#define TROWA_OSCCV_LABEL_BUFF_SIZE			 50
 
 struct oscCV;
 struct TSOscCVTopDisplay;
@@ -298,7 +300,9 @@ struct TSOscCVChannelConfigScreen : OpaqueWidget {
 	// The selected data type.
 	TSOSCCVChannel::ArgDataType selectedDataType = TSOSCCVChannel::ArgDataType::OscFloat;
 	// Label buffer
-	char buffer[50];
+	const int buffSize = TROWA_OSCCV_LABEL_BUFF_SIZE;
+	// Label buffer
+	char buffer[TROWA_OSCCV_LABEL_BUFF_SIZE];
 
 	// OSC Data Type select/dropdown
 	TSOscCVDataTypeSelectBtn* btnSelectDataType;

@@ -186,13 +186,14 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	//=======================================================		
 	Vec ledSize = Vec(15,15);
 	int dx = 28;
-	float xLightOffset = 1.5f;
-	float yLightOffset = 1.5f;	
+	float xLightOffset = 1.0f;// 1.5f;
+	float yLightOffset = 1.0f;//1.5f;	
 	TS_LEDButton* btn;
 	knobStart += 2;	
 	int y = knobRow;
 	int x = knobStart;
-	Vec ledBtnSize = Vec(ledSize.x - 2, ledSize.y - 2);	
+	Vec ledBtnSize = ledSize + 2.0f; // Vec(ledSize.x - 2, ledSize.y - 2);	
+
 	
 	//--------------------------------------------------------------------------
 	// PATTERN SEQ: Pattern Sequencing Configuration (+Config/Enabled Lights):
@@ -229,7 +230,7 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	// COPY: Pattern Copy button:
 	//-------------------------------------------------------
 	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(knobStart + (knobSpacing * 4) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::COPY_PATTERN_PARAM));//, 0, 1, 0));
-	btn->setSize(ledSize);
+	btn->setSize(ledBtnSize);
 	addParam(btn);
 	lightPtr = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 4) + dx + xLightOffset, knobRow + yLightOffset), 
 		module, TSSequencerModuleBase::LightIds::COPY_PATTERN_LIGHT, ledSize, TSSequencerModuleBase::COPY_PATTERN_COLOR));
@@ -240,7 +241,7 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	// COPY: Channel Copy button:
 	//-------------------------------------------------------
 	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(knobStart + (knobSpacing * 5) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::COPY_CHANNEL_PARAM));//, 0, 1, 0));
-	btn->setSize(ledSize);
+	btn->setSize(ledBtnSize);
 	addParam(btn);
 	lightPtr = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 5) + dx + xLightOffset, knobRow + yLightOffset), module, TSSequencerModuleBase::LightIds::COPY_CHANNEL_LIGHT, ledSize, TSColors::COLOR_WHITE));
 	copyChannelLight = lightPtr;	
@@ -250,7 +251,7 @@ void TSSequencerWidgetBase::addBaseControls(bool addGridLines)
 	// CHANGE BPM CALC NOTE (1/4, 1/8, 1/8T, 1/16)
 	//-------------------------------------------------------
 	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(knobStart + (knobSpacing * 1) + dx, knobRow), module, TSSequencerModuleBase::ParamIds::SELECTED_BPM_MULT_IX_PARAM));//, 0, 1, 0));
-	btn->setSize(ledSize);
+	btn->setSize(ledBtnSize);
 	addParam(btn);
 	addChild(TS_createColorValueLight<ColorValueLight>(Vec(knobStart + (knobSpacing * 1) + dx + xLightOffset, knobRow + yLightOffset), module, TSSequencerModuleBase::LightIds::SELECTED_BPM_MULT_IX_LIGHT, ledSize, TSColors::COLOR_WHITE));
 	
@@ -982,7 +983,7 @@ void TSSeqPatternSeqConfigWidget::drawLayer(const DrawArgs& args, int layer)
 			nvgFontFaceId(args.vg, font->handle);
 			if (currentPatternIndex > -1)
 			{
-				sprintf(messageStr, "%02d", (currentPatternIndex + 1));		
+				snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%02d", (currentPatternIndex + 1));		
 				nvgText(args.vg, x + dx, y2, messageStr, NULL);		
 			}
 			else
@@ -1000,7 +1001,7 @@ void TSSeqPatternSeqConfigWidget::drawLayer(const DrawArgs& args, int layer)
 			nvgFontFaceId(args.vg, font->handle);
 			if (currentPatternVal > -1)
 			{
-				sprintf(messageStr, "%02d", currentPatternVal);	
+				snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%02d", currentPatternVal);	
 				nvgText(args.vg, x + dx, y2, messageStr, NULL);		
 			}
 			else
@@ -1016,7 +1017,7 @@ void TSSeqPatternSeqConfigWidget::drawLayer(const DrawArgs& args, int layer)
 			nvgText(args.vg, x, y1, "PLEN", NULL); // Don't label is SLEN since S could be "step"...
 			nvgFontSize(args.vg, fontSize * 1.5);	// Large font
 			nvgFontFaceId(args.vg, font->handle);
-			sprintf(messageStr, "%02d", currentPatternLength);
+			snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%02d", currentPatternLength);
 			nvgText(args.vg, x + dx, y2, messageStr, NULL);
 		}		
 	}	
@@ -1125,7 +1126,7 @@ void TSSeqDisplay::drawNormalView(const DrawArgs &args)
 	nvgFontSize(args.vg, fontSize); // Small font
 	nvgFontFaceId(args.vg, labelFont->handle);
 	nvgText(args.vg, x, y1, "PATT", NULL);
-	sprintf(messageStr, "%02d", currPlayPattern);
+	snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%02d", currPlayPattern);
 	nvgFontSize(args.vg, fontSize * 1.5);	// Large font
 	nvgFontFaceId(args.vg, font->handle);
 	nvgText(args.vg, x + dx, y2, messageStr, NULL);
@@ -1184,17 +1185,17 @@ void TSSeqDisplay::drawNormalView(const DrawArgs &args)
 	nvgFontSize(args.vg, fontSize); // Small font
 	nvgFontFaceId(args.vg, labelFont->handle);
 	if (isPreview)
-		sprintf(messageStr, "BPM/%s", BPMOptions[1]->label);
+		snprintf(messageStr, TROWA_DISP_MSG_SIZE, "BPM/%s", BPMOptions[1]->label);
 	else
-		sprintf(messageStr, "BPM/%s", BPMOptions[module->selectedBPMNoteIx]->label);
+		snprintf(messageStr, TROWA_DISP_MSG_SIZE, "BPM/%s", BPMOptions[module->selectedBPMNoteIx]->label);
 	nvgText(args.vg, x, y1, messageStr, NULL);
 	if (!isPreview && module->lastStepWasExternalClock)
 	{
-		sprintf(messageStr, "%s", "CLK");
+		snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%s", "CLK");
 	}
 	else
 	{
-		sprintf(messageStr, "%03.0f", currentBPM);
+		snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%03.0f", currentBPM);
 	}
 	nvgFontFaceId(args.vg, font->handle);
 	nvgFontSize(args.vg, fontSize * 1.5); // Large font		
@@ -1207,7 +1208,7 @@ void TSSeqDisplay::drawNormalView(const DrawArgs &args)
 	nvgFontSize(args.vg, fontSize); // Small font
 	nvgFontFaceId(args.vg, labelFont->handle);
 	nvgText(args.vg, x, y1, "LENG", NULL);
-	sprintf(messageStr, "%02d", currentNSteps);
+	snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%02d", currentNSteps);
 	nvgFontSize(args.vg, fontSize * 1.5);	// Large font
 	nvgFontFaceId(args.vg, font->handle);
 	nvgText(args.vg, x + dx, y2, messageStr, NULL);
@@ -1241,7 +1242,7 @@ void TSSeqDisplay::drawNormalView(const DrawArgs &args)
 	nvgFontSize(args.vg, fontSize); // Small font
 	nvgFontFaceId(args.vg, labelFont->handle);
 	nvgText(args.vg, x, y1, "PATT", NULL);
-	sprintf(messageStr, "%02d", currEditPattern);
+	snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%02d", currEditPattern);
 	nvgFontSize(args.vg, fontSize * 1.5);	// Large font
 	nvgFontFaceId(args.vg, font->handle);
 	nvgText(args.vg, x + dx, y2, messageStr, NULL);
@@ -1252,7 +1253,7 @@ void TSSeqDisplay::drawNormalView(const DrawArgs &args)
 	nvgFontSize(args.vg, fontSize); // Small font
 	nvgFontFaceId(args.vg, labelFont->handle);
 	nvgText(args.vg, x, y1, "CHNL", NULL);
-	sprintf(messageStr, "%02d", currentChannel);
+	snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%02d", currentChannel);
 	nvgFontSize(args.vg, fontSize * 1.5);	// Large font
 	nvgFontFaceId(args.vg, font->handle);
 	nvgText(args.vg, x + dx, y2, messageStr, NULL);
@@ -1364,7 +1365,7 @@ void TSSeqDisplay::drawEditStepView(const DrawArgs &args, int currEditStep)
 	nvgFontSize(args.vg, fontSize); // Small font
 	nvgFontFaceId(args.vg, labelFont->handle);
 	nvgText(args.vg, x, y1, "PATT", NULL);
-	sprintf(messageStr, "%02d", currEditPattern);
+	snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%02d", currEditPattern);
 	nvgFontSize(args.vg, fontSize * 1.5);	// Large font
 	nvgFontFaceId(args.vg, font->handle);
 	nvgText(args.vg, x + dx, y2, messageStr, NULL);
@@ -1375,7 +1376,7 @@ void TSSeqDisplay::drawEditStepView(const DrawArgs &args, int currEditStep)
 	nvgFontSize(args.vg, fontSize); // Small font
 	nvgFontFaceId(args.vg, labelFont->handle);
 	nvgText(args.vg, x, y1, "CHNL", NULL);
-	sprintf(messageStr, "%02d", currentChannel);
+	snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%02d", currentChannel);
 	nvgFontSize(args.vg, fontSize * 1.5);	// Large font
 	nvgFontFaceId(args.vg, font->handle);
 	nvgText(args.vg, x + dx, y2, messageStr, NULL);
@@ -1386,7 +1387,7 @@ void TSSeqDisplay::drawEditStepView(const DrawArgs &args, int currEditStep)
 	nvgFontSize(args.vg, fontSize); // Small font
 	nvgFontFaceId(args.vg, labelFont->handle);
 	nvgText(args.vg, x, y1, "STEP", NULL);
-	sprintf(messageStr, "%02d", currEditStep);
+	snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%02d", currEditStep);
 	nvgFontSize(args.vg, fontSize * 1.5);	// Large font
 	nvgFontFaceId(args.vg, font->handle);
 	nvgText(args.vg, x + dx, y2, messageStr, NULL);
@@ -1413,7 +1414,7 @@ void TSSeqDisplay::drawEditStepView(const DrawArgs &args, int currEditStep)
 	}
 	else
 	{
-		sprintf(messageStr, "%4.1f", currEditStepVal);			
+		snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%4.1f", currEditStepVal);			
 	}
 	nvgText(args.vg, x + dx, y2, messageStr, NULL);
 	

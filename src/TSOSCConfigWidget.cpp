@@ -198,17 +198,20 @@ TSOSCConfigWidget::TSOSCConfigWidget(Module* mod, int btnSaveId, int btnAutoReco
 	}
 
 	// Button Enable/Disable
-	Vec btnSize = Vec(36, height);
-	this->btnSave = dynamic_cast<TS_PadBtn*>( createParam<TS_PadBtn>(Vec(x, y), module, btnSaveId) );
+	Vec btnSize = Vec(50, height);// Vec(36, height);
+	this->btnSave = dynamic_cast<TS_ScreenBtn*>(createParam<TS_ScreenBtn>(Vec(x, y), module, btnSaveId));
+	//this->btnSave = dynamic_cast<TS_PadBtn*>( createParam<TS_PadBtn>(Vec(x, y), module, btnSaveId) );
 	// this->btnSave->module = module;
 	// this->btnSave->paramId = btnSaveId;
+	this->btnSave->momentary = true;
 	this->btnSave->box.size = btnSize;
+
 	//this->btnSave->box.pos = Vec(x, y);
 	addChild(btnSave);
 
-	// Checkbox for Auto-reconnect:
-	this->ckAutoReconnect = new TS_ScreenCheckBox(Vec(50, 12), module, btnAutoReconnectId, "Auto Con");//, 0.f, 1.f, 0.f);
-	this->ckAutoReconnect->box.pos = Vec(x + 4, y - 13);
+	// Checkbox for Auto-reconnect: (was 50 wide, x+4 pos. Add 8 to hitbox)
+	this->ckAutoReconnect = new TS_ScreenCheckBox(Vec(58, 12), module, btnAutoReconnectId, "Auto Con");//, 0.f, 1.f, 0.f);
+	this->ckAutoReconnect->box.pos = Vec(x - 4, y - 13);
 	this->ckAutoReconnect->checkBoxWidth = 10;
 	this->ckAutoReconnect->checkBoxHeight = 10;
 	this->ckAutoReconnect->fontSize = 9;
@@ -340,7 +343,7 @@ void TSOSCConfigWidget::drawLayer(const DrawArgs &args, int layer) {
 			nvgTextAlign(args.vg, NVG_ALIGN_CENTER | NVG_ALIGN_MIDDLE);
 			y = btnSave->box.pos.y + btnSave->box.size.y / 2.0 + 1;
 			// Save:
-			x = btnSave->box.pos.x + btnSave->box.size.x / 2.0 + 7;
+			x = btnSave->box.pos.x + btnSave->box.size.x / 2.0;
 			if (btnActionEnable)
 			{
 				nvgFillColor(args.vg, TSColors::COLOR_TS_GREEN);

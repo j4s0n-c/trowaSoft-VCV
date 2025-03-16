@@ -15,10 +15,15 @@ using namespace rack;
 #include <queue>
 #include <vector>
 
-#include "../lib/oscpack/osc/OscOutboundPacketStream.h"
-#include "../lib/oscpack/ip/UdpSocket.h"
-#include "../lib/oscpack/osc/OscReceivedElements.h"
-#include "../lib/oscpack/osc/OscPacketListener.h"
+// #include "../lib/oscpack/osc/OscOutboundPacketStream.h"
+// #include "../lib/oscpack/ip/UdpSocket.h"
+// #include "../lib/oscpack/osc/OscReceivedElements.h"
+// #include "../lib/oscpack/osc/OscPacketListener.h"
+#include "OscOutboundPacketStream.h"
+#include "UdpSocket.h"
+#include "OscReceivedElements.h"
+#include "OscPacketListener.h"
+
 
 // Model for trowa OSC2CV
 extern Model* modelOscCV;
@@ -111,7 +116,10 @@ struct oscCV : Module {
 	TSOSCConnectionInfo currentOSCSettings = { OSC_ADDRESS_DEF,  OSC_OUTPORT_DEF , OSC_INPORT_DEF };
 	// OSC Configure trigger
 	dsp::SchmittTrigger oscConfigTrigger;
+	// OSC Connnect/Save trigger
 	dsp::SchmittTrigger oscConnectTrigger;
+	// If the connect button has been clicked.
+	bool oscConnectTriggered = false;
 	// Show the OSC configuration screen or not.
 	bool oscShowConfigurationScreen = false;
 	
@@ -177,6 +185,9 @@ struct oscCV : Module {
 	// If this has it controls configured.
 	bool isInitialized = false;
 	const float lightLambda = 0.005f;
+
+	// Buffer size for strings
+	const int _bufferSize = 100;
 	
 	//---*---*---*---*---*---*---*---*---*---*---
 	// Debug console

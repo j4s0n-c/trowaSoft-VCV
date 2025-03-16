@@ -48,10 +48,10 @@ using namespace rack;
 
 
 // Fonts:
-#define TROWA_DIGITAL_FONT		"res/Fonts/Digital dream Fat.ttf"
-#define TROWA_LABEL_FONT		"res/Fonts/ZeroesThree-Regular.ttf"
-#define TROWA_MONOSPACE_FONT	"res/Fonts/larabieb.ttf"
-#define TROWA_MATH_FONT			"res/Fonts/Math Symbols Normal.ttf"
+#define TROWA_DIGITAL_FONT		"res/Fonts/LTStopwatch-Regular.ttf"
+#define TROWA_LABEL_FONT		"res/Fonts/Electrolize-Regular.ttf"
+#define TROWA_MONOSPACE_FONT	"res/Fonts/Touchscreen-Regular.ttf"
+#define TROWA_MATH_FONT			"res/Fonts/NotoSansMath-Regular.ttf"
 
 
 // The draw layer (for drawLayer() in v2)
@@ -283,7 +283,7 @@ struct ValueSequencerMode
 	}
 
 	// Given the output voltage, return the display string.
-	virtual void GetDisplayString(/*in*/ float val, /*out*/ char* buffer)
+	virtual void GetDisplayString(/*in*/ float val, /*out*/ char* buffer, int buffSize = 50)
 	{
 		float dVal = val;
 		if (isBoolean)
@@ -291,10 +291,10 @@ struct ValueSequencerMode
 			// Allow for multiSeq to have -10 V as false (anything positive should be true, anything 0 or negative should be false).
 			//dVal = (dVal > zeroValue) ? voltageMax : zeroValue;
 			if (dVal > zeroValue) {
-				strncpy(buffer, bDisplayTrueStr, 20);
+				strncpy(buffer, bDisplayTrueStr, buffSize);
 			}
 			else {
-				strncpy(buffer, bDisplayFalseStr, 20);				
+				strncpy(buffer, bDisplayFalseStr, buffSize);				
 			}
 		}
 		else 
@@ -320,7 +320,7 @@ struct ValueSequencerMode
 				dVal = static_cast<int>(dVal);
 				//DEBUG("> Value: %6.4f, Ending (forced to INT): %6.4f", val, dVal);
 			}
-			sprintf(buffer, displayFormatString, dVal);				
+			snprintf(buffer, buffSize, displayFormatString, dVal);				
 		}
 		return;
 	}
@@ -427,7 +427,7 @@ struct NoteValueSequencerMode : ValueSequencerMode
 		return;
 	}
 	// Overriden display string to show notes instead of output voltage values.
-	void GetDisplayString(/*in*/ float val, /*out*/ char* buffer) override
+	void GetDisplayString(/*in*/ float val, /*out*/ char* buffer, int buffSize = 50) override
 	{
 		// Now octaves will go -1 to +9.
 		int octave = VoltsToOctave(val);
@@ -436,7 +436,7 @@ struct NoteValueSequencerMode : ValueSequencerMode
 			noteIx = TROWA_SEQ_NUM_NOTES - 1;
 		else if (noteIx < 0)
 			noteIx = 0;
-		sprintf(buffer, "%s%d", TROWA_NOTES[noteIx], octave);
+		snprintf(buffer, buffSize, "%s%d", TROWA_NOTES[noteIx], octave);
 		return;
 	}
 	// Overriden getting note string to knob voltage.

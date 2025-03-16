@@ -12,6 +12,9 @@ using namespace rack;
 #define OSCCV_CHOOSE_UNUSED_PORTS		0
 #define OSCSV_DEBUG_EXPANDERS		 0
 
+// Now with a font that is not all caps, keep the look the same
+#define SCROLL_MSG_FMT		" TROWASOFT - %s - CV<->OSC<->CV - "//"trowaSoft - %s - cv<->OSC<->cv - "
+
 // Channel colors
 const NVGcolor oscCVWidget::CHANNEL_COLORS[TROWA_OSCCV_NUM_COLORS] = {
 	TSColors::COLOR_TS_C01, TSColors::COLOR_TS_C02, TSColors::COLOR_TS_C03, TSColors::COLOR_TS_C04, 
@@ -103,30 +106,32 @@ oscCVWidget::oscCVWidget(oscCV* oscModule) : TSSModuleWidgetBase(oscModule, fals
 	//---------------------------
 	// Button: Show Config
 	//---------------------------
+	// Try to fix offset from rack's LED button
 	TS_LEDButton* btn;
-	Vec btnSize = Vec(ledSize.x - 2, ledSize.y - 2);	
+	const float ledOffset = 1.0f; // was 1.5
+	Vec btnSize = ledSize + 2.0f;// Vec(ledSize.x - 2, ledSize.y - 2);	
 	y = topScreenSize.y + 30;
-	x = (box.size.x - ledSize.x)/2; //76; // 80
+	x = (box.size.x - btnSize.x)/2; //76; // 80
 	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(x, y), oscModule, oscCV::ParamIds::OSC_SHOW_CONF_PARAM));//, 0, 1, 0));
 	btn->setSize(btnSize);
 	addParam(btn);
-	addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + 1.5, y + 1.5), oscModule, oscCV::LightIds::OSC_CONFIGURE_LIGHT, ledSize, TSColors::COLOR_WHITE));
-	addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + 3.5, y + 3.5), oscModule, oscCV::LightIds::OSC_ENABLED_LIGHT, Vec(ledSize.x - 4, ledSize.y - 4), TSOSC_STATUS_COLOR));
+	addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + ledOffset, y + ledOffset), oscModule, oscCV::LightIds::OSC_CONFIGURE_LIGHT, ledSize, TSColors::COLOR_WHITE));
+	addChild(TS_createColorValueLight<ColorValueLight>(Vec(x + ledOffset + 2.0, y + ledOffset + 2.0), oscModule, oscCV::LightIds::OSC_ENABLED_LIGHT, Vec(ledSize.x - 4, ledSize.y - 4), TSOSC_STATUS_COLOR));
 
 	// Previous
-	x = (box.size.x - ledSize.x)/2.f - 110;
+	x = (box.size.x - btnSize.x)/2.f - 110;
 	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(x, y), oscModule, oscCV::ParamIds::OSC_EXPANDER_CONFIG_PREV_PARAM));
 	btn->setSize(btnSize);
 	addParam(btn);
-	prevLight = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(x + 1.5, y + 1.5), oscModule, oscCV::LightIds::OSC_CONFIGURE_PREV_LIGHT, ledSize, TSColors::COLOR_RED));
+	prevLight = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(x + ledOffset, y + ledOffset), oscModule, oscCV::LightIds::OSC_CONFIGURE_PREV_LIGHT, ledSize, TSColors::COLOR_RED));
 	addChild(prevLight);
 	
 	// Next
-	x = (box.size.x - ledSize.x)/2.f + 110;
+	x = (box.size.x - btnSize.x)/2.f + 110;
 	btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(x, y), oscModule, oscCV::ParamIds::OSC_EXPANDER_CONFIG_NEXT_PARAM));
 	btn->setSize(btnSize);
 	addParam(btn);
-	nextLight = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(x + 1.5, y + 1.5), oscModule, oscCV::LightIds::OSC_CONFIGURE_NEXT_LIGHT, ledSize, TSColors::COLOR_RED));
+	nextLight = dynamic_cast<ColorValueLight*>(TS_createColorValueLight<ColorValueLight>(Vec(x + ledOffset, y + ledOffset), oscModule, oscCV::LightIds::OSC_CONFIGURE_NEXT_LIGHT, ledSize, TSColors::COLOR_RED));
 	addChild(nextLight);
 
 
@@ -693,8 +698,11 @@ void oscCVWidget::step()
 			//------------------------------------------
 			// Check for enable/disable OSC
 			//------------------------------------------
-			if (thisModule->oscConnectTrigger.process(thisModule->params[oscCV::ParamIds::OSC_SAVE_CONF_PARAM].getValue()))
+			// Checking this UI thread seems to have misclicks. Move to module.
+			//if (thisModule->oscConnectTrigger.process(thisModule->params[oscCV::ParamIds::OSC_SAVE_CONF_PARAM].getValue()))
+			if (thisModule->oscConnectTriggered)
 			{
+				thisModule->oscConnectTriggered = false; // Reset
 				if (oscConfigurationScreen->btnActionEnable)
 				{
 					// Enable OSC ------------------------------------------------------------------------
@@ -741,7 +749,7 @@ void oscCVWidget::step()
 						thisModule->oscCurrentAction = oscCV::OSCAction::Enable;
 						thisModule->oscReconnectAtLoad = this->oscConfigurationScreen->ckAutoReconnect->checked;
 					}
-					} // end if enable osc
+				} // end if enable osc
 				else
 				{
 					// Disable OSC ------------------------------------------------------------------
@@ -1249,7 +1257,7 @@ void TSOscCVTopDisplay::step() {
 	}
 	if (thisIp.compare(lastIp) != 0)
 	{
-		sprintf(scrollingMsg, "trowaSoft - %s - cv<->OSC<->cv - ", thisIp.c_str());
+		snprintf(scrollingMsg, TROWA_SCROLLING_MSG_TOTAL_SIZE, SCROLL_MSG_FMT, thisIp.c_str());
 	}
 
 	//dt += engineGetSampleTime() / scrollTime_sec;
@@ -1329,8 +1337,8 @@ void TSOscCVTopDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer)
 			//nvgFontFaceId(args.vg, font->handle);
 			nvgTextAlign(args.vg, NVG_ALIGN_LEFT | NVG_ALIGN_TOP);
 			
-			if (parentWidget->module == NULL)
-				sprintf(scrollingMsg, "trowaSoft - cv<->OSC<->cv - %s", "NO CONNECTION");
+			if (parentWidget->module == NULL) //  trowaSoft - cv<->OSC<->cv - %s
+				snprintf(scrollingMsg, TROWA_SCROLLING_MSG_TOTAL_SIZE, SCROLL_MSG_FMT, "NO CONNECTION");
 
 			// Start (left on screen) of scrolling message:
 			const char * subStr = scrollingMsg + scrollIx;
@@ -1424,7 +1432,8 @@ void TSOscCVMiddleDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer) {
 			int txtWidth = width - txtPadding;
 			bool drawBoxes = false;
 			int numChannels = (isPreview) ? TROWA_OSCCV_DEFAULT_NUM_CHANNELS : thisModule->numberChannels;
-			char buffer[50];
+			const int buffSize = 50;
+			char buffer[buffSize];
 			for (int c = 0; c < numChannels; c++) {
 				int ix = 0;
 				float nextX;
@@ -1444,7 +1453,7 @@ void TSOscCVMiddleDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer) {
 				int len = 0;
 				if (isPreview)
 				{
-					sprintf(buffer, "/ch/%d", c + 1);
+					snprintf(buffer, buffSize, "/ch/%d", c + 1);
 					lbl = buffer;
 					len = strlen(lbl);
 				}
@@ -1478,7 +1487,7 @@ void TSOscCVMiddleDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer) {
 				// Label:
 				if (isPreview)
 				{
-					sprintf(buffer, "/ch/%d", c + 1);
+					snprintf(buffer, buffSize, "/ch/%d", c + 1);
 					lbl = buffer;
 					len = strlen(lbl);			
 				}
@@ -1839,7 +1848,7 @@ void TSOscCVChannelConfigScreen::drawLayer(/*in*/ const DrawArgs &args, int laye
 			// Channel Number and address
 			x = startX;// +ledSize.x + 10;
 			y = startY;
-			sprintf(buffer, "CH %d %sPUT", this->currentChannelPtr->channelNum, (isInput) ? "IN" : "OUT");
+			snprintf(buffer, buffSize, "CH %d %sPUT", this->currentChannelPtr->channelNum, (isInput) ? "IN" : "OUT");
 			float txtBounds[4] = { 0,0,0,0 };
 			const float padding = 2.0f;
 			nvgFontSize(args.vg, fontSize*1.1);
@@ -1868,7 +1877,7 @@ void TSOscCVChannelConfigScreen::drawLayer(/*in*/ const DrawArgs &args, int laye
 			//	y = startY + ledSize.y + dy + fontSize*2; // 13 + 15 + 20 + fontSize
 			nvgFontSize(args.vg, fontSize*0.9);
 			nvgFontFaceId(args.vg, font->handle);			
-			sprintf(buffer, "Control Voltage (%s)", (isInput) ? "IN" : "OUT");
+			snprintf(buffer, buffSize, "CONTROL VOLTAGE (%s)", (isInput) ? "IN" : "OUT"); //Control Voltage
 			nvgText(args.vg, x, y, buffer, NULL);
 			y += fontSize + 1;
 			const char* labels[] = { "Min", "Max", "Min", "Max" };
@@ -1877,7 +1886,7 @@ void TSOscCVChannelConfigScreen::drawLayer(/*in*/ const DrawArgs &args, int laye
 					nvgFontSize(args.vg, fontSize*0.9);
 					nvgFontFaceId(args.vg, font->handle);
 
-					sprintf(buffer, "OSC Value (%s)", (isInput) ? "OUT" : "IN");
+					snprintf(buffer, buffSize, "OSC VALUE (%s)", (isInput) ? "OUT" : "IN"); //OSC Value
 					nvgText(args.vg, x, y, buffer, NULL);
 					y += fontSize + 1;
 				}
@@ -1952,10 +1961,10 @@ void TSOscCVChannelConfigScreen::showControl(TSOSCCVChannel* channel, bool isInp
 		}
 
 		// Text Box Values
-		char buffer[50] = { '\0' };
-		sprintf(buffer, "%.3f", currentChannelPtr->minVoltage);
+		char buffer[TROWA_OSCCV_LABEL_BUFF_SIZE] = { '\0' };
+		snprintf(buffer, TROWA_OSCCV_LABEL_BUFF_SIZE, "%.3f", currentChannelPtr->minVoltage);
 		tbNumericBounds[TextBoxIx::MinCVVolt]->text = std::string(buffer);
-		sprintf(buffer, "%.3f", currentChannelPtr->maxVoltage);
+		snprintf(buffer, TROWA_OSCCV_LABEL_BUFF_SIZE, "%.3f", currentChannelPtr->maxVoltage);
 		tbNumericBounds[TextBoxIx::MaxCVVolt]->text = std::string(buffer);
 
 		tbNumericBounds[TextBoxIx::MinOSCVal]->enabled = true;
@@ -1965,9 +1974,9 @@ void TSOscCVChannelConfigScreen::showControl(TSOSCCVChannel* channel, bool isInp
 		case TSOSCCVChannel::ArgDataType::OscInt:
 		{
 			const char * format = "%.0f";
-			sprintf(buffer, format, currentChannelPtr->minOscVal);
+			snprintf(buffer, TROWA_OSCCV_LABEL_BUFF_SIZE, format, currentChannelPtr->minOscVal);
 			tbNumericBounds[TextBoxIx::MinOSCVal]->text = std::string(buffer);
-			sprintf(buffer, format, currentChannelPtr->maxOscVal);
+			snprintf(buffer, TROWA_OSCCV_LABEL_BUFF_SIZE, format, currentChannelPtr->maxOscVal);
 			tbNumericBounds[TextBoxIx::MaxOSCVal]->text = std::string(buffer);
 			break;
 		}
@@ -1984,9 +1993,9 @@ void TSOscCVChannelConfigScreen::showControl(TSOSCCVChannel* channel, bool isInp
 		default:
 		{
 			const char * format = "%.3f";
-			sprintf(buffer, format, currentChannelPtr->minOscVal);
+			snprintf(buffer, TROWA_OSCCV_LABEL_BUFF_SIZE, format, currentChannelPtr->minOscVal);
 			tbNumericBounds[TextBoxIx::MinOSCVal]->text = std::string(buffer);
-			sprintf(buffer, format, currentChannelPtr->maxOscVal);
+			snprintf(buffer, TROWA_OSCCV_LABEL_BUFF_SIZE, format, currentChannelPtr->maxOscVal);
 			tbNumericBounds[TextBoxIx::MaxOSCVal]->text = std::string(buffer);
 			break;
 		}

@@ -380,7 +380,7 @@ struct TSScopeDisplay : TransparentWidget {
 				{
 					NVGcolor currColor = (isPreview) ? TSColors::COLOR_RED  : module->waveForms[wIx]->waveColor;
 					nvgFillColor(args.vg, currColor);
-					sprintf(messageStr, "S%d", wIx + 1);
+					snprintf(messageStr, TROWA_DISP_MSG_SIZE, "S%d", wIx + 1);
 					nvgText(args.vg, 5, y, messageStr, NULL);
 					y += dy;
 				}
@@ -426,25 +426,25 @@ struct TSScopeDisplay : TransparentWidget {
 					// X Offset
 					x = xStart + dx / 2.0;
 					val = (isPreview) ? 0.0f  : module->params[multiScope::X_POS_PARAM + wIx].getValue();
-					sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, val);
+					snprintf(messageStr, TROWA_DISP_MSG_SIZE, TROWA_SCOPE_ROUND_FORMAT, val);
 					nvgText(args.vg, x, y, messageStr, NULL);
 
 					// X Gain
 					x += dx;
 					val = (isPreview) ? 1.0f  : module->params[multiScope::X_SCALE_PARAM + wIx].getValue();
-					sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, val);
+					snprintf(messageStr, TROWA_DISP_MSG_SIZE, TROWA_SCOPE_ROUND_FORMAT, val);
 					nvgText(args.vg, x, y, messageStr, NULL);
 
 					// Y Offset
 					x += dx;
 					val = (isPreview) ? 0.0f  : module->params[multiScope::Y_POS_PARAM + wIx].getValue();
-					sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, val);
+					snprintf(messageStr, TROWA_DISP_MSG_SIZE, TROWA_SCOPE_ROUND_FORMAT, val);
 					nvgText(args.vg, x, y, messageStr, NULL);
 
 					// Y Gain
 					x += dx;
 					val = (isPreview) ? 1.0f  : module->params[multiScope::Y_SCALE_PARAM + wIx].getValue();
-					sprintf(messageStr, TROWA_SCOPE_ROUND_FORMAT, val);
+					snprintf(messageStr, TROWA_DISP_MSG_SIZE, TROWA_SCOPE_ROUND_FORMAT, val);
 					nvgText(args.vg, x, y, messageStr, NULL);
 
 					// Rotation
@@ -462,13 +462,13 @@ struct TSScopeDisplay : TransparentWidget {
 
 						// Text will be black for this
 						nvgFillColor(args.vg, TSColors::COLOR_BLACK);
-						sprintf(messageStr, "%.1f", v * 180.0 / NVG_PI);
+						snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%.1f", v * 180.0 / NVG_PI);
 					}
 					else
 					{
 						// Differential
 						v = (isPreview) ? 0.0  : module->waveForms[wIx]->rotDiffValue;
-						sprintf(messageStr, "%+.1f", v * 180.0 / NVG_PI);
+						snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%+.1f", v * 180.0 / NVG_PI);
 					}
 					nvgText(args.vg, x, y, messageStr, NULL);
 
@@ -719,7 +719,7 @@ struct TSScopeLabelArea : TransparentWidget {
 			nvgFillColor(args.vg, textColor);
 			nvgFill(args.vg);
 			nvgFillColor(args.vg, TSColors::COLOR_BLACK);
-			sprintf(messageStr, TROWA_SCOPE_SHAPE_FORMAT_STRING, (wIx + 1));
+			snprintf(messageStr, TROWA_DISP_MSG_SIZE, TROWA_SCOPE_SHAPE_FORMAT_STRING, (wIx + 1));
 			nvgText(args.vg, x, y, messageStr, NULL);
 			nvgFillColor(args.vg, textColor);
 

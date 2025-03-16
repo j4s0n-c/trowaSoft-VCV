@@ -14,14 +14,27 @@
 
 inline TSExternalControlMessage CreateOSCRecvMsg(TSExternalControlMessage::MessageType msgType)
 {
-	TSExternalControlMessage msg;
+	// Get rid of static checks complaining members aren't initialized.
+	TSExternalControlMessage msg = TSExternalControlMessage();
+	msg.pattern = TROWA_INDEX_UNDEFINED;
+	msg.channel = TROWA_INDEX_UNDEFINED;
+	msg.step = TROWA_INDEX_UNDEFINED;
+	msg.mode = TROWA_INDEX_UNDEFINED;
+	msg.val = 0.0f;	
+
 	msg.messageSource = OSC_MSG_SRC;
-	msg.messageType = msgType;
+	msg.messageType = msgType;	
 	return msg;
 }
 inline TSExternalControlMessage CreateOSCRecvMsg(TSExternalControlMessage::MessageType msgType, int mode)
 {
-	TSExternalControlMessage msg;
+	TSExternalControlMessage msg = TSExternalControlMessage();
+	msg.pattern = TROWA_INDEX_UNDEFINED;
+	msg.channel = TROWA_INDEX_UNDEFINED;
+	msg.step = TROWA_INDEX_UNDEFINED;
+	msg.mode = TROWA_INDEX_UNDEFINED;
+	msg.val = 0.0f;	
+
 	msg.messageSource = OSC_MSG_SRC;
 	msg.messageType = msgType;
 	msg.mode = mode;
@@ -29,7 +42,13 @@ inline TSExternalControlMessage CreateOSCRecvMsg(TSExternalControlMessage::Messa
 }
 inline TSExternalControlMessage CreateOSCRecvMsg(TSExternalControlMessage::MessageType msgType, int pattern, int channel, int step, float val)
 {
-	TSExternalControlMessage msg;
+	TSExternalControlMessage msg = TSExternalControlMessage();
+	msg.pattern = TROWA_INDEX_UNDEFINED;
+	msg.channel = TROWA_INDEX_UNDEFINED;
+	msg.step = TROWA_INDEX_UNDEFINED;
+	msg.mode = TROWA_INDEX_UNDEFINED;
+	msg.val = 0.0f;	
+
 	msg.messageSource = OSC_MSG_SRC;
 	msg.messageType = msgType;
 	msg.pattern = pattern;
@@ -40,7 +59,13 @@ inline TSExternalControlMessage CreateOSCRecvMsg(TSExternalControlMessage::Messa
 }
 inline TSExternalControlMessage CreateOSCRecvMsg(TSExternalControlMessage::MessageType msgType, int pattern, int channel, int step, float val, int mode)
 {
-	TSExternalControlMessage msg;
+	TSExternalControlMessage msg = TSExternalControlMessage();
+	msg.pattern = TROWA_INDEX_UNDEFINED;
+	msg.channel = TROWA_INDEX_UNDEFINED;
+	msg.step = TROWA_INDEX_UNDEFINED;
+	msg.mode = TROWA_INDEX_UNDEFINED;
+	msg.val = 0.0f;	
+
 	msg.messageSource = OSC_MSG_SRC;
 	msg.messageType = msgType;
 	msg.pattern = pattern;

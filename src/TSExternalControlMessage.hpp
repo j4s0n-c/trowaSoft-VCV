@@ -146,6 +146,16 @@ struct TSExternalControlMessage {
 	int mode = TROWA_INDEX_UNDEFINED;
 	// The value / mode.
 	float val = 0.0f;
+
+	TSExternalControlMessage(){
+		messageType = MessageType::NUM_MESSAGE_TYPES;
+		messageSource = MessageSource::OSC;
+		pattern = TROWA_INDEX_UNDEFINED;
+		channel = TROWA_INDEX_UNDEFINED;
+		step = TROWA_INDEX_UNDEFINED;
+		mode = TROWA_INDEX_UNDEFINED;
+		val = 0.0f;
+	}
 };
 
 

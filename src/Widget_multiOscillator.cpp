@@ -222,7 +222,7 @@ void TSSingleOscillatorDisplay::drawLayer(/*in*/ const DrawArgs &args, int layer
 						label = std::string("FREQ (kHz)");
 					}
 				}
-				sprintf(messageStr, this->textBoxes[i]->formatString, val);
+				snprintf(messageStr, TROWA_DISP_MSG_SIZE, this->textBoxes[i]->formatString, val);
 				nvgText(args.vg, x, y, messageStr, NULL);
 			}
 
@@ -369,13 +369,17 @@ TSSingleOscillatorWidget::TSSingleOscillatorWidget(multiOscillatorWidget* parent
 		 //addChild(createParam<THREE_WAY_SWITCH>(Vec(x - 5, y + 10), thisModule, baseParamId + TS_Oscillator::BaseParamIds::OSCWF_SYNC_TO_INDEX_PARAM));
 		 const int size = 13;
 		 Vec ledBtnSize = Vec(size, size); // LED button size
+		 Vec ledSize = ledBtnSize - 2.0f;
+		 float ledOffset = 1.0f;
 		 // Was x-5
-		 TS_LEDButton* btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(x - 7, y + 10), thisModule, baseParamId + TS_Oscillator::BaseParamIds::OSCWF_SYNC_TO_INDEX_PARAM));
+		 float bX = x - 4.5;// - 7;
+		 float bY = y +12.5;//+ 10;
+		 TS_LEDButton* btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(bX, bY), thisModule, baseParamId + TS_Oscillator::BaseParamIds::OSCWF_SYNC_TO_INDEX_PARAM));
 		 btn->setSize(ledBtnSize);
 		 btn->momentary = false;
 		 addChild(btn);
-		 ColorValueLight* light = TS_createColorValueLight<ColorValueLight>(Vec(x - 4.5, y + 12.5), thisModule,
-			 baseLightId + TS_Oscillator::BaseLightIds::OSCWF_SYNC_TO_INDEX_LIGHT, ledBtnSize, TSColors::COLOR_WHITE);
+		 ColorValueLight* light = TS_createColorValueLight<ColorValueLight>(Vec(bX + ledOffset, bY + ledOffset), thisModule,
+			 baseLightId + TS_Oscillator::BaseLightIds::OSCWF_SYNC_TO_INDEX_LIGHT, ledSize, TSColors::COLOR_WHITE);
 		 addChild(light);
 	}
 #endif
@@ -611,7 +615,7 @@ void TSOscillatorChannelDisplayWidget::drawLayer(/*in*/ const DrawArgs &args, in
 					{
 						// Show value
 						float val = (this->textBoxes[i]->text.length() > 0) ? std::stof(this->textBoxes[i]->text, NULL) : 0.0f;
-						sprintf(messageStr, this->textBoxes[i]->formatString, val);
+						snprintf(messageStr, TROWA_DISP_MSG_SIZE, this->textBoxes[i]->formatString, val);
 						nvgText(args.vg, x, y, messageStr, NULL);					
 					}
 				}
@@ -630,7 +634,7 @@ void TSOscillatorChannelDisplayWidget::drawLayer(/*in*/ const DrawArgs &args, in
 						{
 						case WaveFormType::WAVEFORM_SQR:
 							label = std::string("P WIDTH");
-							sprintf(messageStr, "%5.2f", parentWidget->oscillatorOutput->auxParam_norm*100);
+							snprintf(messageStr, TROWA_DISP_MSG_SIZE, "%5.2f", parentWidget->oscillatorOutput->auxParam_norm*100);
 							nvgText(args.vg, x, y, messageStr, NULL);
 							break;
 						case WaveFormType::WAVEFORM_SAW:
@@ -871,12 +875,17 @@ TSOscillatorChannelWidget::TSOscillatorChannelWidget(multiOscillatorWidget* pare
 	//------------------------------------------
 	const int size = 13;
 	Vec ledBtnSize = Vec(size, size); // LED button size
-	x += -7;
-	TS_LEDButton* btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(x, y + 11), thisModule, baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM));	
+	x += -3.5;//-7;
+	Vec ledSize = ledBtnSize - 2.0f;	 
+	float ledOffset = 1.0f;
+	// Was x-5
+	float bX = x;
+	float bY = y + 13;// 11;
+	TS_LEDButton* btn = dynamic_cast<TS_LEDButton*>(createParam<TS_LEDButton>(Vec(bX, bY), thisModule, baseParamId + TS_OscillatorOutput::BaseParamIds::OUT_AM_TYPE_PARAM));	
 	btn->setSize(ledBtnSize);
 	addChild(btn);
-	ColorValueLight* light = TS_createColorValueLight<ColorValueLight>(Vec(x + 2.5, y + 13.5), thisModule,
-		baseLightId + TS_OscillatorOutput::BaseLightIds::OUT_AM_MODE_LED, ledBtnSize, TSColors::COLOR_WHITE);
+	ColorValueLight* light = TS_createColorValueLight<ColorValueLight>(Vec(bX + ledOffset, bY + ledOffset), thisModule,
+		baseLightId + TS_OscillatorOutput::BaseLightIds::OUT_AM_MODE_LED, ledSize, TSColors::COLOR_WHITE);
 	addChild(light);
 
 

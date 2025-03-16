@@ -9,6 +9,8 @@ using namespace rack;
 #include <mutex>
 #include <vector>
 
+#define TROWA_SCROLLING_MSG_TOTAL_SIZE		256	// Scrolliing mesage buffer size
+
 #define TROWA_OSCCVEXPANDER_DEFAULT_NUM_CHANNELS	8 // Default # channels for expander. Fixed 2023-01-02. Was 16 since I forgot to change it to 8.
 
 #define TROWA_OSCCV_DEFAULT_NUM_CHANNELS		8 // Default number of channels for cvOSCcv (main module).
@@ -28,6 +30,7 @@ using namespace rack;
 
 #define TROWA_OSCCV_VECTOR_MAX_SIZE			engine::PORT_MAX_CHANNELS // Now with polyphonic cables, there can be 16 channels sent in one CV input/output
 
+#define TROWA_OSCCV_ADDR_BUFF_SIZE		512	// Size of address buffer
 
 //=== DEBUG MacOS ====
 // for cvOSCcv
@@ -41,8 +44,8 @@ using namespace rack;
 #define TROWA_OSCCV_NUM_SEND_HZ_OPTS		    6  // Number of send options in our simple array. Add quick & dirty simple run-time config of sending frequency.
 extern const int TROWA_OSCCV_Send_Freq_Opts_Hz[TROWA_OSCCV_NUM_SEND_HZ_OPTS];
 
-
-#define TROWA_OSCCV_DEFAULT_CHANGE_THRESHOLD		0.05f // Default change threshold for sending when no trigger is present
+// v2.0.9 - Default change threadshold will now be 0.005f instead of 0.05f.
+#define TROWA_OSCCV_DEFAULT_CHANGE_THRESHOLD		0.005f // Default change threshold for sending when no trigger is present
 #define TROWA_OSCCV_NUM_CHANGE_OPTS				6
 // Options for change threshold.
 extern const float TROWA_OSCCV_Change_Threshold_Opts[TROWA_OSCCV_NUM_CHANGE_OPTS];

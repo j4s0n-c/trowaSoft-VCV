@@ -52,16 +52,16 @@ oscCVExpander::oscCVExpander(int numChannels, TSOSCCVExpanderDirection direction
 	if (direction == TSOSCCVExpanderDirection::Input)
 	{
 		// [Rack v2] Add labels for inputs and outputs (and lights)
-		char buffer[100];	
+		char buffer[_bufferSize];	
 		for (int i = 0; i < numberChannels; i++)
 		{
 			int inputId = i * 2;
-			sprintf(buffer, "Ch %d Trigger Send", i + 1);
+			snprintf(buffer, _bufferSize, "Ch %d Trigger Send", i + 1);
 			configInput(InputIds::CH_INPUT_START + inputId, buffer);
-			sprintf(buffer, "Ch %d Value", i + 1);
+			snprintf(buffer, _bufferSize, "Ch %d Value", i + 1);
 			configInput(InputIds::CH_INPUT_START + inputId + 1, buffer);
 			// Configure the Light Also:
-			sprintf(buffer, "Ch %d Message Sent", i + 1);			
+			snprintf(buffer, _bufferSize, "Ch %d Message Sent", i + 1);			
 			configLight(LightIds::CH_LIGHT_START + inputId, buffer);
 
 			/// TODO: If we do ever want to chart the value history, turn history tracking on
@@ -75,12 +75,12 @@ oscCVExpander::oscCVExpander(int numChannels, TSOSCCVExpanderDirection direction
 		for (int i = 0; i < numberChannels; i++)
 		{
 			int inputId = i * 2;
-			sprintf(buffer, "Ch %d Received Trigger", i + 1);;
+			snprintf(buffer, _bufferSize, "Ch %d Received Trigger", i + 1);;
 			configOutput(OutputIds::CH_OUTPUT_START + inputId, buffer);
-			sprintf(buffer, "Ch %d Value Received", i + 1);
+			snprintf(buffer, _bufferSize, "Ch %d Value Received", i + 1);
 			configOutput(OutputIds::CH_OUTPUT_START + inputId + 1, buffer);
 			// Configure the Light Also:			
-			sprintf(buffer, "Ch %d Message Received", i + 1);			
+			snprintf(buffer, _bufferSize, "Ch %d Message Received", i + 1);			
 			configLight(LightIds::CH_LIGHT_START + inputId + 1, buffer);
 
 			/// TODO: If we do ever want to chart the value history, turn history tracking on
@@ -102,7 +102,7 @@ oscCVExpander::oscCVExpander(int numChannels, TSOSCCVExpanderDirection direction
 	buff[2] = '-';
 	_expID.append(buff, 3);	
 	//_expID += static_cast<char>('A' + random::uniform() * 26) + static_cast<char>('A' + random::uniform() * 26) + "-";
-	sprintf(buff, "%03u", static_cast<uint8_t>(random::uniform() * 100)); 
+	snprintf(buff, 4, "%03u", static_cast<uint8_t>(random::uniform() * 100)); 
 	_expID.append(buff, 3);
 	
 	displayName = _expID;
@@ -402,7 +402,7 @@ void oscCVExpander::processInputs(std::string oscNamespace, bool oscInitialized,
 		if (this->expanderType == TSOSCCVExpanderDirection::Input) // doCVPort2OSC
 		{
 			// Read the channels and output to OSC
-			char addressBuffer[512];
+			char addressBuffer[OSC_ADDRESS_BUFFER_SIZE];
 
 			// Use the parent/master change sensitivity given to us if we are set to negative.
 			float changeThreshold = (this->sendChangeSensitivity < 0.0f) ? changeSensitivity : this->sendChangeSensitivity;
@@ -460,11 +460,11 @@ void oscCVExpander::processInputs(std::string oscNamespace, bool oscInitialized,
 							}
 							if (oscNamespace.empty()) // Allow empty namespaces
 							{
-								sprintf(addressBuffer, "%s", inputChannels[c].getPath().c_str());														
+								snprintf(addressBuffer, OSC_ADDRESS_BUFFER_SIZE, "%s", inputChannels[c].getPath().c_str());														
 							}
 							else
 							{
-								sprintf(addressBuffer, "/%s%s", oscNamespace.c_str(), inputChannels[c].getPath().c_str());							
+								snprintf(addressBuffer, OSC_ADDRESS_BUFFER_SIZE, "/%s%s", oscNamespace.c_str(), inputChannels[c].getPath().c_str());							
 							}
 							oscStream << osc::BeginMessage(addressBuffer);							
 							for (int j = 0; j < inputChannels[c].numVals; j++)
