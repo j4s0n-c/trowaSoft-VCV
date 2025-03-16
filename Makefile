@@ -1,6 +1,6 @@
 SHELL:=/bin/bash -O extglob
 
-#1.3 Remove SLUG and VERSION from the Makefile, and remove p->slug = ... and p->version = ... from your plugin’s main .cpp file, since they are now defined in plugin.json.
+#1.3 Remove SLUG and VERSION from the Makefile, and remove p->slug = ... and p->version = ... from your pluginï¿½s main .cpp file, since they are now defined in plugin.json.
 RACK_DIR ?= ../..
 
 #FLAGS += -w
@@ -15,6 +15,8 @@ SOURCES = \
 # Careful about linking to libraries, since you can't assume much about the user's environment and library search path.
 # Static libraries are fine.
 include $(RACK_DIR)/arch.mk
+
+CXXFLAGS += -Ilib/oscpack -Ilib/oscpack/ip -Ilib/oscpack/osc
 
 MACHINE = $(shell $(CC) -dumpmachine)
 ifneq (, $(findstring mingw, $(MACHINE)))

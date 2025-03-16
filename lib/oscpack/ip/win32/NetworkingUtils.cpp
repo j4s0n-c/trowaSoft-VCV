@@ -34,7 +34,7 @@
 	requested that these non-binding requests be included whenever the
 	above license is reproduced.
 */
-#include "../NetworkingUtils.h"
+#include "ip/NetworkingUtils.h"
 
 #include <winsock2.h>   // this must come first to prevent errors with MSVC7
 #include <windows.h>

@@ -7,6 +7,7 @@ dist/*
 dist/*.*
 *.dll
 .vs/*.*
+.vs/*/*
 *.opendb
 *.ipch
 *.vcv
@@ -28,3 +29,8 @@ res/ComponentLibrary/TS_RoundBlackKnob_20_oops.svg
 *.db-shm
 .vs/trowaSoft-VCV/v17/.suo
 *.db-wal
+._.DS_Store
+*/._.DS_Store
+*/*/._.DS_Store
+*._*
+plugin*.dylib
