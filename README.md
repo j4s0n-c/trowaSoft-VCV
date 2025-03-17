@@ -14,7 +14,7 @@ Any builds that are currently available are at [Github Releases page](https://gi
 Recent builds for [trowaSoft modules](https://library.vcvrack.com/?query=&brand=trowaSoft) should also be available in the [VCV plugin manager](https://library.vcvrack.com/trowaSoft).
 
 **VCV Rack v2.x.x**:   
-**2023-07-04**: The latest version is [v2.0.8](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v2.0.8).
+**2025-03-16**: The latest version is [v2.0.9](https://github.com/j4s0n-c/trowaSoft-VCV/releases/tag/v2.0.9).
 ([Change Log](https://github.com/j4s0n-c/trowaSoft-VCV/blob/v2/CHANGELOG.md)).
 
 No more versions for older Rack versions will be developed, but they are still available here:
