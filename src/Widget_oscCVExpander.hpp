@@ -194,7 +194,7 @@ struct TSOscCVExpanderTopDisplay : TransparentWidget {
 		fontPath = asset::plugin(pluginInstance, TROWA_DIGITAL_FONT);  // Rack v2 store font path
 		labelFontPath = asset::plugin(pluginInstance, TROWA_LABEL_FONT); // Rack v2 store font path
 		parentWidget = widget;
-		fontSize = 10;
+		fontSize = 11; // New font is a little smaller, change from 10 to 11
 		showDisplay = true;
 		displayName = "Input";
 		directionName = "CV->OSC";

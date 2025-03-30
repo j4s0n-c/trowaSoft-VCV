@@ -465,7 +465,7 @@ struct TSOscCVTopDisplay : TransparentWidget {
 	TSOscCVTopDisplay(oscCVWidget* widget)
 	{
 		parentWidget = widget;
-		fontSize = 12;
+		fontSize = 16; // New font is a little smaller, change 12 to 16
 		memset(messageStr, '\0', sizeof(char)*TROWA_DISP_MSG_SIZE);
 		memset(scrollingMsg, '\0', sizeof(char)*TROWA_SCROLLING_MSG_TOTAL_SIZE);
 		showDisplay = true;
