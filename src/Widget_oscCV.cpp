@@ -1108,6 +1108,11 @@ void oscCVWidget::appendContextMenu(ui::Menu *menu)
 	assert(thisModule);
 	
 	menu->addChild(new MenuSeparator);
+	// Add context menu option to show config since some Macs still have issues using the button somehow
+	menu->addChild(createBoolMenuItem("Show Config", "",
+		[=]() {return thisModule->oscShowConfigurationScreen; },
+		[=](bool value) { thisModule->oscShowConfigurationScreen = value; }
+	));
 	
 	std::vector<std::string> optLabels;
 	for (int i = 0; i < TROWA_OSCCV_NUM_SEND_HZ_OPTS; i++) {
