@@ -15,7 +15,7 @@
 // Default namespace for OSC
 #define OSC_DEFAULT_NS				"/tsseq"
 #define OSC_OUTPUT_BUFFER_SIZE		(1024*64)
-#define OSC_ADDRESS_BUFFER_SIZE		50 // For sequencer addresses
+#define OSC_ADDRESS_BUFFER_SIZE		512 // Was 50: truncated typed OSC addresses (e.g. long Resolume paths) at 49 chars on the wire
 
 // What client are we talking to. touchOSC and Lemur are a little limited, so they need special treatment.
 enum OSCClient : uint8_t {
